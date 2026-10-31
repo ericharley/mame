@@ -1,0 +1,7406 @@
+{
+  "candidate_mappings": [
+    {
+      "members": [
+        {
+          "address": 0,
+          "file": "roms/vt340/e1.bin"
+        },
+        {
+          "address": 32768,
+          "file": "roms/vt340/e2.bin"
+        }
+      ],
+      "name": "cpu1"
+    },
+    {
+      "members": [
+        {
+          "address": 0,
+          "file": "roms/vt340/e3.bin"
+        }
+      ],
+      "name": "cpu2-reset"
+    }
+  ],
+  "roms": [
+    {
+      "byte_distribution": {
+        "00": 703,
+        "01": 429,
+        "02": 794,
+        "03": 545,
+        "04": 319,
+        "05": 329,
+        "06": 223,
+        "07": 225,
+        "08": 217,
+        "09": 255,
+        "0a": 162,
+        "0b": 104,
+        "0c": 130,
+        "0d": 117,
+        "0e": 82,
+        "0f": 143,
+        "10": 162,
+        "11": 94,
+        "12": 1585,
+        "13": 80,
+        "14": 147,
+        "15": 118,
+        "16": 51,
+        "17": 83,
+        "18": 83,
+        "19": 56,
+        "1a": 61,
+        "1b": 53,
+        "1c": 87,
+        "1d": 58,
+        "1e": 57,
+        "1f": 88,
+        "20": 912,
+        "21": 67,
+        "22": 600,
+        "23": 101,
+        "24": 129,
+        "25": 69,
+        "26": 119,
+        "27": 127,
+        "28": 80,
+        "29": 47,
+        "2a": 112,
+        "2b": 109,
+        "2c": 85,
+        "2d": 79,
+        "2e": 81,
+        "2f": 66,
+        "30": 659,
+        "31": 211,
+        "32": 93,
+        "33": 90,
+        "34": 95,
+        "35": 44,
+        "36": 50,
+        "37": 84,
+        "38": 55,
+        "39": 50,
+        "3a": 93,
+        "3b": 125,
+        "3c": 58,
+        "3d": 70,
+        "3e": 44,
+        "3f": 55,
+        "40": 352,
+        "41": 117,
+        "42": 91,
+        "43": 148,
+        "44": 110,
+        "45": 82,
+        "46": 69,
+        "47": 97,
+        "48": 71,
+        "49": 32,
+        "4a": 84,
+        "4b": 88,
+        "4c": 294,
+        "4d": 126,
+        "4e": 65,
+        "4f": 184,
+        "50": 373,
+        "51": 72,
+        "52": 64,
+        "53": 144,
+        "54": 176,
+        "55": 64,
+        "56": 40,
+        "57": 54,
+        "58": 32,
+        "59": 109,
+        "5a": 47,
+        "5b": 49,
+        "5c": 39,
+        "5d": 42,
+        "5e": 43,
+        "5f": 324,
+        "60": 250,
+        "61": 94,
+        "62": 52,
+        "63": 75,
+        "64": 108,
+        "65": 238,
+        "66": 63,
+        "67": 53,
+        "68": 75,
+        "69": 87,
+        "6a": 72,
+        "6b": 35,
+        "6c": 56,
+        "6d": 49,
+        "6e": 124,
+        "6f": 102,
+        "70": 233,
+        "71": 81,
+        "72": 148,
+        "73": 143,
+        "74": 465,
+        "75": 275,
+        "76": 51,
+        "77": 84,
+        "78": 143,
+        "79": 153,
+        "7a": 113,
+        "7b": 124,
+        "7c": 145,
+        "7d": 150,
+        "7e": 72,
+        "7f": 110,
+        "80": 680,
+        "81": 55,
+        "82": 230,
+        "83": 195,
+        "84": 57,
+        "85": 42,
+        "86": 29,
+        "87": 22,
+        "88": 29,
+        "89": 35,
+        "8a": 32,
+        "8b": 50,
+        "8c": 54,
+        "8d": 55,
+        "8e": 28,
+        "8f": 31,
+        "90": 1277,
+        "91": 32,
+        "92": 54,
+        "93": 103,
+        "94": 25,
+        "95": 24,
+        "96": 20,
+        "97": 19,
+        "98": 13,
+        "99": 53,
+        "9a": 19,
+        "9b": 12,
+        "9c": 19,
+        "9d": 27,
+        "9e": 16,
+        "9f": 18,
+        "a0": 80,
+        "a1": 9,
+        "a2": 101,
+        "a3": 364,
+        "a4": 58,
+        "a5": 32,
+        "a6": 34,
+        "a7": 37,
+        "a8": 72,
+        "a9": 50,
+        "aa": 40,
+        "ab": 24,
+        "ac": 14,
+        "ad": 37,
+        "ae": 20,
+        "af": 23,
+        "b0": 38,
+        "b1": 12,
+        "b2": 28,
+        "b3": 11,
+        "b4": 287,
+        "b5": 153,
+        "b6": 16,
+        "b7": 16,
+        "b8": 84,
+        "b9": 36,
+        "ba": 65,
+        "bb": 24,
+        "bc": 26,
+        "bd": 83,
+        "be": 28,
+        "bf": 34,
+        "c0": 225,
+        "c1": 30,
+        "c2": 210,
+        "c3": 116,
+        "c4": 54,
+        "c5": 42,
+        "c6": 15,
+        "c7": 16,
+        "c8": 58,
+        "c9": 33,
+        "ca": 31,
+        "cb": 32,
+        "cc": 26,
+        "cd": 18,
+        "ce": 27,
+        "cf": 41,
+        "d0": 217,
+        "d1": 120,
+        "d2": 235,
+        "d3": 64,
+        "d4": 27,
+        "d5": 83,
+        "d6": 35,
+        "d7": 31,
+        "d8": 55,
+        "d9": 35,
+        "da": 43,
+        "db": 40,
+        "dc": 37,
+        "dd": 41,
+        "de": 18,
+        "df": 16,
+        "e0": 1099,
+        "e1": 122,
+        "e2": 101,
+        "e3": 116,
+        "e4": 242,
+        "e5": 343,
+        "e6": 50,
+        "e7": 89,
+        "e8": 103,
+        "e9": 75,
+        "ea": 98,
+        "eb": 79,
+        "ec": 133,
+        "ed": 97,
+        "ee": 55,
+        "ef": 76,
+        "f0": 922,
+        "f1": 34,
+        "f2": 78,
+        "f3": 131,
+        "f4": 65,
+        "f5": 175,
+        "f6": 61,
+        "f7": 65,
+        "f8": 131,
+        "f9": 143,
+        "fa": 113,
+        "fb": 108,
+        "fc": 100,
+        "fd": 89,
+        "fe": 85,
+        "ff": 224
+      },
+      "candidate_tables": [
+        {
+          "initial_bytes": "02 02 38 da d2 58 c0 e0 02 4a be 20 c0 e0 c0 d0",
+          "offset": 0,
+          "sha1": "c7fa4a9497f399cba190106b1f076a1307617e35"
+        },
+        {
+          "initial_bytes": "12 f2 90 07 bc 78 84 74 00 12 1f f5 90 87 bc 78",
+          "offset": 8192,
+          "sha1": "ebfdb1b179de4b284a7e0c3768d9ea6d9dc571a4"
+        },
+        {
+          "initial_bytes": "83 e9 f0 a3 f0 a3 74 01 f0 a3 ea f0 a3 f0 db 02",
+          "offset": 16384,
+          "sha1": "6f76949e3114058160fcfe814db049bcaceab58c"
+        },
+        {
+          "initial_bytes": "6f 12 20 2e 03 30 48 03 30 4d 15 90 6f 0c 12 8c",
+          "offset": 24576,
+          "sha1": "5d24b0b10a4b6ab08e9c5dcc1970347cb75e7937"
+        }
+      ],
+      "crc32": "68b3cbde",
+      "file": "roms/vt340/e1.bin",
+      "initial_bytes": "02 02 38 da d2 58 c0 e0 02 4a be 20 c0 e0 c0 d0 02 a0 16 ff d2 58 c0 e0 02 4e 1a ff 32 ff ff ff",
+      "printable_strings": [
+        {
+          "offset": 500,
+          "text": "$+18?ELSY`d"
+        },
+        {
+          "offset": 1071,
+          "text": "e<BA0>ARQECK4Y==HERZ"
+        },
+        {
+          "offset": 1966,
+          "text": " <pB1AQ03>RR"
+        },
+        {
+          "offset": 2284,
+          "text": "R 1% R"
+        },
+        {
+          "offset": 2393,
+          "text": "0!u%5"
+        },
+        {
+          "offset": 2634,
+          "text": "}a|${az$t"
+        },
+        {
+          "offset": 3611,
+          "text": "response from"
+        },
+        {
+          "offset": 3627,
+          "text": "nal re"
+        },
+        {
+          "offset": 3643,
+          "text": "Unable to run with"
+        },
+        {
+          "offset": 3665,
+          "text": "version"
+        },
+        {
+          "offset": 3674,
+          "text": " request pending"
+        },
+        {
+          "offset": 3692,
+          "text": "edNo response from"
+        },
+        {
+          "offset": 3711,
+          "text": " for "
+        },
+        {
+          "offset": 3718,
+          "text": "    S"
+        },
+        {
+          "offset": 3724,
+          "text": " Name=Data overrun occured on "
+        },
+        {
+          "offset": 3764,
+          "text": " selected"
+        },
+        {
+          "offset": 3777,
+          "text": "nated "
+        },
+        {
+          "offset": 3801,
+          "text": "nated ab"
+        },
+        {
+          "offset": 3815,
+          "text": "Restoring previous "
+        },
+        {
+          "offset": 3839,
+          "text": "PMs de r"
+        },
+        {
+          "offset": 3848,
+          "text": "ponse"
+        },
+        {
+          "offset": 3855,
+          "text": "s de l'OC"
+        },
+        {
+          "offset": 3877,
+          "text": "Incompatible avec n"
+        },
+        {
+          "offset": 3897,
+          "text": " de version"
+        },
+        {
+          "offset": 3909,
+          "text": "l'OCDemande d'ouverture de "
+        },
+        {
+          "offset": 3939,
+          "text": " ouvertePas de r"
+        },
+        {
+          "offset": 3956,
+          "text": "ponse"
+        },
+        {
+          "offset": 3963,
+          "text": "s de l'OCNom du s"
+        },
+        {
+          "offset": 3986,
+          "text": "passement de capacit"
+        },
+        {
+          "offset": 4007,
+          "text": " dans la "
+        },
+        {
+          "offset": 4026,
+          "text": "s hors s"
+        },
+        {
+          "offset": 4044,
+          "text": " s'est"
+        },
+        {
+          "offset": 4055,
+          "text": "ement"
+        },
+        {
+          "offset": 4062,
+          "text": "sur l'OC"
+        },
+        {
+          "offset": 4081,
+          "text": " s'est"
+        },
+        {
+          "offset": 4090,
+          "text": " ABNOReALEMENT"
+        },
+        {
+          "offset": 4105,
+          "text": "s valid"
+        },
+        {
+          "offset": 4113,
+          "text": "es.  Rappel des "
+        },
+        {
+          "offset": 4137,
+          "text": "dentes"
+        },
+        {
+          "offset": 4148,
+          "text": "- Keine "
+        },
+        {
+          "offset": 4163,
+          "text": "des Terminals"
+        },
+        {
+          "offset": 4185,
+          "text": " kompatibel.Anfrage zum "
+        },
+        {
+          "offset": 4210,
+          "text": "saufbau in Warteschlange"
+        },
+        {
+          "offset": 4235,
+          "text": " hergestelltKeiner Widerhall der "
+        },
+        {
+          "offset": 4271,
+          "text": "vom Hostr"
+        },
+        {
+          "offset": 4281,
+          "text": "         Dienst =Daten"
+        },
+        {
+          "offset": 4304,
+          "text": "berlauf bei R"
+        },
+        {
+          "offset": 4330,
+          "text": " ausgew"
+        },
+        {
+          "offset": 4346,
+          "text": " beend t"
+        },
+        {
+          "offset": 4361,
+          "text": " endete un"
+        },
+        {
+          "offset": 4375,
+          "text": "- Vorherige "
+        },
+        {
+          "offset": 4388,
+          "text": "en werden wiederhergestelltt"
+        },
+        {
+          "offset": 4434,
+          "text": "JAt {"
+        },
+        {
+          "offset": 4567,
+          "text": "Sessionsession enabled -  non-valid"
+        },
+        {
+          "offset": 4603,
+          "text": "es : "
+        },
+        {
+          "offset": 4609,
+          "text": "eingeschaltet normalVerbindungsources  termiProtokollierung  nichtervice Management  open notInsufficientPas assez de resUnzureichende Kapazit"
+        },
+        {
+          "offset": 4752,
+          "text": "t  pour ouvrir la  du gestionnaire de  mit Rechner  host, en coursechnerbeim Host"
+        },
+        {
+          "offset": 5449,
+          "text": "JBt10&"
+        },
+        {
+          "offset": 6074,
+          "text": "\"Edit"
+        },
+        {
+          "offset": 6080,
+          "text": "Insert Mode"
+        },
+        {
+          "offset": 6092,
+          "text": "Mode:  insertion"
+        },
+        {
+          "offset": 6114,
+          "text": "gemodus"
+        },
+        {
+          "offset": 6122,
+          "text": "Overstrike Mode"
+        },
+        {
+          "offset": 6138,
+          "text": "Mode: "
+        },
+        {
+          "offset": 6145,
+          "text": "remplacement"
+        },
+        {
+          "offset": 6159,
+          "text": "berschreibmodus"
+        },
+        {
+          "offset": 6175,
+          "text": "Printer"
+        },
+        {
+          "offset": 6183,
+          "text": "Imprimante"
+        },
+        {
+          "offset": 6194,
+          "text": "Drucker"
+        },
+        {
+          "offset": 6202,
+          "text": ":  Ready"
+        },
+        {
+          "offset": 6211,
+          "text": ":  Pr"
+        },
+        {
+          "offset": 6220,
+          "text": ":  bereit"
+        },
+        {
+          "offset": 6230,
+          "text": ":  Not Ready"
+        },
+        {
+          "offset": 6243,
+          "text": ":  Pas Pr"
+        },
+        {
+          "offset": 6256,
+          "text": ":  nicht bereit"
+        },
+        {
+          "offset": 6272,
+          "text": ":  None"
+        },
+        {
+          "offset": 6280,
+          "text": ":  Aucune"
+        },
+        {
+          "offset": 6290,
+          "text": ":  keiner"
+        },
+        {
+          "offset": 6300,
+          "text": ":  Auto Print"
+        },
+        {
+          "offset": 6314,
+          "text": ":  Auto"
+        },
+        {
+          "offset": 6322,
+          "text": ":  automatisch"
+        },
+        {
+          "offset": 6337,
+          "text": ":  Controller"
+        },
+        {
+          "offset": 6351,
+          "text": ":  Contr"
+        },
+        {
+          "offset": 6368,
+          "text": "ber Hostrechner"
+        },
+        {
+          "offset": 6384,
+          "text": ":  Busy"
+        },
+        {
+          "offset": 6392,
+          "text": ":  OccupEe"
+        },
+        {
+          "offset": 6403,
+          "text": ":  belegt"
+        },
+        {
+          "offset": 6413,
+          "text": " Assigned to "
+        },
+        {
+          "offset": 6427,
+          "text": " affect"
+        },
+        {
+          "offset": 6440,
+          "text": " geordnet zu "
+        },
+        {
+          "offset": 6454,
+          "text": "Modem:"
+        },
+        {
+          "offset": 6461,
+          "text": "Modem:"
+        },
+        {
+          "offset": 6468,
+          "text": "Modem:"
+        },
+        {
+          "offset": 6475,
+          "text": "  DSR"
+        },
+        {
+          "offset": 6481,
+          "text": "  DSR"
+        },
+        {
+          "offset": 6487,
+          "text": "  bereit"
+        },
+        {
+          "offset": 6496,
+          "text": "  No DSR"
+        },
+        {
+          "offset": 6505,
+          "text": "  Sans DSR"
+        },
+        {
+          "offset": 6516,
+          "text": "nicht bereit"
+        },
+        {
+          "offset": 6606,
+          "text": "Effectu"
+        },
+        {
+          "offset": 6615,
+          "text": "Ausgef"
+        },
+        {
+          "offset": 6626,
+          "text": "NVR Error"
+        },
+        {
+          "offset": 6636,
+          "text": "Erreur NVR"
+        },
+        {
+          "offset": 6647,
+          "text": "SPEICHERF HLER"
+        },
+        {
+          "offset": 8753,
+          "text": ";!<$>'-3"
+        },
+        {
+          "offset": 8936,
+          "text": "_@t }"
+        },
+        {
+          "offset": 9214,
+          "text": "_PG'M@"
+        },
+        {
+          "offset": 9272,
+          "text": "J &GCG"
+        },
+        {
+          "offset": 9280,
+          "text": "_7yM}"
+        },
+        {
+          "offset": 9351,
+          "text": "_7yP}"
+        },
+        {
+          "offset": 9427,
+          "text": "CG SG"
+        },
+        {
+          "offset": 9437,
+          "text": "}at#|"
+        },
+        {
+          "offset": 9557,
+          "text": "}at0|"
+        },
+        {
+          "offset": 9718,
+          "text": "}at.|"
+        },
+        {
+          "offset": 9805,
+          "text": "t<}@|"
+        },
+        {
+          "offset": 10002,
+          "text": "}at-|"
+        },
+        {
+          "offset": 10583,
+          "text": " ) S("
+        },
+        {
+          "offset": 10777,
+          "text": "*w@<0"
+        },
+        {
+          "offset": 10963,
+          "text": "|y60W"
+        },
+        {
+          "offset": 11130,
+          "text": "\";1;4;5;7;8"
+        },
+        {
+          "offset": 11240,
+          "text": "BARQECK4Y==HERZ%0>%"
+        },
+        {
+          "offset": 12008,
+          "text": "1D`.0"
+        },
+        {
+          "offset": 12171,
+          "text": "}@t!|"
+        },
+        {
+          "offset": 12217,
+          "text": "}at!|"
+        },
+        {
+          "offset": 12448,
+          "text": "}@t!|"
+        },
+        {
+          "offset": 12455,
+          "text": "'d@t\"0"
+        },
+        {
+          "offset": 12474,
+          "text": "}at!|"
+        },
+        {
+          "offset": 12481,
+          "text": "'d@Zt"
+        },
+        {
+          "offset": 12688,
+          "text": "\"t/}@|"
+        },
+        {
+          "offset": 13220,
+          "text": "4>4M4"
+        },
+        {
+          "offset": 13230,
+          "text": "3`4q4~4"
+        },
+        {
+          "offset": 13250,
+          "text": "('4+4.4/4t:"
+        },
+        {
+          "offset": 13299,
+          "text": "SG?t#"
+        },
+        {
+          "offset": 13306,
+          "text": "SG?t#"
+        },
+        {
+          "offset": 13352,
+          "text": "CG@\"CG"
+        },
+        {
+          "offset": 15521,
+          "text": "N+tZ)"
+        },
+        {
+          "offset": 15850,
+          "text": "Qyi01"
+        },
+        {
+          "offset": 16135,
+          "text": "7wDEY"
+        },
+        {
+          "offset": 16204,
+          "text": "LAtP0y"
+        },
+        {
+          "offset": 16620,
+          "text": "zHyH 1"
+        },
+        {
+          "offset": 17324,
+          "text": "Zjp)\"t"
+        },
+        {
+          "offset": 17889,
+          "text": "S-?B-"
+        },
+        {
+          "offset": 17942,
+          "text": " w%0n\""
+        },
+        {
+          "offset": 19127,
+          "text": "C9D\"S9"
+        },
+        {
+          "offset": 19692,
+          "text": "`:CFP"
+        },
+        {
+          "offset": 20281,
+          "text": "Sv04&05#"
+        },
+        {
+          "offset": 20332,
+          "text": "RR0sf"
+        },
+        {
+          "offset": 20434,
+          "text": "[?38l0u"
+        },
+        {
+          "offset": 20477,
+          "text": "PY@R}"
+        },
+        {
+          "offset": 20877,
+          "text": "4 w1 4"
+        },
+        {
+          "offset": 21714,
+          "text": "FT``&"
+        },
+        {
+          "offset": 22537,
+          "text": "`$\" ."
+        },
+        {
+          "offset": 22997,
+          "text": "1ST0p"
+        },
+        {
+          "offset": 23806,
+          "text": "`-_@("
+        },
+        {
+          "offset": 24095,
+          "text": "`-,@("
+        },
+        {
+          "offset": 24159,
+          "text": "`-,@("
+        },
+        {
+          "offset": 24223,
+          "text": "`-,@("
+        },
+        {
+          "offset": 24530,
+          "text": " .\" H"
+        },
+        {
+          "offset": 25048,
+          "text": " .6 H3"
+        },
+        {
+          "offset": 25618,
+          "text": "h%j0gTf(d"
+        },
+        {
+          "offset": 25653,
+          "text": "qAYded6f6f~d"
+        },
+        {
+          "offset": 25752,
+          "text": " .( H%"
+        },
+        {
+          "offset": 26051,
+          "text": "mPF H"
+        },
+        {
+          "offset": 26432,
+          "text": "PO 3Q (C"
+        },
+        {
+          "offset": 26551,
+          "text": " .$ H!"
+        },
+        {
+          "offset": 26705,
+          "text": "123456,789-PQRS"
+        },
+        {
+          "offset": 26805,
+          "text": "\" .] HZ"
+        },
+        {
+          "offset": 27025,
+          "text": "@F .> H;"
+        },
+        {
+          "offset": 27037,
+          "text": "jvP3{"
+        },
+        {
+          "offset": 27088,
+          "text": "jv@_ "
+        },
+        {
+          "offset": 27211,
+          "text": "defghqrst|}"
+        },
+        {
+          "offset": 27235,
+          "text": " !#$%&()1234"
+        },
+        {
+          "offset": 27459,
+          "text": "`1234567890-=qwy[]';a\\zm,./~!@#$%^&()=?+QWY{}\":A|ZM;:_"
+        },
+        {
+          "offset": 27524,
+          "text": ")-azy"
+        },
+        {
+          "offset": 27532,
+          "text": "mq#w,;:="
+        },
+        {
+          "offset": 27541,
+          "text": "1234567890"
+        },
+        {
+          "offset": 27557,
+          "text": "*%MQ@W?./+"
+        },
+        {
+          "offset": 27796,
+          "text": "*()_,.?M"
+        },
+        {
+          "offset": 27809,
+          "text": "*()_,.?"
+        },
+        {
+          "offset": 27823,
+          "text": "\"/?*()_"
+        },
+        {
+          "offset": 27915,
+          "text": "*()_,.?"
+        },
+        {
+          "offset": 27926,
+          "text": " +Q=&A"
+        },
+        {
+          "offset": 28023,
+          "text": "@\"&/`"
+        },
+        {
+          "offset": 28063,
+          "text": " |\"*()_`^"
+        },
+        {
+          "offset": 28492,
+          "text": "26:>BHZ\\jtvx"
+        },
+        {
+          "offset": 28585,
+          "text": "''^^``*"
+        },
+        {
+          "offset": 28673,
+          "text": "/\\<\\O"
+        },
+        {
+          "offset": 29013,
+          "text": "r/SG;u"
+        },
+        {
+          "offset": 29537,
+          "text": " b,x y0"
+        },
+        {
+          "offset": 29592,
+          "text": "qA0fV kS"
+        },
+        {
+          "offset": 29890,
+          "text": "k\"x<y@"
+        },
+        {
+          "offset": 30175,
+          "text": "[9\\?7"
+        },
+        {
+          "offset": 30183,
+          "text": "n8o8~8}8|8H*N=O=PIF_G`VaW$]l^l_l="
+        },
+        {
+          "offset": 30232,
+          "text": " F@ GA Ls Mt Nu#3B#4C#5D#6E"
+        },
+        {
+          "offset": 30274,
+          "text": "^,_-F:G;H"
+        },
+        {
+          "offset": 30284,
+          "text": "W.X/Y"
+        },
+        {
+          "offset": 30331,
+          "text": "m)g+J\"X6h"
+        },
+        {
+          "offset": 30345,
+          "text": "}SUVVW|eTfSitj@%P&L(M'n"
+        },
+        {
+          "offset": 30382,
+          "text": "J<K2n"
+        },
+        {
+          "offset": 30392,
+          "text": "!pK\"p"
+        },
+        {
+          "offset": 30401,
+          "text": "$|k&xn's}$~T PX RY QZ'tc'ud @g Ah$}r$pw$wz\"vy$u{&ux"
+        },
+        {
+          "offset": 30453,
+          "text": "'s}$pw"
+        },
+        {
+          "offset": 30470,
+          "text": "!um$wo$qv$t|$p~"
+        },
+        {
+          "offset": 30561,
+          "text": "GjHKt"
+        },
+        {
+          "offset": 30688,
+          "text": "7tCtEt"
+        }
+      ],
+      "repeated_runs": [],
+      "sha1": "d51677c17e056c69a5864b1673f7887b24f50958",
+      "sha256": "66544299b3b045babb4c81f46412da74cd948430782a81a4a5f1ec112e5b9317",
+      "size": 32768,
+      "vectors": [
+        {
+          "bytes": "02 02 38 da d2 58 c0 e0",
+          "candidate": "LJMP 0238",
+          "offset": 0
+        },
+        {
+          "bytes": "da d2 58 c0 e0 02 4a be",
+          "candidate": null,
+          "offset": 3
+        },
+        {
+          "bytes": "20 c0 e0 c0 d0 02 a0 16",
+          "candidate": null,
+          "offset": 11
+        },
+        {
+          "bytes": "ff d2 58 c0 e0 02 4e 1a",
+          "candidate": null,
+          "offset": 19
+        },
+        {
+          "bytes": "ff 32 ff ff ff ff ff ff",
+          "candidate": null,
+          "offset": 27
+        },
+        {
+          "bytes": "ff 32 20 96 03 02 04 59",
+          "candidate": null,
+          "offset": 35
+        }
+      ]
+    },
+    {
+      "byte_distribution": {
+        "00": 1172,
+        "01": 481,
+        "02": 976,
+        "03": 575,
+        "04": 311,
+        "05": 299,
+        "06": 186,
+        "07": 205,
+        "08": 191,
+        "09": 142,
+        "0a": 132,
+        "0b": 106,
+        "0c": 103,
+        "0d": 108,
+        "0e": 67,
+        "0f": 133,
+        "10": 187,
+        "11": 71,
+        "12": 1465,
+        "13": 98,
+        "14": 133,
+        "15": 77,
+        "16": 57,
+        "17": 48,
+        "18": 82,
+        "19": 45,
+        "1a": 38,
+        "1b": 85,
+        "1c": 59,
+        "1d": 27,
+        "1e": 40,
+        "1f": 53,
+        "20": 589,
+        "21": 62,
+        "22": 612,
+        "23": 138,
+        "24": 104,
+        "25": 74,
+        "26": 86,
+        "27": 71,
+        "28": 76,
+        "29": 46,
+        "2a": 69,
+        "2b": 118,
+        "2c": 87,
+        "2d": 98,
+        "2e": 66,
+        "2f": 82,
+        "30": 632,
+        "31": 251,
+        "32": 64,
+        "33": 62,
+        "34": 81,
+        "35": 43,
+        "36": 62,
+        "37": 78,
+        "38": 65,
+        "39": 30,
+        "3a": 25,
+        "3b": 108,
+        "3c": 47,
+        "3d": 69,
+        "3e": 51,
+        "3f": 97,
+        "40": 294,
+        "41": 109,
+        "42": 54,
+        "43": 136,
+        "44": 65,
+        "45": 51,
+        "46": 33,
+        "47": 33,
+        "48": 60,
+        "49": 34,
+        "4a": 59,
+        "4b": 69,
+        "4c": 357,
+        "4d": 82,
+        "4e": 69,
+        "4f": 138,
+        "50": 284,
+        "51": 115,
+        "52": 58,
+        "53": 163,
+        "54": 242,
+        "55": 53,
+        "56": 15,
+        "57": 35,
+        "58": 24,
+        "59": 90,
+        "5a": 26,
+        "5b": 77,
+        "5c": 80,
+        "5d": 69,
+        "5e": 80,
+        "5f": 92,
+        "60": 251,
+        "61": 146,
+        "62": 19,
+        "63": 41,
+        "64": 47,
+        "65": 69,
+        "66": 25,
+        "67": 25,
+        "68": 32,
+        "69": 47,
+        "6a": 22,
+        "6b": 35,
+        "6c": 34,
+        "6d": 44,
+        "6e": 33,
+        "6f": 56,
+        "70": 136,
+        "71": 85,
+        "72": 41,
+        "73": 73,
+        "74": 477,
+        "75": 203,
+        "76": 33,
+        "77": 87,
+        "78": 187,
+        "79": 148,
+        "7a": 91,
+        "7b": 171,
+        "7c": 314,
+        "7d": 122,
+        "7e": 132,
+        "7f": 111,
+        "80": 717,
+        "81": 34,
+        "82": 285,
+        "83": 234,
+        "84": 56,
+        "85": 67,
+        "86": 77,
+        "87": 77,
+        "88": 81,
+        "89": 36,
+        "8a": 31,
+        "8b": 28,
+        "8c": 52,
+        "8d": 51,
+        "8e": 32,
+        "8f": 46,
+        "90": 1244,
+        "91": 20,
+        "92": 105,
+        "93": 122,
+        "94": 34,
+        "95": 41,
+        "96": 40,
+        "97": 16,
+        "98": 20,
+        "99": 40,
+        "9a": 35,
+        "9b": 42,
+        "9c": 26,
+        "9d": 40,
+        "9e": 23,
+        "9f": 23,
+        "a0": 106,
+        "a1": 16,
+        "a2": 132,
+        "a3": 426,
+        "a4": 74,
+        "a5": 63,
+        "a6": 53,
+        "a7": 45,
+        "a8": 52,
+        "a9": 37,
+        "aa": 34,
+        "ab": 36,
+        "ac": 39,
+        "ad": 49,
+        "ae": 42,
+        "af": 70,
+        "b0": 25,
+        "b1": 29,
+        "b2": 62,
+        "b3": 33,
+        "b4": 348,
+        "b5": 112,
+        "b6": 32,
+        "b7": 12,
+        "b8": 91,
+        "b9": 41,
+        "ba": 31,
+        "bb": 36,
+        "bc": 41,
+        "bd": 56,
+        "be": 74,
+        "bf": 34,
+        "c0": 188,
+        "c1": 22,
+        "c2": 207,
+        "c3": 118,
+        "c4": 59,
+        "c5": 69,
+        "c6": 38,
+        "c7": 50,
+        "c8": 44,
+        "c9": 32,
+        "ca": 26,
+        "cb": 57,
+        "cc": 48,
+        "cd": 33,
+        "ce": 73,
+        "cf": 59,
+        "d0": 221,
+        "d1": 147,
+        "d2": 240,
+        "d3": 49,
+        "d4": 48,
+        "d5": 109,
+        "d6": 44,
+        "d7": 81,
+        "d8": 51,
+        "d9": 74,
+        "da": 79,
+        "db": 85,
+        "dc": 41,
+        "dd": 62,
+        "de": 11,
+        "df": 30,
+        "e0": 989,
+        "e1": 119,
+        "e2": 116,
+        "e3": 107,
+        "e4": 356,
+        "e5": 246,
+        "e6": 41,
+        "e7": 220,
+        "e8": 100,
+        "e9": 61,
+        "ea": 70,
+        "eb": 70,
+        "ec": 118,
+        "ed": 75,
+        "ee": 87,
+        "ef": 90,
+        "f0": 1003,
+        "f1": 49,
+        "f2": 120,
+        "f3": 97,
+        "f4": 61,
+        "f5": 254,
+        "f6": 73,
+        "f7": 59,
+        "f8": 128,
+        "f9": 114,
+        "fa": 119,
+        "fb": 134,
+        "fc": 110,
+        "fd": 102,
+        "fe": 53,
+        "ff": 448
+      },
+      "candidate_tables": [
+        {
+          "initial_bytes": "82 e0 12 80 86 40 1e 12 47 ab a2 7f 92 51 c2 7f",
+          "offset": 0,
+          "sha1": "ce9f8a68b40eee87ebd3c598f2b6d874528cfaea"
+        },
+        {
+          "initial_bytes": "00 7b 7c 7d ff 7e 7b 7c 7d ff 7d 7c 7b ff 7d 7e",
+          "offset": 8192,
+          "sha1": "f56769c04660797e56132007eb87329e7fc4220d"
+        },
+        {
+          "initial_bytes": "72 e5 47 54 03 60 06 12 31 53 d2 e7 f0 22 c2 23",
+          "offset": 16384,
+          "sha1": "01bd2e3b931d423c693826aef3225b35bfd4737f"
+        },
+        {
+          "initial_bytes": "f0 4d 12 e1 3e 90 61 4a e0 b4 02 02 74 ff 04 f9",
+          "offset": 24576,
+          "sha1": "628990f015c77b46ade6dd04523885284020f1ae"
+        }
+      ],
+      "crc32": "19f788f0",
+      "file": "roms/vt340/e2.bin",
+      "initial_bytes": "82 e0 12 80 86 40 1e 12 47 ab a2 7f 92 51 c2 7f 78 01 12 7f 06 a2 51 92 7f c2 51 e5 37 30 e4 04",
+      "printable_strings": [
+        {
+          "offset": 693,
+          "text": "0q! xP"
+        },
+        {
+          "offset": 1005,
+          "text": "m\"0qG"
+        },
+        {
+          "offset": 1775,
+          "text": "C0@\" w"
+        },
+        {
+          "offset": 2090,
+          "text": "{\"\"\" w"
+        },
+        {
+          "offset": 2201,
+          "text": "t B9\"t"
+        },
+        {
+          "offset": 2292,
+          "text": "C0 \" w"
+        },
+        {
+          "offset": 2613,
+          "text": "\"y@ w"
+        },
+        {
+          "offset": 2893,
+          "text": "H0pS0i%"
+        },
+        {
+          "offset": 3412,
+          "text": "[?1;2c"
+        },
+        {
+          "offset": 3419,
+          "text": "[?1;0c"
+        },
+        {
+          "offset": 3431,
+          "text": "[?12;7;1;102c"
+        },
+        {
+          "offset": 3450,
+          "text": "?62;1;;;6;7;8;9c"
+        },
+        {
+          "offset": 3467,
+          "text": "?62;1;2;3;4;6;7;8;9c"
+        },
+        {
+          "offset": 3488,
+          "text": "?63;1;2;3;4;6;7;8;9;13;15;16;18;19c"
+        },
+        {
+          "offset": 3537,
+          "text": "^&^${"
+        },
+        {
+          "offset": 3577,
+          "text": ">18;11;"
+        },
+        {
+          "offset": 3589,
+          "text": ">19;11;0;0c"
+        },
+        {
+          "offset": 4856,
+          "text": "<@A!>\"A"
+        },
+        {
+          "offset": 5166,
+          "text": "k k30q&"
+        },
+        {
+          "offset": 5221,
+          "text": "\" k0 "
+        },
+        {
+          "offset": 5422,
+          "text": "q,\"x0y:"
+        },
+        {
+          "offset": 6402,
+          "text": " .\" H"
+        },
+        {
+          "offset": 6789,
+          "text": " \"\"-L#-l#=L#=l# ''AA@aa@Aa@(([/<\\))] ^^ ``(-{/^|)-} ~~"
+        },
+        {
+          "offset": 6845,
+          "text": " \"\"++# ''`a@^a[,c\\^e]^i^^o`'e{`u|`e}^u~"
+        },
+        {
+          "offset": 6885,
+          "text": "AE[ae{"
+        },
+        {
+          "offset": 6892,
+          "text": "AA@aa@Aa@ ^^ `` ~~ \"\"++# ''/O\\*A]/o|*a}"
+        },
+        {
+          "offset": 6932,
+          "text": "34@ij[12\\f-|14}"
+        },
+        {
+          "offset": 6948,
+          "text": " \"\"-L#-l#=L#=l#/^] `` '' ^^\"^{''~"
+        },
+        {
+          "offset": 6983,
+          "text": " \"\"++# ''aa@AA@Aa@\"A[\"O\\*A]\"U^'e`\"a{\"o|*a}\"u~"
+        },
+        {
+          "offset": 7030,
+          "text": " \"\"-L#-l#=L#=l# ''`a@0^[ [[ *[,c\\!s]!S]os]So]Os]OS]0s]0S] ``'e{`u|`e} ^^"
+        },
+        {
+          "offset": 7104,
+          "text": " \"\"++# ''!S@!s@os@So@Os@OS@0S@0s@\"A[\"O\\\"U] ^^ ``\"a{\"o|\"u}ss~"
+        },
+        {
+          "offset": 7166,
+          "text": " \"C-L#-l#=L#=l# ''!s@!S@os@So@Os@OS@0s@0S@0^[ *[ [[,c\\'e] ^^u"
+        },
+        {
+          "offset": 7243,
+          "text": " \"\"-L#-l#=L#=l# ''!s@!S@os@So@OS@Os@0s@0S@!![N~\\??] ^^ ``0^{ {{ *{n~|,c} ~~"
+        },
+        {
+          "offset": 7320,
+          "text": " \"\"++# '''E@\"A[\"O\\*A]\"U^'e`\"a{\"o|*a}\"u~"
+        },
+        {
+          "offset": 7361,
+          "text": " \"\"`u# ''`a@'e[,c\\^e]^i^`e_^o`\"a{\"o|\"u}^u~"
+        },
+        {
+          "offset": 7405,
+          "text": " \"\" ''aa@Aa@AA@A~[,"
+        },
+        {
+          "offset": 7425,
+          "text": "\\O~] ^^ ``a~{,c|o~} ~~"
+        },
+        {
+          "offset": 7449,
+          "text": " \"\"++# ''aa@Aa@AA@(([/<\\))] ^^ ``(-{/^|)-} ~~"
+        },
+        {
+          "offset": 7550,
+          "text": " ~+'}\"|{'-"
+        },
+        {
+          "offset": 7734,
+          "text": " ~+'}\"{|'-"
+        },
+        {
+          "offset": 7820,
+          "text": "*()_,.?L"
+        },
+        {
+          "offset": 7832,
+          "text": "*()_,.?"
+        },
+        {
+          "offset": 7862,
+          "text": "\"/?*()_"
+        },
+        {
+          "offset": 7889,
+          "text": "@\"&/`]^\\[*S"
+        },
+        {
+          "offset": 7955,
+          "text": "#*()_"
+        },
+        {
+          "offset": 7967,
+          "text": "]|,.?"
+        },
+        {
+          "offset": 7983,
+          "text": "+Q=&A"
+        },
+        {
+          "offset": 8097,
+          "text": "@\"&/`]^[\\*"
+        },
+        {
+          "offset": 8155,
+          "text": "|\"*()_`"
+        },
+        {
+          "offset": 9050,
+          "text": "\" u+ s(u"
+        },
+        {
+          "offset": 10144,
+          "text": "@!0#3"
+        },
+        {
+          "offset": 12091,
+          "text": "BARQ`CK4Y==H`RZ%"
+        },
+        {
+          "offset": 12273,
+          "text": "#5634"
+        },
+        {
+          "offset": 14042,
+          "text": "+++++~=-=_++++|"
+        },
+        {
+          "offset": 14061,
+          "text": "#.!c#_Y_"
+        },
+        {
+          "offset": 14074,
+          "text": "____o+s3_u"
+        },
+        {
+          "offset": 14092,
+          "text": "_?AAAAAA"
+        },
+        {
+          "offset": 14101,
+          "text": "CEEEEIIII_NOOOOO"
+        },
+        {
+          "offset": 14118,
+          "text": "OUUUUY_"
+        },
+        {
+          "offset": 14126,
+          "text": "aaaaaa"
+        },
+        {
+          "offset": 14133,
+          "text": "ceeeeiiii_nooooo"
+        },
+        {
+          "offset": 14150,
+          "text": "ouuuuy__ !c#OY|"
+        },
+        {
+          "offset": 14173,
+          "text": "-o+23'u"
+        },
+        {
+          "offset": 14189,
+          "text": "?AAAAAA"
+        },
+        {
+          "offset": 14197,
+          "text": "CEEEEIIIIDNOOOOOxOUUUUY"
+        },
+        {
+          "offset": 14222,
+          "text": "aaaaaa"
+        },
+        {
+          "offset": 14229,
+          "text": "ceeeeiiiidnooooo-ouuuuy"
+        },
+        {
+          "offset": 14256,
+          "text": "-()|[[]](()){}><\\/  >____<=>S"
+        },
+        {
+          "offset": 14288,
+          "text": ":DvFG~~JxL"
+        },
+        {
+          "offset": 14300,
+          "text": "=PQ_S__"
+        },
+        {
+          "offset": 14308,
+          "text": "WXYc ^v&|~abcdefghijkl_n pqr"
+        },
+        {
+          "offset": 14337,
+          "text": "t_fwxyz"
+        },
+        {
+          "offset": 14347,
+          "text": "vNUSHSXEXETEQAKBLBSHTLFVTFFCRSOSIDLD1D2D3D4NKSYEBCNEMSBECFSGSRSUSDT80818283INNLSSESHSHJVSPDPURIS2S3DCP1P2SECCMWSPEP98999ACSSTOSPMAPNB<=>=Pi<>Sc<<Pr>>AEOEssaeoeThth-v|-:.oO=>V~<-->ij(C)1/41/2(R)3/4<=>"
+        },
+        {
+          "offset": 14808,
+          "text": "\" k)0r&"
+        },
+        {
+          "offset": 15695,
+          "text": "####("
+        },
+        {
+          "offset": 16173,
+          "text": "LAtP0y"
+        },
+        {
+          "offset": 16255,
+          "text": "Qyi01"
+        },
+        {
+          "offset": 16893,
+          "text": "My+YQiz"
+        },
+        {
+          "offset": 17019,
+          "text": " 130s"
+        },
+        {
+          "offset": 17406,
+          "text": "p%0F 1"
+        },
+        {
+          "offset": 17730,
+          "text": "M+xi}"
+        },
+        {
+          "offset": 17805,
+          "text": "O#x;}"
+        },
+        {
+          "offset": 18453,
+          "text": "not concealed"
+        },
+        {
+          "offset": 18468,
+          "text": "affich"
+        },
+        {
+          "offset": 18482,
+          "text": "<Concealed>  "
+        },
+        {
+          "offset": 18497,
+          "text": "<cach"
+        },
+        {
+          "offset": 18503,
+          "text": ">      "
+        },
+        {
+          "offset": 18512,
+          "text": "<unsichtbar> "
+        },
+        {
+          "offset": 20336,
+          "text": " )1@P`hv"
+        },
+        {
+          "offset": 21712,
+          "text": "0Rky)"
+        },
+        {
+          "offset": 21979,
+          "text": "%(+.47>ADG"
+        },
+        {
+          "offset": 22571,
+          "text": "Qi0& "
+        },
+        {
+          "offset": 22739,
+          "text": "N+T?%"
+        },
+        {
+          "offset": 23143,
+          "text": "\"}O0y"
+        },
+        {
+          "offset": 23762,
+          "text": " |8\"0{"
+        },
+        {
+          "offset": 25041,
+          "text": "N0z1t"
+        },
+        {
+          "offset": 26138,
+          "text": " /&`$"
+        },
+        {
+          "offset": 26865,
+          "text": "?,L`4L"
+        },
+        {
+          "offset": 27779,
+          "text": "Y Y0Y@YPY`Y"
+        },
+        {
+          "offset": 27801,
+          "text": "My+01"
+        },
+        {
+          "offset": 27882,
+          "text": " ff uc"
+        },
+        {
+          "offset": 30407,
+          "text": "}Fy1z"
+        },
+        {
+          "offset": 30720,
+          "text": "pJzZONN~^"
+        },
+        {
+          "offset": 30773,
+          "text": " wb h"
+        },
+        {
+          "offset": 31169,
+          "text": "q,t %"
+        },
+        {
+          "offset": 31560,
+          "text": "%\"\"\"\"\"\"\""
+        },
+        {
+          "offset": 31976,
+          "text": "bx\\ylz"
+        },
+        {
+          "offset": 32259,
+          "text": "% {[yh"
+        }
+      ],
+      "repeated_runs": [
+        {
+          "byte": 0,
+          "length": 144,
+          "offset": 8304
+        },
+        {
+          "byte": 0,
+          "length": 111,
+          "offset": 8449
+        },
+        {
+          "byte": 255,
+          "length": 226,
+          "offset": 32541
+        }
+      ],
+      "sha1": "f4018501fee8c429bc1148014f2d9bb97e8cfdcf",
+      "sha256": "b796c962e72026461f9761b60e9ec0487e464ecccc91a30042125572ffebce53",
+      "size": 32768,
+      "vectors": [
+        {
+          "bytes": "82 e0 12 80 86 40 1e 12",
+          "candidate": null,
+          "offset": 0
+        },
+        {
+          "bytes": "80 86 40 1e 12 47 ab a2",
+          "candidate": null,
+          "offset": 3
+        },
+        {
+          "bytes": "7f 92 51 c2 7f 78 01 12",
+          "candidate": null,
+          "offset": 11
+        },
+        {
+          "bytes": "7f 06 a2 51 92 7f c2 51",
+          "candidate": null,
+          "offset": 19
+        },
+        {
+          "bytes": "e5 37 30 e4 04 0f 02 f9",
+          "candidate": null,
+          "offset": 27
+        },
+        {
+          "bytes": "d0 22 e5 37 20 e4 fa 90",
+          "candidate": null,
+          "offset": 35
+        }
+      ]
+    },
+    {
+      "byte_distribution": {
+        "00": 1239,
+        "01": 474,
+        "02": 870,
+        "03": 521,
+        "04": 272,
+        "05": 453,
+        "06": 151,
+        "07": 184,
+        "08": 335,
+        "09": 152,
+        "0a": 106,
+        "0b": 89,
+        "0c": 169,
+        "0d": 119,
+        "0e": 138,
+        "0f": 116,
+        "10": 167,
+        "11": 85,
+        "12": 1443,
+        "13": 216,
+        "14": 106,
+        "15": 123,
+        "16": 34,
+        "17": 75,
+        "18": 95,
+        "19": 67,
+        "1a": 22,
+        "1b": 49,
+        "1c": 115,
+        "1d": 23,
+        "1e": 51,
+        "1f": 71,
+        "20": 362,
+        "21": 66,
+        "22": 615,
+        "23": 89,
+        "24": 179,
+        "25": 100,
+        "26": 101,
+        "27": 122,
+        "28": 188,
+        "29": 122,
+        "2a": 164,
+        "2b": 78,
+        "2c": 129,
+        "2d": 85,
+        "2e": 66,
+        "2f": 65,
+        "30": 429,
+        "31": 49,
+        "32": 95,
+        "33": 114,
+        "34": 66,
+        "35": 52,
+        "36": 76,
+        "37": 92,
+        "38": 40,
+        "39": 39,
+        "3a": 58,
+        "3b": 62,
+        "3c": 121,
+        "3d": 60,
+        "3e": 32,
+        "3f": 29,
+        "40": 220,
+        "41": 71,
+        "42": 47,
+        "43": 44,
+        "44": 93,
+        "45": 58,
+        "46": 13,
+        "47": 41,
+        "48": 82,
+        "49": 44,
+        "4a": 38,
+        "4b": 33,
+        "4c": 55,
+        "4d": 21,
+        "4e": 27,
+        "4f": 43,
+        "50": 280,
+        "51": 66,
+        "52": 19,
+        "53": 19,
+        "54": 130,
+        "55": 48,
+        "56": 19,
+        "57": 46,
+        "58": 20,
+        "59": 35,
+        "5a": 24,
+        "5b": 56,
+        "5c": 95,
+        "5d": 36,
+        "5e": 26,
+        "5f": 36,
+        "60": 172,
+        "61": 101,
+        "62": 469,
+        "63": 118,
+        "64": 94,
+        "65": 37,
+        "66": 36,
+        "67": 209,
+        "68": 132,
+        "69": 39,
+        "6a": 71,
+        "6b": 28,
+        "6c": 47,
+        "6d": 36,
+        "6e": 42,
+        "6f": 46,
+        "70": 258,
+        "71": 179,
+        "72": 202,
+        "73": 92,
+        "74": 678,
+        "75": 1037,
+        "76": 72,
+        "77": 66,
+        "78": 473,
+        "79": 129,
+        "7a": 148,
+        "7b": 148,
+        "7c": 153,
+        "7d": 203,
+        "7e": 110,
+        "7f": 183,
+        "80": 422,
+        "81": 21,
+        "82": 313,
+        "83": 93,
+        "84": 61,
+        "85": 126,
+        "86": 19,
+        "87": 87,
+        "88": 32,
+        "89": 39,
+        "8a": 85,
+        "8b": 25,
+        "8c": 60,
+        "8d": 44,
+        "8e": 55,
+        "8f": 65,
+        "90": 1587,
+        "91": 64,
+        "92": 27,
+        "93": 70,
+        "94": 31,
+        "95": 110,
+        "96": 15,
+        "97": 19,
+        "98": 15,
+        "99": 33,
+        "9a": 24,
+        "9b": 10,
+        "9c": 22,
+        "9d": 16,
+        "9e": 10,
+        "9f": 16,
+        "a0": 102,
+        "a1": 5,
+        "a2": 17,
+        "a3": 317,
+        "a4": 56,
+        "a5": 29,
+        "a6": 11,
+        "a7": 8,
+        "a8": 36,
+        "a9": 25,
+        "aa": 39,
+        "ab": 16,
+        "ac": 64,
+        "ad": 36,
+        "ae": 26,
+        "af": 26,
+        "b0": 19,
+        "b1": 17,
+        "b2": 25,
+        "b3": 49,
+        "b4": 230,
+        "b5": 64,
+        "b6": 22,
+        "b7": 13,
+        "b8": 56,
+        "b9": 38,
+        "ba": 196,
+        "bb": 141,
+        "bc": 46,
+        "bd": 22,
+        "be": 27,
+        "bf": 29,
+        "c0": 170,
+        "c1": 13,
+        "c2": 207,
+        "c3": 131,
+        "c4": 31,
+        "c5": 88,
+        "c6": 18,
+        "c7": 13,
+        "c8": 33,
+        "c9": 16,
+        "ca": 27,
+        "cb": 13,
+        "cc": 52,
+        "cd": 21,
+        "ce": 16,
+        "cf": 48,
+        "d0": 146,
+        "d1": 55,
+        "d2": 228,
+        "d3": 36,
+        "d4": 7,
+        "d5": 52,
+        "d6": 11,
+        "d7": 30,
+        "d8": 15,
+        "d9": 20,
+        "da": 17,
+        "db": 5,
+        "dc": 35,
+        "dd": 23,
+        "de": 28,
+        "df": 51,
+        "e0": 822,
+        "e1": 41,
+        "e2": 58,
+        "e3": 31,
+        "e4": 197,
+        "e5": 507,
+        "e6": 42,
+        "e7": 64,
+        "e8": 73,
+        "e9": 48,
+        "ea": 62,
+        "eb": 51,
+        "ec": 96,
+        "ed": 55,
+        "ee": 110,
+        "ef": 88,
+        "f0": 1345,
+        "f1": 86,
+        "f2": 322,
+        "f3": 65,
+        "f4": 125,
+        "f5": 363,
+        "f6": 49,
+        "f7": 31,
+        "f8": 95,
+        "f9": 100,
+        "fa": 75,
+        "fb": 46,
+        "fc": 121,
+        "fd": 97,
+        "fe": 100,
+        "ff": 556
+      },
+      "candidate_tables": [
+        {
+          "initial_bytes": "02 02 12 5f 12 00 91 02 00 40 00 00 02 03 de 00",
+          "offset": 0,
+          "sha1": "731a0457643a3b9dcd60191bcfc481f027816001"
+        },
+        {
+          "initial_bytes": "ad 24 03 75 f0 06 a4 90 24 19 79 7a 7d 06 fc 93",
+          "offset": 8192,
+          "sha1": "3cd26d6ce2c190c69f80f5f17525ae87bf69dad3"
+        },
+        {
+          "initial_bytes": "03 c2 32 30 6a 2f d2 32 12 40 3e 90 62 81 75 a0",
+          "offset": 16384,
+          "sha1": "c9678144e6bbb28725235123e6f1a354b10453e1"
+        },
+        {
+          "initial_bytes": "33 ba 45 08 20 7a b0 c2 7b d2 7a 22 ba 2c 02 80",
+          "offset": 24576,
+          "sha1": "9b50aae269b7c6b8067162407017b321043ccc94"
+        }
+      ],
+      "crc32": "83919be1",
+      "file": "roms/vt340/e3.bin",
+      "initial_bytes": "02 02 12 5f 12 00 91 02 00 40 00 00 02 03 de 00 00 00 00 00 32 00 00 00 00 00 00 00 32 00 00 00",
+      "printable_strings": [
+        {
+          "offset": 86,
+          "text": "5012 /"
+        },
+        {
+          "offset": 1169,
+          "text": "$ '3 0"
+        },
+        {
+          "offset": 1178,
+          "text": "s0$'0 "
+        },
+        {
+          "offset": 1233,
+          "text": ":0!/u"
+        },
+        {
+          "offset": 1283,
+          "text": "10 9u"
+        },
+        {
+          "offset": 2933,
+          "text": "}b}T}F}"
+        },
+        {
+          "offset": 2943,
+          "text": "}*}8}F}T}b}p}\"0"
+        },
+        {
+          "offset": 3378,
+          "text": " 'b 1_ )\\"
+        },
+        {
+          "offset": 3937,
+          "text": " <]0="
+        },
+        {
+          "offset": 5772,
+          "text": "<u0Pu2"
+        },
+        {
+          "offset": 6284,
+          "text": "uoU0}"
+        },
+        {
+          "offset": 6314,
+          "text": "upuuq"
+        },
+        {
+          "offset": 6334,
+          "text": "uphuq"
+        },
+        {
+          "offset": 6504,
+          "text": "t0Urp"
+        },
+        {
+          "offset": 7958,
+          "text": " u@ uA"
+        },
+        {
+          "offset": 8093,
+          "text": " C y("
+        },
+        {
+          "offset": 8240,
+          "text": "\"xqy$|"
+        },
+        {
+          "offset": 8284,
+          "text": "\"xq0q"
+        },
+        {
+          "offset": 8312,
+          "text": ".\"x$y"
+        },
+        {
+          "offset": 8562,
+          "text": "\"m x\""
+        },
+        {
+          "offset": 8599,
+          "text": "\"m y,"
+        },
+        {
+          "offset": 9142,
+          "text": "( $DV"
+        },
+        {
+          "offset": 9306,
+          "text": "IhIHI(I"
+        },
+        {
+          "offset": 9314,
+          "text": "LHLILIL"
+        },
+        {
+          "offset": 10950,
+          "text": "*Lxhu"
+        },
+        {
+          "offset": 10979,
+          "text": "*Txhu"
+        },
+        {
+          "offset": 11000,
+          "text": "h&xhu"
+        },
+        {
+          "offset": 11012,
+          "text": "h&xhu"
+        },
+        {
+          "offset": 11327,
+          "text": "u@*uA."
+        },
+        {
+          "offset": 11354,
+          "text": "u@wuA,"
+        },
+        {
+          "offset": 11375,
+          "text": "u@}uA,"
+        },
+        {
+          "offset": 12650,
+          "text": "wDUYuiu"
+        },
+        {
+          "offset": 12886,
+          "text": "ld md"
+        },
+        {
+          "offset": 13084,
+          "text": "WSzrLy`RDcF"
+        },
+        {
+          "offset": 13162,
+          "text": "s'w3\"z3[}3("
+        },
+        {
+          "offset": 13342,
+          "text": "3,W67V"
+        },
+        {
+          "offset": 13355,
+          "text": "4)24;n4"
+        },
+        {
+          "offset": 13366,
+          "text": "u@0uA"
+        },
+        {
+          "offset": 13547,
+          "text": "u740B"
+        },
+        {
+          "offset": 13599,
+          "text": "3,B65S>5EF5Wf5P"
+        },
+        {
+          "offset": 14228,
+          "text": "7IeDV"
+        },
+        {
+          "offset": 14246,
+          "text": ">)67,@7;"
+        },
+        {
+          "offset": 15536,
+          "text": "xuvwuu"
+        },
+        {
+          "offset": 15614,
+          "text": "=-\"7|"
+        },
+        {
+          "offset": 16031,
+          "text": "XP`@h0p x"
+        },
+        {
+          "offset": 16147,
+          "text": "iu6/u7?"
+        },
+        {
+          "offset": 16999,
+          "text": "g%xz|"
+        },
+        {
+          "offset": 17116,
+          "text": "Qa\"u."
+        },
+        {
+          "offset": 17510,
+          "text": "u6nu7D"
+        },
+        {
+          "offset": 17618,
+          "text": "DLUES"
+        },
+        {
+          "offset": 17701,
+          "text": "r/u,hu-"
+        },
+        {
+          "offset": 17750,
+          "text": "u6^u7E"
+        },
+        {
+          "offset": 17997,
+          "text": "/u,<u-"
+        },
+        {
+          "offset": 18041,
+          "text": "/u,xu-"
+        },
+        {
+          "offset": 18075,
+          "text": "/u,(u-"
+        },
+        {
+          "offset": 18112,
+          "text": "/u,xu-"
+        },
+        {
+          "offset": 18151,
+          "text": "/u,(u-"
+        },
+        {
+          "offset": 18229,
+          "text": "/u,xu-"
+        },
+        {
+          "offset": 18256,
+          "text": "/u,(u-"
+        },
+        {
+          "offset": 18293,
+          "text": "/u,xu-"
+        },
+        {
+          "offset": 18320,
+          "text": "/u,xu-"
+        },
+        {
+          "offset": 18982,
+          "text": "! dhHI"
+        },
+        {
+          "offset": 18992,
+          "text": "ZW#ru"
+        },
+        {
+          "offset": 19043,
+          "text": "[Ju6su7J"
+        },
+        {
+          "offset": 19168,
+          "text": "x`,%z"
+        },
+        {
+          "offset": 20991,
+          "text": "\"%/6<CJPW^d|"
+        },
+        {
+          "offset": 22524,
+          "text": "3,A%sSVXU"
+        },
+        {
+          "offset": 22534,
+          "text": "XHSYD"
+        },
+        {
+          "offset": 22540,
+          "text": "YI&ZWJ[M"
+        },
+        {
+          "offset": 22552,
+          "text": "[E [([[)"
+        },
+        {
+          "offset": 22566,
+          "text": "u6.u7X"
+        },
+        {
+          "offset": 22615,
+          "text": "u6_u7X"
+        },
+        {
+          "offset": 22868,
+          "text": "u6\\u7Y"
+        },
+        {
+          "offset": 23078,
+          "text": "\"u6/u7Z"
+        },
+        {
+          "offset": 23408,
+          "text": "3,L~[R"
+        },
+        {
+          "offset": 23730,
+          "text": "<@@!>\"A"
+        },
+        {
+          "offset": 23906,
+          "text": "]u\"\"\""
+        },
+        {
+          "offset": 24987,
+          "text": "uwauxc"
+        },
+        {
+          "offset": 25038,
+          "text": "P:\" u"
+        },
+        {
+          "offset": 25157,
+          "text": "~yzx$"
+        },
+        {
+          "offset": 25461,
+          "text": "dL4eE:e)Dc;"
+        },
+        {
+          "offset": 25919,
+          "text": "cN B&}"
+        },
+        {
+          "offset": 26293,
+          "text": ".u-'u,"
+        },
+        {
+          "offset": 27962,
+          "text": "\" =A B;"
+        },
+        {
+          "offset": 28700,
+          "text": "\"vpbpNp:p&p"
+        },
+        {
+          "offset": 28714,
+          "text": "' N0u"
+        },
+        {
+          "offset": 29013,
+          "text": "w`*0A"
+        },
+        {
+          "offset": 29390,
+          "text": "3,AZJH"
+        },
+        {
+          "offset": 29403,
+          "text": "rCKyT"
+        },
+        {
+          "offset": 29412,
+          "text": "uWAvP"
+        },
+        {
+          "offset": 29418,
+          "text": "x)zr;"
+        },
+        {
+          "offset": 29496,
+          "text": "u6@u7s"
+        },
+        {
+          "offset": 29994,
+          "text": "op\"0G"
+        },
+        {
+          "offset": 30593,
+          "text": "rz0GJ"
+        },
+        {
+          "offset": 31052,
+          "text": "u6Tu7y"
+        },
+        {
+          "offset": 31182,
+          "text": "zH9z[ez\""
+        },
+        {
+          "offset": 31191,
+          "text": "z'0{)"
+        },
+        {
+          "offset": 31264,
+          "text": "u6(u7z"
+        },
+        {
+          "offset": 31304,
+          "text": "u6Su7z"
+        },
+        {
+          "offset": 31334,
+          "text": "u6su7z"
+        },
+        {
+          "offset": 32072,
+          "text": "u@!uA"
+        },
+        {
+          "offset": 32121,
+          "text": "u@muA~"
+        }
+      ],
+      "repeated_runs": [
+        {
+          "byte": 255,
+          "length": 21,
+          "offset": 236
+        },
+        {
+          "byte": 255,
+          "length": 56,
+          "offset": 281
+        },
+        {
+          "byte": 255,
+          "length": 112,
+          "offset": 400
+        }
+      ],
+      "sha1": "937b36e0475a8947a01d03c8e800c54a6461caf7",
+      "sha256": "55fb225855ac7a9e2c28a036c197c4e2625aae110ed70911b8bfb48ac392c9e0",
+      "size": 32768,
+      "vectors": [
+        {
+          "bytes": "02 02 12 5f 12 00 91 02",
+          "candidate": "LJMP 0212",
+          "offset": 0
+        },
+        {
+          "bytes": "5f 12 00 91 02 00 40 00",
+          "candidate": null,
+          "offset": 3
+        },
+        {
+          "bytes": "00 02 03 de 00 00 00 00",
+          "candidate": null,
+          "offset": 11
+        },
+        {
+          "bytes": "00 32 00 00 00 00 00 00",
+          "candidate": null,
+          "offset": 19
+        },
+        {
+          "bytes": "00 32 00 00 00 00 00 00",
+          "candidate": null,
+          "offset": 27
+        },
+        {
+          "bytes": "00 02 05 82 ff ff ff ff",
+          "candidate": null,
+          "offset": 35
+        }
+      ]
+    },
+    {
+      "byte_distribution": {
+        "00": 1328,
+        "01": 507,
+        "02": 823,
+        "03": 585,
+        "04": 371,
+        "05": 467,
+        "06": 226,
+        "07": 169,
+        "08": 356,
+        "09": 160,
+        "0a": 127,
+        "0b": 94,
+        "0c": 208,
+        "0d": 157,
+        "0e": 121,
+        "0f": 144,
+        "10": 159,
+        "11": 103,
+        "12": 1661,
+        "13": 70,
+        "14": 210,
+        "15": 73,
+        "16": 28,
+        "17": 30,
+        "18": 74,
+        "19": 34,
+        "1a": 30,
+        "1b": 61,
+        "1c": 56,
+        "1d": 40,
+        "1e": 67,
+        "1f": 107,
+        "20": 560,
+        "21": 89,
+        "22": 667,
+        "23": 109,
+        "24": 220,
+        "25": 184,
+        "26": 149,
+        "27": 134,
+        "28": 265,
+        "29": 131,
+        "2a": 143,
+        "2b": 84,
+        "2c": 43,
+        "2d": 33,
+        "2e": 45,
+        "2f": 61,
+        "30": 575,
+        "31": 75,
+        "32": 78,
+        "33": 103,
+        "34": 105,
+        "35": 85,
+        "36": 40,
+        "37": 45,
+        "38": 69,
+        "39": 88,
+        "3a": 66,
+        "3b": 105,
+        "3c": 110,
+        "3d": 69,
+        "3e": 52,
+        "3f": 63,
+        "40": 148,
+        "41": 31,
+        "42": 44,
+        "43": 34,
+        "44": 27,
+        "45": 39,
+        "46": 7,
+        "47": 17,
+        "48": 57,
+        "49": 25,
+        "4a": 44,
+        "4b": 44,
+        "4c": 90,
+        "4d": 39,
+        "4e": 23,
+        "4f": 45,
+        "50": 206,
+        "51": 35,
+        "52": 7,
+        "53": 10,
+        "54": 87,
+        "55": 29,
+        "56": 9,
+        "57": 11,
+        "58": 15,
+        "59": 90,
+        "5a": 2,
+        "5b": 12,
+        "5c": 33,
+        "5d": 9,
+        "5e": 7,
+        "5f": 40,
+        "60": 275,
+        "61": 141,
+        "62": 68,
+        "63": 51,
+        "64": 38,
+        "65": 31,
+        "66": 16,
+        "67": 142,
+        "68": 122,
+        "69": 37,
+        "6a": 48,
+        "6b": 59,
+        "6c": 40,
+        "6d": 20,
+        "6e": 34,
+        "6f": 23,
+        "70": 158,
+        "71": 58,
+        "72": 97,
+        "73": 63,
+        "74": 538,
+        "75": 787,
+        "76": 48,
+        "77": 41,
+        "78": 515,
+        "79": 86,
+        "7a": 144,
+        "7b": 129,
+        "7c": 152,
+        "7d": 165,
+        "7e": 136,
+        "7f": 199,
+        "80": 351,
+        "81": 26,
+        "82": 294,
+        "83": 69,
+        "84": 68,
+        "85": 280,
+        "86": 30,
+        "87": 46,
+        "88": 23,
+        "89": 37,
+        "8a": 41,
+        "8b": 29,
+        "8c": 48,
+        "8d": 35,
+        "8e": 33,
+        "8f": 61,
+        "90": 1704,
+        "91": 37,
+        "92": 25,
+        "93": 70,
+        "94": 83,
+        "95": 75,
+        "96": 36,
+        "97": 41,
+        "98": 38,
+        "99": 22,
+        "9a": 34,
+        "9b": 32,
+        "9c": 16,
+        "9d": 31,
+        "9e": 11,
+        "9f": 35,
+        "a0": 109,
+        "a1": 28,
+        "a2": 28,
+        "a3": 251,
+        "a4": 194,
+        "a5": 88,
+        "a6": 23,
+        "a7": 25,
+        "a8": 72,
+        "a9": 32,
+        "aa": 38,
+        "ab": 23,
+        "ac": 57,
+        "ad": 38,
+        "ae": 37,
+        "af": 81,
+        "b0": 17,
+        "b1": 45,
+        "b2": 27,
+        "b3": 21,
+        "b4": 172,
+        "b5": 133,
+        "b6": 38,
+        "b7": 17,
+        "b8": 48,
+        "b9": 29,
+        "ba": 73,
+        "bb": 218,
+        "bc": 85,
+        "bd": 23,
+        "be": 22,
+        "bf": 21,
+        "c0": 205,
+        "c1": 17,
+        "c2": 198,
+        "c3": 163,
+        "c4": 45,
+        "c5": 183,
+        "c6": 37,
+        "c7": 23,
+        "c8": 44,
+        "c9": 37,
+        "ca": 41,
+        "cb": 49,
+        "cc": 35,
+        "cd": 33,
+        "ce": 42,
+        "cf": 30,
+        "d0": 241,
+        "d1": 44,
+        "d2": 191,
+        "d3": 69,
+        "d4": 33,
+        "d5": 68,
+        "d6": 23,
+        "d7": 23,
+        "d8": 31,
+        "d9": 20,
+        "da": 35,
+        "db": 24,
+        "dc": 45,
+        "dd": 29,
+        "de": 49,
+        "df": 43,
+        "e0": 885,
+        "e1": 37,
+        "e2": 105,
+        "e3": 47,
+        "e4": 207,
+        "e5": 437,
+        "e6": 58,
+        "e7": 84,
+        "e8": 60,
+        "e9": 37,
+        "ea": 66,
+        "eb": 53,
+        "ec": 54,
+        "ed": 40,
+        "ee": 75,
+        "ef": 91,
+        "f0": 1225,
+        "f1": 58,
+        "f2": 385,
+        "f3": 79,
+        "f4": 88,
+        "f5": 407,
+        "f6": 47,
+        "f7": 81,
+        "f8": 95,
+        "f9": 69,
+        "fa": 71,
+        "fb": 69,
+        "fc": 112,
+        "fd": 129,
+        "fe": 91,
+        "ff": 334
+      },
+      "candidate_tables": [
+        {
+          "initial_bytes": "78 c0 83 c0 82 75 f0 04 78 04 e0 f6 08 a3 d5 f0",
+          "offset": 0,
+          "sha1": "58bf19a2ee41696e37ee937558d184e16a4bb200"
+        },
+        {
+          "initial_bytes": "74 a0 03 22 90 a0 38 12 27 ea 90 ef 89 12 28 04",
+          "offset": 8192,
+          "sha1": "f81cc7d45a40579cb13a0890715f3a0ae7125bfa"
+        },
+        {
+          "initial_bytes": "75 61 4a e0 f5 f0 75 90 01 74 90 20 f0 05 75 90",
+          "offset": 16384,
+          "sha1": "f6908cc9587166941015a3c7a8c743c4d4c87593"
+        },
+        {
+          "initial_bytes": "3a 66 30 0c 03 90 61 9b 78 24 7b 06 12 e0 61 78",
+          "offset": 24576,
+          "sha1": "8077476ef7a92679de760f0a470d29d9aa87d060"
+        }
+      ],
+      "crc32": "d6eddc42",
+      "file": "roms/vt340/e4.bin",
+      "initial_bytes": "78 c0 83 c0 82 75 f0 04 78 04 e0 f6 08 a3 d5 f0 f9 ec c3 95 0e fc ed 95 0f fd ee c3 95 10 fe ef",
+      "printable_strings": [
+        {
+          "offset": 512,
+          "text": "PEmEnEop"
+        },
+        {
+          "offset": 537,
+          "text": ")K yG|"
+        },
+        {
+          "offset": 685,
+          "text": ")K x=|"
+        },
+        {
+          "offset": 893,
+          "text": " GP0y"
+        },
+        {
+          "offset": 927,
+          "text": " GJ| }"
+        },
+        {
+          "offset": 1036,
+          "text": " GL0x"
+        },
+        {
+          "offset": 2177,
+          "text": "@?L`<"
+        },
+        {
+          "offset": 2680,
+          "text": "u8/u9"
+        },
+        {
+          "offset": 3314,
+          "text": "Tuqhur"
+        },
+        {
+          "offset": 3340,
+          "text": "u8Tu9"
+        },
+        {
+          "offset": 3404,
+          "text": "u6\\u7"
+        },
+        {
+          "offset": 3442,
+          "text": "u@ uA"
+        },
+        {
+          "offset": 3660,
+          "text": "3H0>h"
+        },
+        {
+          "offset": 3731,
+          "text": "u@ uA"
+        },
+        {
+          "offset": 4163,
+          "text": "u6nu7"
+        },
+        {
+          "offset": 4351,
+          "text": "c4xq|"
+        },
+        {
+          "offset": 4521,
+          "text": "70/I0)2"
+        },
+        {
+          "offset": 5173,
+          "text": "u; u<"
+        },
+        {
+          "offset": 5389,
+          "text": " /@ H. I"
+        },
+        {
+          "offset": 5401,
+          "text": " += ,C"
+        },
+        {
+          "offset": 5424,
+          "text": "7 -7 .L"
+        },
+        {
+          "offset": 5937,
+          "text": "2\")3204"
+        },
+        {
+          "offset": 5950,
+          "text": "2\"*3214"
+        },
+        {
+          "offset": 8906,
+          "text": " 0@P`p"
+        },
+        {
+          "offset": 8954,
+          "text": "\"3DUfw"
+        },
+        {
+          "offset": 8970,
+          "text": "\"3DUfw"
+        },
+        {
+          "offset": 10249,
+          "text": "-urnus"
+        },
+        {
+          "offset": 10614,
+          "text": "u:Nu;"
+        },
+        {
+          "offset": 10632,
+          "text": "u:Ou;"
+        },
+        {
+          "offset": 10653,
+          "text": "u<\\u="
+        },
+        {
+          "offset": 10671,
+          "text": "u<]u="
+        },
+        {
+          "offset": 10722,
+          "text": "urnus"
+        },
+        {
+          "offset": 10784,
+          "text": "\"utpuu"
+        },
+        {
+          "offset": 11799,
+          "text": " u:Ou;"
+        },
+        {
+          "offset": 11858,
+          "text": "u28u3Xu0"
+        },
+        {
+          "offset": 11879,
+          "text": "u6lu7"
+        },
+        {
+          "offset": 11892,
+          "text": "u2<u3"
+        },
+        {
+          "offset": 11949,
+          "text": "u23u3Ru0\"uj"
+        },
+        {
+          "offset": 11970,
+          "text": "u6lu7"
+        },
+        {
+          "offset": 12001,
+          "text": "u2\"u35u07uj"
+        },
+        {
+          "offset": 12035,
+          "text": "u2!u3Bu0/uj"
+        },
+        {
+          "offset": 12089,
+          "text": "u30u0;uj"
+        },
+        {
+          "offset": 12107,
+          "text": "u6yu7"
+        },
+        {
+          "offset": 12473,
+          "text": "*<\"x!"
+        },
+        {
+          "offset": 12655,
+          "text": "r *(t"
+        },
+        {
+          "offset": 12906,
+          "text": "u:Ou;"
+        },
+        {
+          "offset": 12923,
+          "text": "u:Ou;"
+        },
+        {
+          "offset": 13220,
+          "text": "u:Ou;"
+        },
+        {
+          "offset": 13228,
+          "text": "%u:Ou;"
+        },
+        {
+          "offset": 13996,
+          "text": "g+x|u"
+        },
+        {
+          "offset": 14028,
+          "text": "g+x|u"
+        },
+        {
+          "offset": 16488,
+          "text": "I ,L0"
+        },
+        {
+          "offset": 16648,
+          "text": " ,P0JK"
+        },
+        {
+          "offset": 16962,
+          "text": "3##0;"
+        },
+        {
+          "offset": 17066,
+          "text": "0D808"
+        },
+        {
+          "offset": 17072,
+          "text": "092x&u"
+        },
+        {
+          "offset": 17291,
+          "text": "> $4 4"
+        },
+        {
+          "offset": 17430,
+          "text": "J\"t  !"
+        },
+        {
+          "offset": 18670,
+          "text": "u0P0;"
+        },
+        {
+          "offset": 19575,
+          "text": "# 3705"
+        },
+        {
+          "offset": 22131,
+          "text": "!(.5;BIOV\\d0"
+        },
+        {
+          "offset": 22176,
+          "text": "bx\\| "
+        },
+        {
+          "offset": 22857,
+          "text": "  & !#0;"
+        },
+        {
+          "offset": 24095,
+          "text": "Bp+ $"
+        },
+        {
+          "offset": 24695,
+          "text": "u0P0;"
+        },
+        {
+          "offset": 25430,
+          "text": "u|(u}"
+        },
+        {
+          "offset": 25522,
+          "text": "u|(u}"
+        },
+        {
+          "offset": 25655,
+          "text": "u &H0!"
+        },
+        {
+          "offset": 25754,
+          "text": " #F %"
+        },
+        {
+          "offset": 26228,
+          "text": "0E1p@"
+        },
+        {
+          "offset": 27486,
+          "text": "hxxsu"
+        },
+        {
+          "offset": 27908,
+          "text": "hxxsu"
+        },
+        {
+          "offset": 28189,
+          "text": "a0xtu"
+        },
+        {
+          "offset": 28839,
+          "text": "u| u}"
+        },
+        {
+          "offset": 29278,
+          "text": "rxxyl"
+        },
+        {
+          "offset": 29293,
+          "text": "}mxxy|{"
+        },
+        {
+          "offset": 29407,
+          "text": "}xlyv"
+        },
+        {
+          "offset": 29463,
+          "text": "n}10y"
+        },
+        {
+          "offset": 29477,
+          "text": "H}9 ~"
+        },
+        {
+          "offset": 29512,
+          "text": "n}1 |"
+        },
+        {
+          "offset": 29633,
+          "text": "0yG}#"
+        },
+        {
+          "offset": 29776,
+          "text": "\"1;1;"
+        },
+        {
+          "offset": 29980,
+          "text": "H}10{"
+        },
+        {
+          "offset": 30573,
+          "text": "zE{`} }"
+        },
+        {
+          "offset": 30702,
+          "text": "H\"!255"
+        }
+      ],
+      "repeated_runs": [
+        {
+          "byte": 0,
+          "length": 33,
+          "offset": 8872
+        },
+        {
+          "byte": 0,
+          "length": 17,
+          "offset": 8920
+        },
+        {
+          "byte": 255,
+          "length": 22,
+          "offset": 32745
+        }
+      ],
+      "sha1": "df8097bcd04bd9fed5618d88cd0e0159f81c074b",
+      "sha256": "b9ed8e8201f4e5c40f9a359b4ca1b2c5a1792bc76405c9200a88d3a2ad5399ab",
+      "size": 32768,
+      "vectors": [
+        {
+          "bytes": "78 c0 83 c0 82 75 f0 04",
+          "candidate": null,
+          "offset": 0
+        },
+        {
+          "bytes": "c0 82 75 f0 04 78 04 e0",
+          "candidate": null,
+          "offset": 3
+        },
+        {
+          "bytes": "f6 08 a3 d5 f0 f9 ec c3",
+          "candidate": null,
+          "offset": 11
+        },
+        {
+          "bytes": "95 0e fc ed 95 0f fd ee",
+          "candidate": null,
+          "offset": 19
+        },
+        {
+          "bytes": "c3 95 10 fe ef 95 11 ff",
+          "candidate": null,
+          "offset": 27
+        },
+        {
+          "bytes": "ec 4d 4e 4f 60 17 ec 4d",
+          "candidate": null,
+          "offset": 35
+        }
+      ]
+    },
+    {
+      "byte_distribution": {
+        "00": 406,
+        "01": 275,
+        "02": 437,
+        "03": 305,
+        "04": 352,
+        "05": 364,
+        "06": 128,
+        "07": 133,
+        "08": 230,
+        "09": 144,
+        "0a": 105,
+        "0b": 69,
+        "0c": 92,
+        "0d": 88,
+        "0e": 122,
+        "0f": 107,
+        "10": 143,
+        "11": 82,
+        "12": 429,
+        "13": 63,
+        "14": 98,
+        "15": 100,
+        "16": 66,
+        "17": 120,
+        "18": 80,
+        "19": 54,
+        "1a": 55,
+        "1b": 47,
+        "1c": 41,
+        "1d": 43,
+        "1e": 47,
+        "1f": 42,
+        "20": 953,
+        "21": 59,
+        "22": 170,
+        "23": 58,
+        "24": 129,
+        "25": 110,
+        "26": 37,
+        "27": 44,
+        "28": 81,
+        "29": 57,
+        "2a": 38,
+        "2b": 52,
+        "2c": 86,
+        "2d": 96,
+        "2e": 121,
+        "2f": 48,
+        "30": 498,
+        "31": 248,
+        "32": 180,
+        "33": 144,
+        "34": 178,
+        "35": 178,
+        "36": 91,
+        "37": 87,
+        "38": 104,
+        "39": 81,
+        "3a": 61,
+        "3b": 44,
+        "3c": 40,
+        "3d": 50,
+        "3e": 31,
+        "3f": 67,
+        "40": 88,
+        "41": 158,
+        "42": 102,
+        "43": 136,
+        "44": 151,
+        "45": 222,
+        "46": 101,
+        "47": 79,
+        "48": 43,
+        "49": 96,
+        "4a": 19,
+        "4b": 43,
+        "4c": 108,
+        "4d": 58,
+        "4e": 86,
+        "4f": 78,
+        "50": 118,
+        "51": 31,
+        "52": 135,
+        "53": 173,
+        "54": 261,
+        "55": 68,
+        "56": 54,
+        "57": 22,
+        "58": 59,
+        "59": 22,
+        "5a": 35,
+        "5b": 56,
+        "5c": 11,
+        "5d": 46,
+        "5e": 17,
+        "5f": 14,
+        "60": 109,
+        "61": 329,
+        "62": 141,
+        "63": 216,
+        "64": 219,
+        "65": 514,
+        "66": 126,
+        "67": 148,
+        "68": 158,
+        "69": 341,
+        "6a": 66,
+        "6b": 121,
+        "6c": 319,
+        "6d": 252,
+        "6e": 338,
+        "6f": 322,
+        "70": 293,
+        "71": 55,
+        "72": 318,
+        "73": 408,
+        "74": 582,
+        "75": 516,
+        "76": 110,
+        "77": 98,
+        "78": 310,
+        "79": 184,
+        "7a": 184,
+        "7b": 120,
+        "7c": 156,
+        "7d": 173,
+        "7e": 210,
+        "7f": 231,
+        "80": 265,
+        "81": 41,
+        "82": 277,
+        "83": 155,
+        "84": 86,
+        "85": 267,
+        "86": 92,
+        "87": 84,
+        "88": 100,
+        "89": 45,
+        "8a": 72,
+        "8b": 74,
+        "8c": 98,
+        "8d": 147,
+        "8e": 134,
+        "8f": 99,
+        "90": 457,
+        "91": 81,
+        "92": 115,
+        "93": 198,
+        "94": 153,
+        "95": 300,
+        "96": 148,
+        "97": 114,
+        "98": 120,
+        "99": 77,
+        "9a": 71,
+        "9b": 93,
+        "9c": 78,
+        "9d": 80,
+        "9e": 87,
+        "9f": 87,
+        "a0": 81,
+        "a1": 26,
+        "a2": 64,
+        "a3": 137,
+        "a4": 65,
+        "a5": 49,
+        "a6": 44,
+        "a7": 57,
+        "a8": 91,
+        "a9": 72,
+        "aa": 60,
+        "ab": 16,
+        "ac": 65,
+        "ad": 70,
+        "ae": 56,
+        "af": 51,
+        "b0": 36,
+        "b1": 32,
+        "b2": 24,
+        "b3": 35,
+        "b4": 83,
+        "b5": 100,
+        "b6": 34,
+        "b7": 50,
+        "b8": 16,
+        "b9": 15,
+        "ba": 12,
+        "bb": 102,
+        "bc": 69,
+        "bd": 100,
+        "be": 107,
+        "bf": 38,
+        "c0": 82,
+        "c1": 65,
+        "c2": 75,
+        "c3": 150,
+        "c4": 42,
+        "c5": 149,
+        "c6": 23,
+        "c7": 9,
+        "c8": 20,
+        "c9": 26,
+        "ca": 21,
+        "cb": 16,
+        "cc": 42,
+        "cd": 26,
+        "ce": 36,
+        "cf": 41,
+        "d0": 34,
+        "d1": 50,
+        "d2": 113,
+        "d3": 17,
+        "d4": 13,
+        "d5": 19,
+        "d6": 17,
+        "d7": 27,
+        "d8": 25,
+        "d9": 32,
+        "da": 25,
+        "db": 24,
+        "dc": 22,
+        "dd": 25,
+        "de": 46,
+        "df": 70,
+        "e0": 333,
+        "e1": 33,
+        "e2": 71,
+        "e3": 57,
+        "e4": 166,
+        "e5": 717,
+        "e6": 28,
+        "e7": 170,
+        "e8": 62,
+        "e9": 126,
+        "ea": 48,
+        "eb": 43,
+        "ec": 26,
+        "ed": 46,
+        "ee": 42,
+        "ef": 36,
+        "f0": 559,
+        "f1": 25,
+        "f2": 144,
+        "f3": 47,
+        "f4": 57,
+        "f5": 761,
+        "f6": 34,
+        "f7": 29,
+        "f8": 91,
+        "f9": 48,
+        "fa": 46,
+        "fb": 30,
+        "fc": 121,
+        "fd": 56,
+        "fe": 58,
+        "ff": 1679
+      },
+      "candidate_tables": [
+        {
+          "initial_bytes": "75 02 c2 12 02 c2 9f 02 c2 d2 02 c7 0d 02 cc 75",
+          "offset": 0,
+          "sha1": "22014f82d3c0b2d907fa7605b27b93645843cb8e"
+        },
+        {
+          "initial_bytes": "0a 74 13 73 53 15 8e 08 54 44 55 73 84 63 65 74",
+          "offset": 8192,
+          "sha1": "63f722d7a9c0a98ab776a12ed90975fb44ce7bd0"
+        },
+        {
+          "initial_bytes": "e4 30 e3 fc 75 90 00 74 c2 78 09 f2 22 20 62 fc",
+          "offset": 16384,
+          "sha1": "93625c5df4f91d9daad2d0e1e6114f584086e0f2"
+        },
+        {
+          "initial_bytes": "a0 c3 e5 78 95 7c e5 79 95 7d 20 d2 51 90 e7 03",
+          "offset": 24576,
+          "sha1": "62a908c52f024cc31d36c938ff5aa7ffcb50893d"
+        }
+      ],
+      "crc32": "135c5c7c",
+      "file": "roms/vt340/e5.bin",
+      "initial_bytes": "75 02 c2 12 02 c2 9f 02 c2 d2 02 c7 0d 02 cc 75 02 e1 02 02 e1 0b 02 84 8e 02 80 3f 02 f2 dd 02",
+      "printable_strings": [
+        {
+          "offset": 1228,
+          "text": "dfull pages"
+        },
+        {
+          "offset": 1240,
+          "text": "lemultipleS1="
+        },
+        {
+          "offset": 1254,
+          "text": "1, S2="
+        },
+        {
+          "offset": 1266,
+          "text": "2, S2="
+        },
+        {
+          "offset": 1301,
+          "text": " 2RS-232DEC-423m"
+        },
+        {
+          "offset": 1318,
+          "text": "ochromecol"
+        },
+        {
+          "offset": 1329,
+          "text": "60 Hz50 Hz"
+        },
+        {
+          "offset": 1340,
+          "text": "300-7b"
+        },
+        {
+          "offset": 1348,
+          "text": "300-8b"
+        },
+        {
+          "offset": 1355,
+          "text": "  401X"
+        },
+        {
+          "offset": 1393,
+          "text": "101mult"
+        },
+        {
+          "offset": 1408,
+          "text": "DEC-MCSISO L"
+        },
+        {
+          "offset": 1422,
+          "text": "-1DEC Techn"
+        },
+        {
+          "offset": 1444,
+          "text": " avail"
+        },
+        {
+          "offset": 1451,
+          "text": "until ev"
+        },
+        {
+          "offset": 1467,
+          "text": "4jump"
+        },
+        {
+          "offset": 1476,
+          "text": "scrolld"
+        },
+        {
+          "offset": 1487,
+          "text": "t801326"
+        },
+        {
+          "offset": 1527,
+          "text": "host wr"
+        },
+        {
+          "offset": 1542,
+          "text": "ibleb"
+        },
+        {
+          "offset": 1583,
+          "text": " ReGISn"
+        },
+        {
+          "offset": 1591,
+          "text": "new l"
+        },
+        {
+          "offset": 1597,
+          "text": "enew l"
+        },
+        {
+          "offset": 1611,
+          "text": "wrapaut"
+        },
+        {
+          "offset": 1632,
+          "text": "960019.2K75110150300600120024004800"
+        },
+        {
+          "offset": 1668,
+          "text": "ceive=t"
+        },
+        {
+          "offset": 1676,
+          "text": "642565121kXON/XOFF8"
+        },
+        {
+          "offset": 1748,
+          "text": "space"
+        },
+        {
+          "offset": 1766,
+          "text": "12mod"
+        },
+        {
+          "offset": 1776,
+          "text": "220)mod"
+        },
+        {
+          "offset": 1784,
+          "text": "2igno"
+        },
+        {
+          "offset": 1790,
+          "text": "2 oec"
+        },
+        {
+          "offset": 1796,
+          "text": "ds60 msn"
+        },
+        {
+          "offset": 1809,
+          "text": "nectnot c"
+        },
+        {
+          "offset": 1831,
+          "text": "th Am"
+        },
+        {
+          "offset": 1843,
+          "text": "hFlem"
+        },
+        {
+          "offset": 1860,
+          "text": "nch)D"
+        },
+        {
+          "offset": 1877,
+          "text": "DutchIt"
+        },
+        {
+          "offset": 1895,
+          "text": "nch)Sw"
+        },
+        {
+          "offset": 1924,
+          "text": "nch/Belgi"
+        },
+        {
+          "offset": 1946,
+          "text": "etypewr"
+        },
+        {
+          "offset": 1984,
+          "text": "lowdeletebackspacecommaspacecaps "
+        },
+        {
+          "offset": 2018,
+          "text": "shift "
+        },
+        {
+          "offset": 2025,
+          "text": "unavail"
+        },
+        {
+          "offset": 2036,
+          "text": "active"
+        },
+        {
+          "offset": 2068,
+          "text": "edeadb"
+        },
+        {
+          "offset": 2075,
+          "text": "akthroughp"
+        },
+        {
+          "offset": 2086,
+          "text": "fix t"
+        },
+        {
+          "offset": 2092,
+          "text": "suffix t"
+        },
+        {
+          "offset": 2118,
+          "text": "CRCR-LFlow Yigno"
+        },
+        {
+          "offset": 2135,
+          "text": "dLFLF-CRn"
+        },
+        {
+          "offset": 2145,
+          "text": "eCR-EOTautoc"
+        },
+        {
+          "offset": 2160,
+          "text": "scroll "
+        },
+        {
+          "offset": 2207,
+          "text": "oHLSRGBlevel 1level 2LA210comp"
+        },
+        {
+          "offset": 2274,
+          "text": "effect"
+        },
+        {
+          "offset": 2663,
+          "text": "3xx V"
+        },
+        {
+          "offset": 2672,
+          "text": " V1.1Fe"
+        },
+        {
+          "offset": 2695,
+          "text": "123456789 Us"
+        },
+        {
+          "offset": 2708,
+          "text": "up/down"
+        },
+        {
+          "offset": 2727,
+          "text": "t/left"
+        },
+        {
+          "offset": 2744,
+          "text": " sett"
+        },
+        {
+          "offset": 2750,
+          "text": ".SET-UP DIRECTORYGlob"
+        },
+        {
+          "offset": 2773,
+          "text": " (both s"
+        },
+        {
+          "offset": 2823,
+          "text": "Diagnost"
+        },
+        {
+          "offset": 2849,
+          "text": " Curr"
+        },
+        {
+          "offset": 2883,
+          "text": "y Default"
+        },
+        {
+          "offset": 2902,
+          "text": "sSet-Up L"
+        },
+        {
+          "offset": 2912,
+          "text": "guage:  Engl"
+        },
+        {
+          "offset": 2953,
+          "text": " ENTER"
+        },
+        {
+          "offset": 2976,
+          "text": "s, you c"
+        },
+        {
+          "offset": 2987,
+          "text": " NEXT SCREEN "
+        },
+        {
+          "offset": 3001,
+          "text": "d PREV SCREEN"
+        },
+        {
+          "offset": 3019,
+          "text": "leave"
+        },
+        {
+          "offset": 3029,
+          "text": ".GLOBAL"
+        },
+        {
+          "offset": 3063,
+          "text": " Assignm"
+        },
+        {
+          "offset": 3077,
+          "text": "tCRT "
+        },
+        {
+          "offset": 3095,
+          "text": "MapGENERAL"
+        },
+        {
+          "offset": 3114,
+          "text": "Attribut"
+        },
+        {
+          "offset": 3172,
+          "text": "MethodDISPLAY"
+        },
+        {
+          "offset": 3186,
+          "text": "Scroll"
+        },
+        {
+          "offset": 3198,
+          "text": "Column"
+        },
+        {
+          "offset": 3224,
+          "text": " Coupl"
+        },
+        {
+          "offset": 3236,
+          "text": " Coupl"
+        },
+        {
+          "offset": 3247,
+          "text": "Coupl"
+        },
+        {
+          "offset": 3261,
+          "text": "Text "
+        },
+        {
+          "offset": 3268,
+          "text": " Style"
+        },
+        {
+          "offset": 3292,
+          "text": "New L"
+        },
+        {
+          "offset": 3304,
+          "text": "WrapCOMMUNICATIONS"
+        },
+        {
+          "offset": 3326,
+          "text": "Rereive"
+        },
+        {
+          "offset": 3334,
+          "text": "Receiv"
+        },
+        {
+          "offset": 3341,
+          "text": "XOFF Po"
+        },
+        {
+          "offset": 3352,
+          "text": " Flow C"
+        },
+        {
+          "offset": 3377,
+          "text": "Stop B"
+        },
+        {
+          "offset": 3384,
+          "text": "sModem C"
+        },
+        {
+          "offset": 3393,
+          "text": "Modem H"
+        },
+        {
+          "offset": 3402,
+          "text": "Modem Low"
+        },
+        {
+          "offset": 3416,
+          "text": "nect Delay"
+        },
+        {
+          "offset": 3428,
+          "text": " EchoAuto-"
+        },
+        {
+          "offset": 3450,
+          "text": "sage:PRINTER"
+        },
+        {
+          "offset": 3483,
+          "text": "a Type"
+        },
+        {
+          "offset": 3494,
+          "text": "Host "
+        },
+        {
+          "offset": 3502,
+          "text": "Flow C"
+        },
+        {
+          "offset": 3515,
+          "text": "Stop B"
+        },
+        {
+          "offset": 3532,
+          "text": "Sixel "
+        },
+        {
+          "offset": 3539,
+          "text": " LevelSixel "
+        },
+        {
+          "offset": 3560,
+          "text": "Specif"
+        },
+        {
+          "offset": 3569,
+          "text": "GRAPHICS"
+        },
+        {
+          "offset": 3581,
+          "text": "Mac-ograph Rep"
+        },
+        {
+          "offset": 3616,
+          "text": "DEL P"
+        },
+        {
+          "offset": 3631,
+          "text": "KEYBOARD"
+        },
+        {
+          "offset": 3685,
+          "text": " BellW"
+        },
+        {
+          "offset": 3694,
+          "text": " Bell<X] "
+        },
+        {
+          "offset": 3705,
+          "text": "pad comma (,)"
+        },
+        {
+          "offset": 3722,
+          "text": "ComposeB"
+        },
+        {
+          "offset": 3731,
+          "text": "akUSER-DEFINED KEY"
+        },
+        {
+          "offset": 3774,
+          "text": "sFunc"
+        },
+        {
+          "offset": 3781,
+          "text": "s:[X][X][X][X][X"
+        },
+        {
+          "offset": 3802,
+          "text": "[ ][  "
+        },
+        {
+          "offset": 3809,
+          "text": "UDK ch"
+        },
+        {
+          "offset": 3847,
+          "text": ", move"
+        },
+        {
+          "offset": 3861,
+          "text": " curs"
+        },
+        {
+          "offset": 3879,
+          "text": "n mov"
+        },
+        {
+          "offset": 3885,
+          "text": "down t"
+        },
+        {
+          "offset": 3894,
+          "text": " new text.LOCAL EDITING"
+        },
+        {
+          "offset": 3922,
+          "text": "Erasu"
+        },
+        {
+          "offset": 3934,
+          "text": " Execu"
+        },
+        {
+          "offset": 3944,
+          "text": " Execu"
+        },
+        {
+          "offset": 3959,
+          "text": " Appl"
+        },
+        {
+          "offset": 3991,
+          "text": "Multipl"
+        },
+        {
+          "offset": 4028,
+          "text": "Compr"
+        },
+        {
+          "offset": 4035,
+          "text": "End of L"
+        },
+        {
+          "offset": 4046,
+          "text": "sEnd of B"
+        },
+        {
+          "offset": 4064,
+          "text": "All TabsSet 8 Column TabsT"
+        },
+        {
+          "offset": 4095,
+          "text": " 5 set a tab, use"
+        },
+        {
+          "offset": 4126,
+          "text": "dposi"
+        },
+        {
+          "offset": 4135,
+          "text": " tab field,"
+        },
+        {
+          "offset": 4149,
+          "text": " ENTER.DIAGNOSTIC"
+        },
+        {
+          "offset": 4170,
+          "text": " (25)"
+        },
+        {
+          "offset": 4200,
+          "text": "-Up T"
+        },
+        {
+          "offset": 4206,
+          "text": "tRun T"
+        },
+        {
+          "offset": 4213,
+          "text": "tsRepe"
+        },
+        {
+          "offset": 4223,
+          "text": "tsRun Sc"
+        },
+        {
+          "offset": 4236,
+          "text": "tsCOLOR"
+        },
+        {
+          "offset": 4255,
+          "text": "Map 0"
+        },
+        {
+          "offset": 4279,
+          "text": "10  11  12  13  14  15Col"
+        },
+        {
+          "offset": 4305,
+          "text": ":00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 1"
+        },
+        {
+          "offset": 4359,
+          "text": ":Blue:T"
+        },
+        {
+          "offset": 4372,
+          "text": "a col"
+        },
+        {
+          "offset": 4388,
+          "text": " map "
+        },
+        {
+          "offset": 4394,
+          "text": "ry,th"
+        },
+        {
+          "offset": 4400,
+          "text": " adjust"
+        },
+        {
+          "offset": 4427,
+          "text": "d Blue."
+        },
+        {
+          "offset": 4446,
+          "text": "ground.T"
+        },
+        {
+          "offset": 4456,
+          "text": "turn to"
+        },
+        {
+          "offset": 4475,
+          "text": " SELECT"
+        },
+        {
+          "offset": 4483,
+          "text": ".Copyr"
+        },
+        {
+          "offset": 4493,
+          "text": " 1987, Dig"
+        },
+        {
+          "offset": 4505,
+          "text": " Equipm"
+        },
+        {
+          "offset": 4520,
+          "text": " - All R"
+        },
+        {
+          "offset": 4887,
+          "text": " Set-Up Mode External Loopback bits,  SET-UPtionPrintingUser-Defined Key parityransmit arrow keys to CharacteressionCommColor  theTransfer]   [ ][ ][ ][ ]ontrolTerminaisplay, no check pressableGraphicsKey    SpeedCursorClear AnswerbaLk keyRecall Save Set is used for text 401X ackgroundelectlockrocessentLocighreorederaline onanato itVTisesensmooth-icar"
+        },
+        {
+          "offset": 5444,
+          "text": "emulti-z"
+        },
+        {
+          "offset": 5491,
+          "text": "2partag"
+        },
+        {
+          "offset": 5507,
+          "text": " 2RS-232DEC-423m"
+        },
+        {
+          "offset": 5526,
+          "text": "romec"
+        },
+        {
+          "offset": 5532,
+          "text": "60 Hz50 Hz"
+        },
+        {
+          "offset": 5543,
+          "text": "300-7b"
+        },
+        {
+          "offset": 5552,
+          "text": "300-8b"
+        },
+        {
+          "offset": 5595,
+          "text": "101mult"
+        },
+        {
+          "offset": 5610,
+          "text": "alDEC-MCSISO Lat"
+        },
+        {
+          "offset": 5627,
+          "text": "-1DECFTe"
+        },
+        {
+          "offset": 5670,
+          "text": "until ev"
+        },
+        {
+          "offset": 5679,
+          "text": "tjama"
+        },
+        {
+          "offset": 5700,
+          "text": "nt-1s"
+        },
+        {
+          "offset": 5719,
+          "text": "ir801326"
+        },
+        {
+          "offset": 5769,
+          "text": "blocs"
+        },
+        {
+          "offset": 5789,
+          "text": "saffi"
+        },
+        {
+          "offset": 5796,
+          "text": "sReGISs"
+        },
+        {
+          "offset": 5804,
+          "text": " NLNL"
+        },
+        {
+          "offset": 5827,
+          "text": "96001920075110150300600120024004800"
+        },
+        {
+          "offset": 5872,
+          "text": "642565121kXON/XOnF8"
+        },
+        {
+          "offset": 5926,
+          "text": "repos"
+        },
+        {
+          "offset": 5933,
+          "text": "avail"
+        },
+        {
+          "offset": 5967,
+          "text": "e2 sec"
+        },
+        {
+          "offset": 5976,
+          "text": "60 mss"
+        },
+        {
+          "offset": 6052,
+          "text": "Itali"
+        },
+        {
+          "offset": 6094,
+          "text": "/BelgeEspagnolPortuga"
+        },
+        {
+          "offset": 6121,
+          "text": "tiqueTDnum"
+        },
+        {
+          "offset": 6132,
+          "text": "riqueappli"
+        },
+        {
+          "offset": 6144,
+          "text": " orma"
+        },
+        {
+          "offset": 6153,
+          "text": "fortefaib"
+        },
+        {
+          "offset": 6163,
+          "text": "effac"
+        },
+        {
+          "offset": 6169,
+          "text": "reculvirgu"
+        },
+        {
+          "offset": 6181,
+          "text": "pacebloc"
+        },
+        {
+          "offset": 6190,
+          "text": "MAJ./m"
+        },
+        {
+          "offset": 6211,
+          "text": "active"
+        },
+        {
+          "offset": 6227,
+          "text": "-prot"
+        },
+        {
+          "offset": 6241,
+          "text": "r.diff"
+        },
+        {
+          "offset": 6254,
+          "text": "diates"
+        },
+        {
+          "offset": 6261,
+          "text": " effet"
+        },
+        {
+          "offset": 6283,
+          "text": "m. + "
+        },
+        {
+          "offset": 6295,
+          "text": "l. seul"
+        },
+        {
+          "offset": 6317,
+          "text": "RCRC+A1LDEL impliqu"
+        },
+        {
+          "offset": 6337,
+          "text": "low Y"
+        },
+        {
+          "offset": 6345,
+          "text": "A1LA1L+RC"
+        },
+        {
+          "offset": 6355,
+          "text": "cuneRC-FDT"
+        },
+        {
+          "offset": 6381,
+          "text": "Alpna"
+        },
+        {
+          "offset": 6387,
+          "text": "al seul"
+        },
+        {
+          "offset": 6412,
+          "text": "romeHLSRVBnive"
+        },
+        {
+          "offset": 6433,
+          "text": " 2LA210"
+        },
+        {
+          "offset": 6447,
+          "text": "rgiev"
+        },
+        {
+          "offset": 6457,
+          "text": "TDPnormal"
+        },
+        {
+          "offset": 6471,
+          "text": "cunelim"
+        },
+        {
+          "offset": 6492,
+          "text": " effet7"
+        },
+        {
+          "offset": 6881,
+          "text": "3xx V"
+        },
+        {
+          "offset": 6890,
+          "text": " V1.1P"
+        },
+        {
+          "offset": 6907,
+          "text": "12345 789 Util"
+        },
+        {
+          "offset": 6931,
+          "text": "t/bas"
+        },
+        {
+          "offset": 6941,
+          "text": " un p"
+        },
+        {
+          "offset": 6953,
+          "text": "s dro"
+        },
+        {
+          "offset": 6976,
+          "text": "PERTOIRE DU "
+        },
+        {
+          "offset": 6989,
+          "text": "Global (2 t"
+        },
+        {
+          "offset": 7013,
+          "text": "ralTDUAffi"
+        },
+        {
+          "offset": 7040,
+          "text": "sTabu"
+        },
+        {
+          "offset": 7050,
+          "text": "DiagnosticsG"
+        },
+        {
+          "offset": 7087,
+          "text": "eAnnul."
+        },
+        {
+          "offset": 7095,
+          "text": "param."
+        },
+        {
+          "offset": 7113,
+          "text": "urs s"
+        },
+        {
+          "offset": 7128,
+          "text": "param."
+        },
+        {
+          "offset": 7150,
+          "text": "tValid"
+        },
+        {
+          "offset": 7164,
+          "text": "gue:A Fr"
+        },
+        {
+          "offset": 7187,
+          "text": "sUtil"
+        },
+        {
+          "offset": 7206,
+          "text": " l'op"
+        },
+        {
+          "offset": 7218,
+          "text": "et VALIDER."
+        },
+        {
+          "offset": 7248,
+          "text": "appuyez sur <PAGE SUIV.> "
+        },
+        {
+          "offset": 7274,
+          "text": " <PAGE PRECED>."
+        },
+        {
+          "offset": 7307,
+          "text": " FONCT."
+        },
+        {
+          "offset": 7315,
+          "text": " GLOBALC"
+        },
+        {
+          "offset": 7337,
+          "text": "Deux t"
+        },
+        {
+          "offset": 7344,
+          "text": "uxInt"
+        },
+        {
+          "offset": 7362,
+          "text": "m.Affecta"
+        },
+        {
+          "offset": 7386,
+          "text": "1Protec"
+        },
+        {
+          "offset": 7448,
+          "text": "riph.Jeu"
+        },
+        {
+          "offset": 7471,
+          "text": "TDUsFDUsM"
+        },
+        {
+          "offset": 7481,
+          "text": "thode"
+        },
+        {
+          "offset": 7497,
+          "text": " L'AFFICHAGED"
+        },
+        {
+          "offset": 7539,
+          "text": " horiz"
+        },
+        {
+          "offset": 7571,
+          "text": " textuelSty"
+        },
+        {
+          "offset": 7603,
+          "text": " N(el"
+        },
+        {
+          "offset": 7614,
+          "text": "e)Ret"
+        },
+        {
+          "offset": 7625,
+          "text": "S COMMUNICATIONSEmi"
+        },
+        {
+          "offset": 7658,
+          "text": "XOFFC"
+        },
+        {
+          "offset": 7682,
+          "text": "Format"
+        },
+        {
+          "offset": 7705,
+          "text": "mV. max."
+        },
+        {
+          "offset": 7715,
+          "text": "mV. m"
+        },
+        {
+          "offset": 7777,
+          "text": " L'IMPRIMANTEI"
+        },
+        {
+          "offset": 7804,
+          "text": "ateur"
+        },
+        {
+          "offset": 7826,
+          "text": " imprim"
+        },
+        {
+          "offset": 7840,
+          "text": "s l'OCV"
+        },
+        {
+          "offset": 7858,
+          "text": "flux parFormat"
+        },
+        {
+          "offset": 7896,
+          "text": "dNive"
+        },
+        {
+          "offset": 7938,
+          "text": " GRAPHIQUEC"
+        },
+        {
+          "offset": 7953,
+          "text": "Rapports macrograph"
+        },
+        {
+          "offset": 8010,
+          "text": "teur GIN "
+        },
+        {
+          "offset": 8021,
+          "text": " DU CLAVIERL"
+        },
+        {
+          "offset": 8067,
+          "text": "margeA"
+        },
+        {
+          "offset": 8079,
+          "text": " <X]C"
+        },
+        {
+          "offset": 8093,
+          "text": "riqueBloc"
+        },
+        {
+          "offset": 8103,
+          "text": " / MAJ./m"
+        },
+        {
+          "offset": 8116,
+          "text": " compos"
+        },
+        {
+          "offset": 8138,
+          "text": " FONCT. : TOUCHES D"
+        },
+        {
+          "offset": 8158,
+          "text": "FINIES PAR L'UTILISATEURAc"
+        },
+        {
+          "offset": 8215,
+          "text": "TDUsT"
+        },
+        {
+          "offset": 8227,
+          "text": "s:[X][X][X][X][X"
+        },
+        {
+          "offset": 8248,
+          "text": "[ ][  "
+        },
+        {
+          "offset": 8258,
+          "text": "TDU r"
+        },
+        {
+          "offset": 8294,
+          "text": " sur "
+        },
+        {
+          "offset": 8319,
+          "text": " relief"
+        },
+        {
+          "offset": 8358,
+          "text": " D'EDITION LOCALE"
+        },
+        {
+          "offset": 8382,
+          "text": " Effac"
+        },
+        {
+          "offset": 8415,
+          "text": "m.TDF "
+        },
+        {
+          "offset": 8445,
+          "text": "sTr2f"
+        },
+        {
+          "offset": 8530,
+          "text": "S TABULATIONS"
+        },
+        {
+          "offset": 8555,
+          "text": "sTabu"
+        },
+        {
+          "offset": 8569,
+          "text": "8 col."
+        },
+        {
+          "offset": 8581,
+          "text": " (valid"
+        },
+        {
+          "offset": 8632,
+          "text": " posi"
+        },
+        {
+          "offset": 8646,
+          "text": "et appuyez sur VALIDER."
+        },
+        {
+          "offset": 8671,
+          "text": "S DIAGNOSTICS"
+        },
+        {
+          "offset": 8687,
+          "text": "1 (25)"
+        },
+        {
+          "offset": 8696,
+          "text": "1 (6)"
+        },
+        {
+          "offset": 8704,
+          "text": "u (6)"
+        },
+        {
+          "offset": 8736,
+          "text": "Effectu"
+        },
+        {
+          "offset": 8758,
+          "text": "tsEffectu"
+        },
+        {
+          "offset": 8782,
+          "text": "S COULEURS"
+        },
+        {
+          "offset": 8844,
+          "text": ":00 01 02 03 04 05 06 07 08 09"
+        },
+        {
+          "offset": 8913,
+          "text": "nez s"
+        },
+        {
+          "offset": 8924,
+          "text": "ro,pu"
+        },
+        {
+          "offset": 8953,
+          "text": "t et B"
+        },
+        {
+          "offset": 8988,
+          "text": "premi"
+        },
+        {
+          "offset": 9013,
+          "text": "toire"
+        },
+        {
+          "offset": 9023,
+          "text": "<SELECT>.Copyright "
+        },
+        {
+          "offset": 9051,
+          "text": "al Equipm"
+        },
+        {
+          "offset": 9061,
+          "text": "t Corpora"
+        },
+        {
+          "offset": 9076,
+          "text": "s dro"
+        },
+        {
+          "offset": 9440,
+          "text": "onctionnement, appuyez sur MODE  E FONCTIONNEMENTouleur de tion des aract"
+        },
+        {
+          "offset": 9514,
+          "text": "resssion les ementans]   [ ][ ][ ][ ]Commpaire du  d'   Rebouclageautomatiqueouche pourauvegardurseurerminamprimanteModeraphiquePour ontr"
+        },
+        {
+          "offset": 9652,
+          "text": "lemodepar 401XRappel s"
+        },
+        {
+          "offset": 9675,
+          "text": "lecFran"
+        },
+        {
+          "offset": 9683,
+          "text": "ais7, Annuler Couplage DEaram"
+        },
+        {
+          "offset": 9713,
+          "text": "trecontenumpre,1agechonereslaisleoucaaniteninau 1ignr"
+        },
+        {
+          "offset": 9767,
+          "text": "e VTtr"
+        },
+        {
+          "offset": 9984,
+          "text": "4, R2="
+        },
+        {
+          "offset": 9996,
+          "text": "2, R2="
+        },
+        {
+          "offset": 10024,
+          "text": " 2V.24/V.28V.10mono"
+        },
+        {
+          "offset": 10044,
+          "text": "rommehrfarbig60 Hz50 HzVT300-7B"
+        },
+        {
+          "offset": 10076,
+          "text": "VT300-8B"
+        },
+        {
+          "offset": 10085,
+          "text": "  401XVT100VT52VT330VT240VT220VT131VT125VT102VT101multi"
+        },
+        {
+          "offset": 10142,
+          "text": "DEC-MCSISO L"
+        },
+        {
+          "offset": 10156,
+          "text": "-1DEC Te"
+        },
+        {
+          "offset": 10177,
+          "text": "rtsob"
+        },
+        {
+          "offset": 10189,
+          "text": "gbaruntil ev"
+        },
+        {
+          "offset": 10231,
+          "text": "l801326"
+        },
+        {
+          "offset": 10274,
+          "text": "BlockStr"
+        },
+        {
+          "offset": 10289,
+          "text": "tbars"
+        },
+        {
+          "offset": 10295,
+          "text": "tbarReGIS-Z"
+        },
+        {
+          "offset": 10310,
+          "text": "tbargle"
+        },
+        {
+          "offset": 10336,
+          "text": "96001920075110150300600120024004800S"
+        },
+        {
+          "offset": 10375,
+          "text": "=Empf"
+        },
+        {
+          "offset": 10383,
+          "text": "642565121kXON/XOFF8"
+        },
+        {
+          "offset": 10419,
+          "text": "8 B g"
+        },
+        {
+          "offset": 10452,
+          "text": "Startpar"
+        },
+        {
+          "offset": 10471,
+          "text": "t7 B g"
+        },
+        {
+          "offset": 10485,
+          "text": "12Modus"
+        },
+        {
+          "offset": 10493,
+          "text": " (Vo220)Modus 2"
+        },
+        {
+          "offset": 10509,
+          "text": "2 Sekund"
+        },
+        {
+          "offset": 10518,
+          "text": "60 ms"
+        },
+        {
+          "offset": 10553,
+          "text": "ada)D"
+        },
+        {
+          "offset": 10565,
+          "text": "Deuts"
+        },
+        {
+          "offset": 10594,
+          "text": "z)Deuts"
+        },
+        {
+          "offset": 10629,
+          "text": "tugies"
+        },
+        {
+          "offset": 10671,
+          "text": "lautl"
+        },
+        {
+          "offset": 10692,
+          "text": "tKommaLe"
+        },
+        {
+          "offset": 10703,
+          "text": "nur Bu"
+        },
+        {
+          "offset": 10723,
+          "text": "aktivBlock"
+        },
+        {
+          "offset": 10758,
+          "text": "t aktivi"
+        },
+        {
+          "offset": 10767,
+          "text": "aktivi"
+        },
+        {
+          "offset": 10804,
+          "text": "ANSI/ISO"
+        },
+        {
+          "offset": 10826,
+          "text": "CRCR-LFniedr. Y-Ko"
+        },
+        {
+          "offset": 10854,
+          "text": "LFLF-CR"
+        },
+        {
+          "offset": 10862,
+          "text": "CR-EOTautom"
+        },
+        {
+          "offset": 10880,
+          "text": "Bildlaufb"
+        },
+        {
+          "offset": 10896,
+          "text": "+Pseudografixa"
+        },
+        {
+          "offset": 10918,
+          "text": "romHLSRGBE"
+        },
+        {
+          "offset": 10932,
+          "text": " 2LA210komprimi"
+        },
+        {
+          "offset": 10953,
+          "text": "gedrehtS1.2/M1n"
+        },
+        {
+          "offset": 10979,
+          "text": "t aktivi"
+        },
+        {
+          "offset": 11370,
+          "text": "VT3xx V"
+        },
+        {
+          "offset": 11378,
+          "text": "sion V1.1E"
+        },
+        {
+          "offset": 11389,
+          "text": "Ausgew"
+        },
+        {
+          "offset": 11396,
+          "text": "hltGe"
+        },
+        {
+          "offset": 11402,
+          "text": "t123456789 Ausw"
+        },
+        {
+          "offset": 11440,
+          "text": ">.BETRIEBSMODUS - "
+        },
+        {
+          "offset": 11459,
+          "text": "BERSICHTGlob"
+        },
+        {
+          "offset": 11476,
+          "text": "ll. (b"
+        },
+        {
+          "offset": 11486,
+          "text": ")Tast"
+        },
+        {
+          "offset": 11492,
+          "text": "urAllgem"
+        },
+        {
+          "offset": 11525,
+          "text": "es Ed"
+        },
+        {
+          "offset": 11546,
+          "text": "Tests zur S"
+        },
+        {
+          "offset": 11558,
+          "text": "bstdiagnoseGrafik"
+        },
+        {
+          "offset": 11587,
+          "text": "cksetz"
+        },
+        {
+          "offset": 11622,
+          "text": "cksetz"
+        },
+        {
+          "offset": 11648,
+          "text": "e:  Deuts"
+        },
+        {
+          "offset": 11685,
+          "text": "EINGABE.We"
+        },
+        {
+          "offset": 11710,
+          "text": " BILD ^^^"
+        },
+        {
+          "offset": 11720,
+          "text": "BILD vvv.V"
+        },
+        {
+          "offset": 11737,
+          "text": "s Betriebs"
+        },
+        {
+          "offset": 11751,
+          "text": " BETRIEBSMODUS.GLOBAL"
+        },
+        {
+          "offset": 11773,
+          "text": "Onlze/lok"
+        },
+        {
+          "offset": 11793,
+          "text": "Komm.Ans"
+        },
+        {
+          "offset": 11838,
+          "text": "abtast"
+        },
+        {
+          "offset": 11848,
+          "text": "ALLGEMEIN"
+        },
+        {
+          "offset": 11924,
+          "text": "ANZEIGEBildlauf"
+        },
+        {
+          "offset": 11944,
+          "text": "grundSp"
+        },
+        {
+          "offset": 11972,
+          "text": "izont"
+        },
+        {
+          "offset": 12013,
+          "text": "rkeBl"
+        },
+        {
+          "offset": 12024,
+          "text": "rkeSteu"
+        },
+        {
+          "offset": 12038,
+          "text": "e/neu"
+        },
+        {
+          "offset": 12045,
+          "text": "Autom"
+        },
+        {
+          "offset": 12055,
+          "text": "numbru"
+        },
+        {
+          "offset": 12062,
+          "text": "KOMMUNIKATIONS"
+        },
+        {
+          "offset": 12087,
+          "text": "XOFF b"
+        },
+        {
+          "offset": 12107,
+          "text": "sbegr"
+        },
+        {
+          "offset": 12147,
+          "text": "eNiedr. Mo"
+        },
+        {
+          "offset": 12192,
+          "text": "oAutom"
+        },
+        {
+          "offset": 12219,
+          "text": "tAntw"
+        },
+        {
+          "offset": 12225,
+          "text": "ttext:DRUCKER"
+        },
+        {
+          "offset": 12281,
+          "text": "sGrafikuruckH"
+        },
+        {
+          "offset": 12297,
+          "text": "grund druck"
+        },
+        {
+          "offset": 12323,
+          "text": "druck"
+        },
+        {
+          "offset": 12336,
+          "text": "GRAFIKGrafiks"
+        },
+        {
+          "offset": 12350,
+          "text": "rkeMakrografb"
+        },
+        {
+          "offset": 12365,
+          "text": "te401X-Z"
+        },
+        {
+          "offset": 12375,
+          "text": "on CR"
+        },
+        {
+          "offset": 12382,
+          "text": "on LF"
+        },
+        {
+          "offset": 12389,
+          "text": ". DEL"
+        },
+        {
+          "offset": 12395,
+          "text": "GIN-En"
+        },
+        {
+          "offset": 12405,
+          "text": "TASTATURSpra"
+        },
+        {
+          "offset": 12418,
+          "text": "eTast"
+        },
+        {
+          "offset": 12427,
+          "text": "Modus "
+        },
+        {
+          "offset": 12434,
+          "text": "s num"
+        },
+        {
+          "offset": 12444,
+          "text": "dsModus"
+        },
+        {
+          "offset": 12457,
+          "text": "Typam"
+        },
+        {
+          "offset": 12468,
+          "text": "nklickR"
+        },
+        {
+          "offset": 12476,
+          "text": "dsign"
+        },
+        {
+          "offset": 12482,
+          "text": "Warnsign"
+        },
+        {
+          "offset": 12494,
+          "text": " <X]Komma im num"
+        },
+        {
+          "offset": 12515,
+          "text": "dFest"
+        },
+        {
+          "offset": 12526,
+          "text": "Kombiz"
+        },
+        {
+          "offset": 12542,
+          "text": "sfZnktionDEFINIERTE FUNKTIONSTASTEN"
+        },
+        {
+          "offset": 12604,
+          "text": ":[X][X][X][X][X"
+        },
+        {
+          "offset": 12624,
+          "text": "[ ][  "
+        },
+        {
+          "offset": 12644,
+          "text": ":Zum "
+        },
+        {
+          "offset": 12659,
+          "text": " beweg"
+        },
+        {
+          "offset": 12677,
+          "text": "auf diegew"
+        },
+        {
+          "offset": 12703,
+          "text": "n im E"
+        },
+        {
+          "offset": 12710,
+          "text": "gabef"
+        },
+        {
+          "offset": 12724,
+          "text": "Text "
+        },
+        {
+          "offset": 12730,
+          "text": ".LOKALES EDITIERENEd"
+        },
+        {
+          "offset": 12770,
+          "text": "Block"
+        },
+        {
+          "offset": 12780,
+          "text": " (F6 - F20)Ges"
+        },
+        {
+          "offset": 12822,
+          "text": "r.Mehr"
+        },
+        {
+          "offset": 12854,
+          "text": "VT131-"
+        },
+        {
+          "offset": 12869,
+          "text": "komprimi"
+        },
+        {
+          "offset": 12885,
+          "text": "Block"
+        },
+        {
+          "offset": 12894,
+          "text": "TABULATORPOSITIONENA"
+        },
+        {
+          "offset": 12929,
+          "text": "Tab-S"
+        },
+        {
+          "offset": 12935,
+          "text": "s setz"
+        },
+        {
+          "offset": 12942,
+          "text": "Zum L"
+        },
+        {
+          "offset": 12954,
+          "text": " Setz"
+        },
+        {
+          "offset": 12967,
+          "text": "s geh"
+        },
+        {
+          "offset": 13006,
+          "text": "ion im "
+        },
+        {
+          "offset": 13024,
+          "text": "EINGABE.TESTS ZUR SELBSTDIAGNOSEi(25) "
+        },
+        {
+          "offset": 13081,
+          "text": "Ext. Pr"
+        },
+        {
+          "offset": 13089,
+          "text": "fs. H"
+        },
+        {
+          "offset": 13108,
+          "text": "bstdiagnoseTests start"
+        },
+        {
+          "offset": 13131,
+          "text": "Tests wied"
+        },
+        {
+          "offset": 13147,
+          "text": "tests start"
+        },
+        {
+          "offset": 13159,
+          "text": "FARBDARSTELLUNGGe"
+        },
+        {
+          "offset": 13234,
+          "text": "e:00 01 02 03 04 05 06 07 08 09"
+        },
+        {
+          "offset": 13276,
+          "text": "5Rot:Gr"
+        },
+        {
+          "offset": 13284,
+          "text": "n:Blau:Zum "
+        },
+        {
+          "offset": 13316,
+          "text": "Zahl "
+        },
+        {
+          "offset": 13348,
+          "text": "r rot, gr"
+        },
+        {
+          "offset": 13360,
+          "text": "blau "
+        },
+        {
+          "offset": 13369,
+          "text": "0 wird f"
+        },
+        {
+          "offset": 13382,
+          "text": "Texth"
+        },
+        {
+          "offset": 13392,
+          "text": "7 wird f"
+        },
+        {
+          "offset": 13405,
+          "text": "Textv"
+        },
+        {
+          "offset": 13417,
+          "text": "ck zum Betriebs"
+        },
+        {
+          "offset": 13442,
+          "text": " <SELEKTIEREN>.Copyright "
+        },
+        {
+          "offset": 13469,
+          "text": "987, Dig"
+        },
+        {
+          "offset": 13479,
+          "text": " Equipm"
+        },
+        {
+          "offset": 13494,
+          "text": "ion - A"
+        },
+        {
+          "offset": 13865,
+          "text": "eicheninstellungbertragungBildschirmExt. Pr"
+        },
+        {
+          "offset": 13909,
+          "text": "fschleife FunktionTastendefinition. keine Pr"
+        },
+        {
+          "offset": 13954,
+          "text": "fung mit den Pfeiltasten tasten Parit"
+        },
+        {
+          "offset": 13992,
+          "text": "tchreibmaspeicherDruck der ]   [ ][ ][ ][ ]ausComm B,  (401X)Verbindungen Interpretation"
+        },
+        {
+          "offset": 14081,
+          "text": "vgeschwindigkeites VerschiebenZeileKommunikationTabulator und national abrufen l"
+        },
+        {
+          "offset": 14162,
+          "text": "schenFranz"
+        },
+        {
+          "offset": 14173,
+          "text": "sischkeine   Hostrechnerischen modusungerticheinFarbsteschaltergrund gebrauchen.lle Rechner 1toppE EINSTELLUNGENerene chalitinoratandeelei"
+        },
+        {
+          "offset": 15315,
+          "text": "4,-*+."
+        },
+        {
+          "offset": 15335,
+          "text": "c3456789"
+        },
+        {
+          "offset": 15412,
+          "text": "MNOPQRSTKL"
+        },
+        {
+          "offset": 15424,
+          "text": "JMNOPQRSTKLU"
+        },
+        {
+          "offset": 15456,
+          "text": "`abcd[\\]^_ef"
+        },
+        {
+          "offset": 15482,
+          "text": "kPQRSTKL"
+        },
+        {
+          "offset": 15492,
+          "text": "GkPQRSTKL"
+        },
+        {
+          "offset": 15564,
+          "text": "MNOPQRSTKL"
+        },
+        {
+          "offset": 15582,
+          "text": "G`abcd[\\]"
+        },
+        {
+          "offset": 15700,
+          "text": "qrstuvwxyz{|}~"
+        },
+        {
+          "offset": 16348,
+          "text": "`.x)01"
+        },
+        {
+          "offset": 17488,
+          "text": "jx;y90"
+        },
+        {
+          "offset": 18041,
+          "text": "0zt{,"
+        },
+        {
+          "offset": 18569,
+          "text": "wuuh08"
+        },
+        {
+          "offset": 19307,
+          "text": "l0p9t8x/|"
+        },
+        {
+          "offset": 19515,
+          "text": "IiN/S4X{^"
+        },
+        {
+          "offset": 19544,
+          "text": "!#&(+-0369<?CFJNRVZ_dintz"
+        },
+        {
+          "offset": 19823,
+          "text": "uA}uB"
+        },
+        {
+          "offset": 19838,
+          "text": "uAuuB"
+        },
+        {
+          "offset": 19853,
+          "text": "uAhuB0uC"
+        },
+        {
+          "offset": 19868,
+          "text": "uAWuBDuC"
+        },
+        {
+          "offset": 19883,
+          "text": "uADuBWuC"
+        },
+        {
+          "offset": 19898,
+          "text": "uA0uBhuC"
+        },
+        {
+          "offset": 19916,
+          "text": "uBuuC"
+        },
+        {
+          "offset": 19931,
+          "text": "uB}uC"
+        },
+        {
+          "offset": 20237,
+          "text": "!#%(*,"
+        },
+        {
+          "offset": 20275,
+          "text": "IhNDS-X%]-bDgnl"
+        },
+        {
+          "offset": 20335,
+          "text": "rrrrsssttuvvwxyz|}~"
+        },
+        {
+          "offset": 20440,
+          "text": ",T0`4"
+        },
+        {
+          "offset": 20829,
+          "text": "w 5,0r"
+        },
+        {
+          "offset": 20906,
+          "text": "nx%01"
+        },
+        {
+          "offset": 21090,
+          "text": "1 `' 5"
+        },
+        {
+          "offset": 21304,
+          "text": " |_ 1"
+        },
+        {
+          "offset": 21496,
+          "text": "\" 1N04"
+        },
+        {
+          "offset": 23203,
+          "text": " 1R e"
+        },
+        {
+          "offset": 23384,
+          "text": " 1H g"
+        },
+        {
+          "offset": 24275,
+          "text": "@3S,_"
+        },
+        {
+          "offset": 24283,
+          "text": ",TP`(t"
+        },
+        {
+          "offset": 25986,
+          "text": "/Tp`_|"
+        },
+        {
+          "offset": 26750,
+          "text": "5@Fu4"
+        },
+        {
+          "offset": 26827,
+          "text": ",T0`2"
+        },
+        {
+          "offset": 27707,
+          "text": "-E0`)"
+        },
+        {
+          "offset": 27869,
+          "text": "1E0`-"
+        },
+        {
+          "offset": 29233,
+          "text": "8HP@ @ @ @8P(HX`0 "
+        },
+        {
+          "offset": 29566,
+          "text": "888,,,444"
+        },
+        {
+          "offset": 30100,
+          "text": "b|tx%}"
+        },
+        {
+          "offset": 30942,
+          "text": "x\"yyu"
+        }
+      ],
+      "repeated_runs": [
+        {
+          "byte": 255,
+          "length": 1498,
+          "offset": 31269
+        }
+      ],
+      "sha1": "171d1582d6a62ec9fa8e42421693da6dac3b2a8a",
+      "sha256": "f9e190c824ee60f7d16bd29a2829042124982b642033746883c19554de4fb4dd",
+      "size": 32768,
+      "vectors": [
+        {
+          "bytes": "75 02 c2 12 02 c2 9f 02",
+          "candidate": null,
+          "offset": 0
+        },
+        {
+          "bytes": "12 02 c2 9f 02 c2 d2 02",
+          "candidate": "LCALL 02C2",
+          "offset": 3
+        },
+        {
+          "bytes": "c7 0d 02 cc 75 02 e1 02",
+          "candidate": null,
+          "offset": 11
+        },
+        {
+          "bytes": "02 e1 0b 02 84 8e 02 80",
+          "candidate": "LJMP E10B",
+          "offset": 19
+        },
+        {
+          "bytes": "3f 02 f2 dd 02 e0 69 02",
+          "candidate": null,
+          "offset": 27
+        },
+        {
+          "bytes": "f4 93 02 f6 62 02 f4 e8",
+          "candidate": null,
+          "offset": 35
+        }
+      ]
+    },
+    {
+      "byte_distribution": {
+        "00": 12308,
+        "01": 202,
+        "02": 107,
+        "03": 101,
+        "04": 278,
+        "05": 12,
+        "06": 244,
+        "07": 59,
+        "08": 513,
+        "09": 87,
+        "0a": 18,
+        "0b": 6,
+        "0c": 286,
+        "0d": 9,
+        "0e": 83,
+        "0f": 25,
+        "10": 616,
+        "11": 25,
+        "12": 63,
+        "13": 2,
+        "14": 112,
+        "15": 7,
+        "16": 10,
+        "17": 0,
+        "18": 418,
+        "19": 4,
+        "1a": 6,
+        "1b": 5,
+        "1c": 147,
+        "1d": 0,
+        "1e": 32,
+        "1f": 43,
+        "20": 1196,
+        "21": 21,
+        "22": 36,
+        "23": 10,
+        "24": 256,
+        "25": 1,
+        "26": 13,
+        "27": 3,
+        "28": 178,
+        "29": 4,
+        "2a": 4,
+        "2b": 1,
+        "2c": 21,
+        "2d": 37,
+        "2e": 1,
+        "2f": 0,
+        "30": 1069,
+        "31": 61,
+        "32": 17,
+        "33": 20,
+        "34": 32,
+        "35": 6,
+        "36": 20,
+        "37": 6,
+        "38": 213,
+        "39": 8,
+        "3a": 6,
+        "3b": 2,
+        "3c": 135,
+        "3d": 4,
+        "3e": 56,
+        "3f": 16,
+        "40": 133,
+        "41": 110,
+        "42": 45,
+        "43": 32,
+        "44": 49,
+        "45": 30,
+        "46": 17,
+        "47": 0,
+        "48": 188,
+        "49": 340,
+        "4a": 1,
+        "4b": 31,
+        "4c": 4,
+        "4d": 7,
+        "4e": 3,
+        "4f": 1,
+        "50": 149,
+        "51": 78,
+        "52": 4,
+        "53": 11,
+        "54": 24,
+        "55": 9,
+        "56": 10,
+        "57": 11,
+        "58": 11,
+        "59": 4,
+        "5a": 2,
+        "5b": 0,
+        "5c": 10,
+        "5d": 5,
+        "5e": 2,
+        "5f": 0,
+        "60": 202,
+        "61": 57,
+        "62": 12,
+        "63": 28,
+        "64": 24,
+        "65": 78,
+        "66": 92,
+        "67": 10,
+        "68": 32,
+        "69": 41,
+        "6a": 0,
+        "6b": 3,
+        "6c": 53,
+        "6d": 37,
+        "6e": 41,
+        "6f": 49,
+        "70": 246,
+        "71": 56,
+        "72": 100,
+        "73": 18,
+        "74": 45,
+        "75": 21,
+        "76": 11,
+        "77": 3,
+        "78": 139,
+        "79": 30,
+        "7a": 1,
+        "7b": 3,
+        "7c": 65,
+        "7d": 1,
+        "7e": 32,
+        "7f": 15,
+        "80": 84,
+        "81": 9,
+        "82": 1,
+        "83": 16,
+        "84": 6,
+        "85": 2,
+        "86": 347,
+        "87": 13,
+        "88": 48,
+        "89": 66,
+        "8a": 0,
+        "8b": 17,
+        "8c": 157,
+        "8d": 0,
+        "8e": 16,
+        "8f": 11,
+        "90": 34,
+        "91": 5,
+        "92": 1,
+        "93": 0,
+        "94": 0,
+        "95": 0,
+        "96": 8,
+        "97": 4,
+        "98": 10,
+        "99": 4,
+        "9a": 1,
+        "9b": 0,
+        "9c": 9,
+        "9d": 0,
+        "9e": 3,
+        "9f": 12,
+        "a0": 17,
+        "a1": 4,
+        "a2": 0,
+        "a3": 0,
+        "a4": 3,
+        "a5": 0,
+        "a6": 8,
+        "a7": 2,
+        "a8": 23,
+        "a9": 33,
+        "aa": 0,
+        "ab": 13,
+        "ac": 0,
+        "ad": 0,
+        "ae": 0,
+        "af": 4,
+        "b0": 19,
+        "b1": 17,
+        "b2": 0,
+        "b3": 1,
+        "b4": 6,
+        "b5": 0,
+        "b6": 35,
+        "b7": 0,
+        "b8": 7,
+        "b9": 1,
+        "ba": 1,
+        "bb": 1,
+        "bc": 9,
+        "bd": 0,
+        "be": 6,
+        "bf": 0,
+        "c0": 125,
+        "c1": 1,
+        "c2": 2,
+        "c3": 129,
+        "c4": 1,
+        "c5": 0,
+        "c6": 124,
+        "c7": 5,
+        "c8": 3,
+        "c9": 5,
+        "ca": 0,
+        "cb": 2,
+        "cc": 170,
+        "cd": 0,
+        "ce": 17,
+        "cf": 0,
+        "d0": 3,
+        "d1": 1,
+        "d2": 1,
+        "d3": 3,
+        "d4": 3,
+        "d5": 0,
+        "d6": 4,
+        "d7": 0,
+        "d8": 54,
+        "d9": 2,
+        "da": 6,
+        "db": 24,
+        "dc": 9,
+        "dd": 0,
+        "de": 3,
+        "df": 3,
+        "e0": 79,
+        "e1": 6,
+        "e2": 3,
+        "e3": 11,
+        "e4": 3,
+        "e5": 0,
+        "e6": 9,
+        "e7": 10,
+        "e8": 6,
+        "e9": 5,
+        "ea": 0,
+        "eb": 2,
+        "ec": 2,
+        "ed": 0,
+        "ee": 5,
+        "ef": 0,
+        "f0": 105,
+        "f1": 3,
+        "f2": 0,
+        "f3": 4,
+        "f4": 1,
+        "f5": 0,
+        "f6": 5,
+        "f7": 4,
+        "f8": 126,
+        "f9": 21,
+        "fa": 0,
+        "fb": 2,
+        "fc": 91,
+        "fd": 11,
+        "fe": 109,
+        "ff": 8204
+      },
+      "candidate_tables": [
+        {
+          "initial_bytes": "00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+          "offset": 0,
+          "sha1": "7d9fa8fda07e94a5c869bb961216a5e1be06a30d"
+        },
+        {
+          "initial_bytes": "00 00 00 00 00 00 00 00 00 00 00 00 00 00 60 18",
+          "offset": 8192,
+          "sha1": "88fe5364f581a9f24a7a800c3019f400247f66a0"
+        },
+        {
+          "initial_bytes": "00 00 18 10 00 28 ff 7c c6 38 d4 2c e3 14 00 10",
+          "offset": 16384,
+          "sha1": "f8907ba681106017f16765773d7f28add6198fda"
+        },
+        {
+          "initial_bytes": "2d 55 70 20 53 63 72 65 65 6e 73 20 43 6f 70 79",
+          "offset": 24576,
+          "sha1": "c64fdebf1719163ba499bfd764b71bbff6cae34e"
+        }
+      ],
+      "crc32": "38379339",
+      "file": "roms/vt340/vt340e49.bin",
+      "initial_bytes": "00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 30 20 00 00 00 00 30 20 30 20",
+      "printable_strings": [
+        {
+          "offset": 146,
+          "text": "nXlD0 "
+        },
+        {
+          "offset": 178,
+          "text": "vXl(0 "
+        },
+        {
+          "offset": 210,
+          "text": "vh8(0 "
+        },
+        {
+          "offset": 239,
+          "text": "(0 fH8"
+        },
+        {
+          "offset": 389,
+          "text": "W` 0 "
+        },
+        {
+          "offset": 421,
+          "text": "W` 0 "
+        },
+        {
+          "offset": 517,
+          "text": "W` 0 "
+        },
+        {
+          "offset": 650,
+          "text": "0 0 0 "
+        },
+        {
+          "offset": 682,
+          "text": "0 0 0 "
+        },
+        {
+          "offset": 714,
+          "text": "0 0 0 "
+        },
+        {
+          "offset": 746,
+          "text": "0 0 0 "
+        },
+        {
+          "offset": 778,
+          "text": "0 0 0 "
+        },
+        {
+          "offset": 810,
+          "text": "0 0 0 "
+        },
+        {
+          "offset": 842,
+          "text": "0 0 0 "
+        },
+        {
+          "offset": 874,
+          "text": "0 0 0 "
+        },
+        {
+          "offset": 882,
+          "text": "0 8@p"
+        },
+        {
+          "offset": 906,
+          "text": "0 0 0 "
+        },
+        {
+          "offset": 1513,
+          "text": "1Z(lP"
+        },
+        {
+          "offset": 1554,
+          "text": "0 | 0 "
+        },
+        {
+          "offset": 2377,
+          "text": "@x0p00"
+        },
+        {
+          "offset": 2769,
+          "text": "I0p`pfH"
+        },
+        {
+          "offset": 2801,
+          "text": "I0 ` 6H"
+        },
+        {
+          "offset": 2833,
+          "text": "I0 ` "
+        },
+        {
+          "offset": 2865,
+          "text": "I0 ` "
+        },
+        {
+          "offset": 2897,
+          "text": "y0 ` 6"
+        },
+        {
+          "offset": 2929,
+          "text": "I0 ` f("
+        },
+        {
+          "offset": 2961,
+          "text": "I0 ` "
+        },
+        {
+          "offset": 2993,
+          "text": "I0 f$"
+        },
+        {
+          "offset": 3504,
+          "text": "0PxPp 0"
+        },
+        {
+          "offset": 3536,
+          "text": "x 0P8"
+        },
+        {
+          "offset": 3655,
+          "text": "00 x00 "
+        },
+        {
+          "offset": 4113,
+          "text": ")08`8"
+        },
+        {
+          "offset": 4145,
+          "text": "Y0 ` l(0 "
+        },
+        {
+          "offset": 4177,
+          "text": "I0 ` <"
+        },
+        {
+          "offset": 4209,
+          "text": "I0 ` <"
+        },
+        {
+          "offset": 4241,
+          "text": "I0 ` l(0 "
+        },
+        {
+          "offset": 4273,
+          "text": "I0 ` "
+        },
+        {
+          "offset": 4848,
+          "text": "p0hP0"
+        },
+        {
+          "offset": 5248,
+          "text": "$($($($("
+        },
+        {
+          "offset": 5280,
+          "text": "$($($($("
+        },
+        {
+          "offset": 5344,
+          "text": "$($($($(H(x8p0p0|8|8"
+        },
+        {
+          "offset": 5370,
+          "text": "$(p0p0$($($($(X8"
+        },
+        {
+          "offset": 5468,
+          "text": "@ @ ` ` ` ` H(x88"
+        },
+        {
+          "offset": 5559,
+          "text": "0 Q@ "
+        },
+        {
+          "offset": 5569,
+          "text": "P@ ` `  Q "
+        },
+        {
+          "offset": 5580,
+          "text": " Q Q "
+        },
+        {
+          "offset": 5590,
+          "text": " Q Q@ "
+        },
+        {
+          "offset": 5621,
+          "text": "  Q Q"
+        },
+        {
+          "offset": 5653,
+          "text": "A Q Q"
+        },
+        {
+          "offset": 5675,
+          "text": "q Q Q"
+        },
+        {
+          "offset": 5904,
+          "text": "$($($("
+        },
+        {
+          "offset": 5936,
+          "text": "$($($("
+        },
+        {
+          "offset": 5968,
+          "text": "808080"
+        },
+        {
+          "offset": 5984,
+          "text": "p0H(H(|8p0\""
+        },
+        {
+          "offset": 6000,
+          "text": "      p0  p0"
+        },
+        {
+          "offset": 6028,
+          "text": "H(H($($($("
+        },
+        {
+          "offset": 6128,
+          "text": "` ` ` 8"
+        },
+        {
+          "offset": 6183,
+          "text": "` QPQ"
+        },
+        {
+          "offset": 6219,
+          "text": "q Q Q` "
+        },
+        {
+          "offset": 6309,
+          "text": "qp0 Q"
+        },
+        {
+          "offset": 6316,
+          "text": " Q Q` ` "
+        },
+        {
+          "offset": 6665,
+          "text": "pxP0 "
+        },
+        {
+          "offset": 7316,
+          "text": "8Hf(&\\,\\XP0"
+        },
+        {
+          "offset": 7355,
+          "text": " .,0 "
+        },
+        {
+          "offset": 7812,
+          "text": " H h H 0"
+        },
+        {
+          "offset": 7872,
+          "text": "p0p0p0p0p0p0h"
+        },
+        {
+          "offset": 7895,
+          "text": "x0p0p0p0p"
+        },
+        {
+          "offset": 7928,
+          "text": "0 0 0 0 "
+        },
+        {
+          "offset": 7960,
+          "text": "0 0 0 0 "
+        },
+        {
+          "offset": 7992,
+          "text": "0 0 0 0 "
+        },
+        {
+          "offset": 8023,
+          "text": "80 0 0 0 "
+        },
+        {
+          "offset": 8056,
+          "text": "0 0 0 0 "
+        },
+        {
+          "offset": 8088,
+          "text": "0 0 0 0 "
+        },
+        {
+          "offset": 8120,
+          "text": "0 0 0 0 "
+        },
+        {
+          "offset": 8454,
+          "text": "x xHx(xH"
+        },
+        {
+          "offset": 8772,
+          "text": "x0x0x0x0x0"
+        },
+        {
+          "offset": 8784,
+          "text": "|8x0x0x0x00 "
+        },
+        {
+          "offset": 9239,
+          "text": "108080808"
+        },
+        {
+          "offset": 9271,
+          "text": "I0 0 0 0 "
+        },
+        {
+          "offset": 9303,
+          "text": "I0 0 0 0 "
+        },
+        {
+          "offset": 9335,
+          "text": "x0 0 0 0 "
+        },
+        {
+          "offset": 9368,
+          "text": "0 0 0 0 "
+        },
+        {
+          "offset": 9399,
+          "text": "I0 0 0 0 <"
+        },
+        {
+          "offset": 10051,
+          "text": "Ix0x0x0x0x00"
+        },
+        {
+          "offset": 10074,
+          "text": "0 ~x0 "
+        },
+        {
+          "offset": 10390,
+          "text": "D(<8808080"
+        },
+        {
+          "offset": 10468,
+          "text": "|8|80"
+        },
+        {
+          "offset": 10474,
+          "text": "H(p0x8$($("
+        },
+        {
+          "offset": 10492,
+          "text": "    H(H("
+        },
+        {
+          "offset": 10602,
+          "text": "H(p0x8"
+        },
+        {
+          "offset": 10617,
+          "text": "pp0` pp"
+        },
+        {
+          "offset": 10672,
+          "text": "`   p0  p0p0"
+        },
+        {
+          "offset": 10695,
+          "text": "P@  I"
+        },
+        {
+          "offset": 10723,
+          "text": "q@ @ @  I`0 "
+        },
+        {
+          "offset": 10747,
+          "text": "P` pp "
+        },
+        {
+          "offset": 11106,
+          "text": "p0p0p0p00"
+        },
+        {
+          "offset": 11116,
+          "text": "D(|80"
+        },
+        {
+          "offset": 11130,
+          "text": "$($($("
+        },
+        {
+          "offset": 11152,
+          "text": "H(<8>p"
+        },
+        {
+          "offset": 11232,
+          "text": "x8p0p0p0p0H("
+        },
+        {
+          "offset": 11303,
+          "text": "` A Q Q"
+        },
+        {
+          "offset": 11319,
+          "text": "a` ` ` `  "
+        },
+        {
+          "offset": 11339,
+          "text": "P`q Q`q"
+        },
+        {
+          "offset": 11384,
+          "text": "p0p0p0p0 "
+        },
+        {
+          "offset": 11403,
+          "text": "P Q Q Q"
+        },
+        {
+          "offset": 11433,
+          "text": "A Q Q"
+        },
+        {
+          "offset": 11567,
+          "text": "#0 > 0 "
+        },
+        {
+          "offset": 11599,
+          "text": "#0 > 0 "
+        },
+        {
+          "offset": 11626,
+          "text": "0 0 0 0 0 0 ` 0 "
+        },
+        {
+          "offset": 11643,
+          "text": " 0 0 "
+        },
+        {
+          "offset": 11656,
+          "text": "0@0 0 0 0 0 0 0 0 0 0 0 "
+        },
+        {
+          "offset": 11690,
+          "text": "0 0 0 0 0 0 0 0 0 0 0 "
+        },
+        {
+          "offset": 11720,
+          "text": "0 0 0 0 0 0 0 0 0 0 0 0 "
+        },
+        {
+          "offset": 11752,
+          "text": "0 0 0 0 0 0 0 0 0 0 0 0 "
+        },
+        {
+          "offset": 11784,
+          "text": "0 0 0 0 0 0 0 0 0 0 0 "
+        },
+        {
+          "offset": 11816,
+          "text": "0 0 0 0 0 0 0 0 0 0 0 "
+        },
+        {
+          "offset": 11848,
+          "text": "0 0 0 0 0 0 0 0 0 0 0 "
+        },
+        {
+          "offset": 11880,
+          "text": "0 0(0 0 0 0 0 0 0 0 0 0 "
+        },
+        {
+          "offset": 11912,
+          "text": "0 0(0 0 0 0 0 0 0 0 0 0 "
+        },
+        {
+          "offset": 11948,
+          "text": "0 0 0 0 0 0 0 0 0 0 "
+        },
+        {
+          "offset": 11980,
+          "text": "0 0 0 0 0 0 0 0 0 0 "
+        },
+        {
+          "offset": 12012,
+          "text": "0 0 0 0 0 0 0 0 0 0 "
+        },
+        {
+          "offset": 12044,
+          "text": "0 0 0 0 0 0 ` 0 "
+        },
+        {
+          "offset": 12081,
+          "text": "#0 > 0 "
+        },
+        {
+          "offset": 12113,
+          "text": "#0 > 0 "
+        },
+        {
+          "offset": 12430,
+          "text": "0 >p>p>p>p"
+        },
+        {
+          "offset": 12463,
+          "text": "@|p|p|p|p8"
+        },
+        {
+          "offset": 12476,
+          "text": "p@0 `@"
+        },
+        {
+          "offset": 12506,
+          "text": "0 8@0 0 0"
+        },
+        {
+          "offset": 12541,
+          "text": " 0 0 0"
+        },
+        {
+          "offset": 12574,
+          "text": "0 0 0"
+        },
+        {
+          "offset": 12637,
+          "text": "p0 0 "
+        },
+        {
+          "offset": 13704,
+          "text": ">p>p` "
+        },
+        {
+          "offset": 13732,
+          "text": "|p` |p|p` "
+        },
+        {
+          "offset": 14389,
+          "text": "I6(p |p"
+        },
+        {
+          "offset": 14539,
+          "text": "pxp0 "
+        },
+        {
+          "offset": 14555,
+          "text": "p0 x0"
+        },
+        {
+          "offset": 15169,
+          "text": "P0pv880"
+        },
+        {
+          "offset": 15616,
+          "text": "f(HP3S"
+        },
+        {
+          "offset": 15712,
+          "text": "f(0 3"
+        },
+        {
+          "offset": 15744,
+          "text": "f(0 3("
+        },
+        {
+          "offset": 15776,
+          "text": "f*0 s+"
+        },
+        {
+          "offset": 16166,
+          "text": "f(0 F(<40"
+        },
+        {
+          "offset": 16198,
+          "text": "f|08MTf"
+        },
+        {
+          "offset": 17126,
+          "text": "| `<< 8$"
+        },
+        {
+          "offset": 17469,
+          "text": "4<$f$"
+        },
+        {
+          "offset": 17763,
+          "text": "$?$|$?$"
+        },
+        {
+          "offset": 18378,
+          "text": "f$<(fT"
+        },
+        {
+          "offset": 19631,
+          "text": "Dl$<$"
+        },
+        {
+          "offset": 23680,
+          "text": "WaitNVR Error - 1Comm 1 Port Data Error - 2Comm 1 Port Control Error - 3Keyboard Error - 4Comm 1 DEC-423 Data Error - 5Comm 2 DEC-423 Data Error - 6Printer Port Error - 7Locator Port Error - 8VT3"
+        },
+        {
+          "offset": 23876,
+          "text": "0 OKError -"
+        },
+        {
+          "offset": 23893,
+          "text": "Firmware and Set-Up Screens Copyright "
+        },
+        {
+          "offset": 23932,
+          "text": " 1987Digital Equipment CorporationWait1 - Erreur de MNV2 - Erreur de donn"
+        },
+        {
+          "offset": 24006,
+          "text": "es de Comm 13 - Erreur de contr"
+        },
+        {
+          "offset": 24038,
+          "text": "le de Comm 14 - Erreur Clavier5 - Erreur de donn"
+        },
+        {
+          "offset": 24087,
+          "text": "es DEC-423 dans Comm 16 - Erreur de donn"
+        },
+        {
+          "offset": 24128,
+          "text": "es DEC-423 dans Comm 27 - Erreur de l'interface de l'imprimante8 - Erreur de l'interface de la sourisErreurFirmware and Set-Up Screens Copyright "
+        },
+        {
+          "offset": 24274,
+          "text": " 1987Digital Equipment CorporationWaitFehler NVR - 1Datenfehler am Kommunikationsanschlu"
+        },
+        {
+          "offset": 24363,
+          "text": " 1 - 2Steuerfehler am Kommunikationsanschlu"
+        },
+        {
+          "offset": 24407,
+          "text": " 1 - 3Fehler Tastatur - 4Datenfehler bei Komm 1 DEC-423 - 5Datenfehler bei Komm 2 DEC-423 - 6Fehler beim Druckeranschlu"
+        },
+        {
+          "offset": 24527,
+          "text": " - 7Fehler beim Eingabeger"
+        },
+        {
+          "offset": 24554,
+          "text": "t - 8-Firmware and Set-Up Screens Copyright "
+        },
+        {
+          "offset": 24599,
+          "text": " 1987Digital Equipment Corporation"
+        }
+      ],
+      "repeated_runs": [
+        {
+          "byte": 0,
+          "length": 22,
+          "offset": 0
+        },
+        {
+          "byte": 0,
+          "length": 22,
+          "offset": 32
+        },
+        {
+          "byte": 0,
+          "length": 24,
+          "offset": 576
+        },
+        {
+          "byte": 0,
+          "length": 24,
+          "offset": 608
+        },
+        {
+          "byte": 0,
+          "length": 22,
+          "offset": 724
+        },
+        {
+          "byte": 0,
+          "length": 22,
+          "offset": 756
+        },
+        {
+          "byte": 0,
+          "length": 22,
+          "offset": 1140
+        },
+        {
+          "byte": 0,
+          "length": 20,
+          "offset": 1172
+        },
+        {
+          "byte": 0,
+          "length": 20,
+          "offset": 1204
+        },
+        {
+          "byte": 0,
+          "length": 22,
+          "offset": 1236
+        },
+        {
+          "byte": 0,
+          "length": 112,
+          "offset": 1268
+        },
+        {
+          "byte": 0,
+          "length": 16,
+          "offset": 1792
+        },
+        {
+          "byte": 0,
+          "length": 224,
+          "offset": 1824
+        },
+        {
+          "byte": 0,
+          "length": 22,
+          "offset": 2400
+        },
+        {
+          "byte": 0,
+          "length": 30,
+          "offset": 2424
+        },
+        {
+          "byte": 0,
+          "length": 232,
+          "offset": 2456
+        },
+        {
+          "byte": 0,
+          "length": 277,
+          "offset": 3041
+        },
+        {
+          "byte": 0,
+          "length": 18,
+          "offset": 3684
+        },
+        {
+          "byte": 0,
+          "length": 19,
+          "offset": 3715
+        },
+        {
+          "byte": 0,
+          "length": 196,
+          "offset": 3740
+        },
+        {
+          "byte": 0,
+          "length": 31,
+          "offset": 3937
+        },
+        {
+          "byte": 0,
+          "length": 24,
+          "offset": 4342
+        },
+        {
+          "byte": 0,
+          "length": 24,
+          "offset": 4374
+        },
+        {
+          "byte": 0,
+          "length": 25,
+          "offset": 4405
+        },
+        {
+          "byte": 0,
+          "length": 105,
+          "offset": 4431
+        },
+        {
+          "byte": 0,
+          "length": 24,
+          "offset": 4544
+        },
+        {
+          "byte": 0,
+          "length": 22,
+          "offset": 4576
+        },
+        {
+          "byte": 0,
+          "length": 104,
+          "offset": 5056
+        },
+        {
+          "byte": 0,
+          "length": 18,
+          "offset": 5320
+        },
+        {
+          "byte": 0,
+          "length": 18,
+          "offset": 5512
+        },
+        {
+          "byte": 0,
+          "length": 96,
+          "offset": 5696
+        },
+        {
+          "byte": 0,
+          "length": 96,
+          "offset": 6336
+        },
+        {
+          "byte": 0,
+          "length": 17,
+          "offset": 6927
+        },
+        {
+          "byte": 0,
+          "length": 30,
+          "offset": 6958
+        },
+        {
+          "byte": 0,
+          "length": 31,
+          "offset": 6990
+        },
+        {
+          "byte": 0,
+          "length": 26,
+          "offset": 7022
+        },
+        {
+          "byte": 0,
+          "length": 31,
+          "offset": 7049
+        },
+        {
+          "byte": 0,
+          "length": 30,
+          "offset": 7082
+        },
+        {
+          "byte": 0,
+          "length": 22,
+          "offset": 7114
+        },
+        {
+          "byte": 0,
+          "length": 30,
+          "offset": 7602
+        },
+        {
+          "byte": 0,
+          "length": 47,
+          "offset": 7633
+        },
+        {
+          "byte": 0,
+          "length": 30,
+          "offset": 8176
+        },
+        {
+          "byte": 0,
+          "length": 30,
+          "offset": 8208
+        },
+        {
+          "byte": 0,
+          "length": 83,
+          "offset": 8239
+        },
+        {
+          "byte": 0,
+          "length": 16,
+          "offset": 8800
+        },
+        {
+          "byte": 0,
+          "length": 16,
+          "offset": 8832
+        },
+        {
+          "byte": 0,
+          "length": 203,
+          "offset": 8849
+        },
+        {
+          "byte": 0,
+          "length": 30,
+          "offset": 9456
+        },
+        {
+          "byte": 0,
+          "length": 30,
+          "offset": 9488
+        },
+        {
+          "byte": 0,
+          "length": 145,
+          "offset": 9519
+        },
+        {
+          "byte": 0,
+          "length": 31,
+          "offset": 9665
+        },
+        {
+          "byte": 0,
+          "length": 16,
+          "offset": 10080
+        },
+        {
+          "byte": 0,
+          "length": 16,
+          "offset": 10112
+        },
+        {
+          "byte": 0,
+          "length": 26,
+          "offset": 10144
+        },
+        {
+          "byte": 0,
+          "length": 28,
+          "offset": 10176
+        },
+        {
+          "byte": 0,
+          "length": 67,
+          "offset": 10205
+        },
+        {
+          "byte": 0,
+          "length": 16,
+          "offset": 10288
+        },
+        {
+          "byte": 0,
+          "length": 16,
+          "offset": 10320
+        },
+        {
+          "byte": 0,
+          "length": 16,
+          "offset": 10352
+        },
+        {
+          "byte": 0,
+          "length": 16,
+          "offset": 10432
+        },
+        {
+          "byte": 0,
+          "length": 16,
+          "offset": 10544
+        },
+        {
+          "byte": 0,
+          "length": 16,
+          "offset": 10576
+        },
+        {
+          "byte": 0,
+          "length": 16,
+          "offset": 10624
+        },
+        {
+          "byte": 0,
+          "length": 16,
+          "offset": 10768
+        },
+        {
+          "byte": 0,
+          "length": 100,
+          "offset": 10800
+        },
+        {
+          "byte": 0,
+          "length": 18,
+          "offset": 11072
+        },
+        {
+          "byte": 0,
+          "length": 18,
+          "offset": 11264
+        },
+        {
+          "byte": 0,
+          "length": 72,
+          "offset": 11448
+        },
+        {
+          "byte": 0,
+          "length": 152,
+          "offset": 12784
+        },
+        {
+          "byte": 0,
+          "length": 164,
+          "offset": 13280
+        },
+        {
+          "byte": 0,
+          "length": 24,
+          "offset": 13452
+        },
+        {
+          "byte": 0,
+          "length": 24,
+          "offset": 13484
+        },
+        {
+          "byte": 0,
+          "length": 24,
+          "offset": 13516
+        },
+        {
+          "byte": 0,
+          "length": 18,
+          "offset": 13550
+        },
+        {
+          "byte": 0,
+          "length": 24,
+          "offset": 13932
+        },
+        {
+          "byte": 0,
+          "length": 24,
+          "offset": 13964
+        },
+        {
+          "byte": 0,
+          "length": 111,
+          "offset": 13995
+        },
+        {
+          "byte": 0,
+          "length": 30,
+          "offset": 14108
+        },
+        {
+          "byte": 0,
+          "length": 30,
+          "offset": 14140
+        },
+        {
+          "byte": 0,
+          "length": 30,
+          "offset": 14172
+        },
+        {
+          "byte": 0,
+          "length": 79,
+          "offset": 14651
+        },
+        {
+          "byte": 0,
+          "length": 30,
+          "offset": 14732
+        },
+        {
+          "byte": 0,
+          "length": 30,
+          "offset": 14764
+        },
+        {
+          "byte": 0,
+          "length": 30,
+          "offset": 14796
+        },
+        {
+          "byte": 0,
+          "length": 30,
+          "offset": 14828
+        },
+        {
+          "byte": 0,
+          "length": 20,
+          "offset": 14870
+        },
+        {
+          "byte": 0,
+          "length": 21,
+          "offset": 14901
+        },
+        {
+          "byte": 0,
+          "length": 61,
+          "offset": 15301
+        },
+        {
+          "byte": 0,
+          "length": 31,
+          "offset": 15363
+        },
+        {
+          "byte": 0,
+          "length": 64,
+          "offset": 15395
+        },
+        {
+          "byte": 0,
+          "length": 22,
+          "offset": 15466
+        },
+        {
+          "byte": 0,
+          "length": 22,
+          "offset": 15498
+        },
+        {
+          "byte": 0,
+          "length": 23,
+          "offset": 15529
+        },
+        {
+          "byte": 0,
+          "length": 22,
+          "offset": 15562
+        },
+        {
+          "byte": 0,
+          "length": 17,
+          "offset": 15599
+        },
+        {
+          "byte": 0,
+          "length": 19,
+          "offset": 15629
+        },
+        {
+          "byte": 0,
+          "length": 19,
+          "offset": 15661
+        },
+        {
+          "byte": 0,
+          "length": 17,
+          "offset": 15695
+        },
+        {
+          "byte": 0,
+          "length": 19,
+          "offset": 15725
+        },
+        {
+          "byte": 0,
+          "length": 19,
+          "offset": 15757
+        },
+        {
+          "byte": 0,
+          "length": 17,
+          "offset": 15791
+        },
+        {
+          "byte": 0,
+          "length": 28,
+          "offset": 15818
+        },
+        {
+          "byte": 0,
+          "length": 28,
+          "offset": 15850
+        },
+        {
+          "byte": 0,
+          "length": 28,
+          "offset": 15882
+        },
+        {
+          "byte": 0,
+          "length": 28,
+          "offset": 15914
+        },
+        {
+          "byte": 0,
+          "length": 92,
+          "offset": 15943
+        },
+        {
+          "byte": 0,
+          "length": 103,
+          "offset": 16570
+        },
+        {
+          "byte": 0,
+          "length": 22,
+          "offset": 17184
+        },
+        {
+          "byte": 0,
+          "length": 105,
+          "offset": 17208
+        },
+        {
+          "byte": 0,
+          "length": 129,
+          "offset": 17824
+        },
+        {
+          "byte": 0,
+          "length": 27,
+          "offset": 18467
+        },
+        {
+          "byte": 0,
+          "length": 98,
+          "offset": 18495
+        },
+        {
+          "byte": 0,
+          "length": 24,
+          "offset": 19126
+        },
+        {
+          "byte": 0,
+          "length": 84,
+          "offset": 19157
+        },
+        {
+          "byte": 0,
+          "length": 143,
+          "offset": 19795
+        },
+        {
+          "byte": 0,
+          "length": 25,
+          "offset": 20159
+        },
+        {
+          "byte": 0,
+          "length": 79,
+          "offset": 20185
+        },
+        {
+          "byte": 0,
+          "length": 25,
+          "offset": 20265
+        },
+        {
+          "byte": 0,
+          "length": 103,
+          "offset": 20473
+        },
+        {
+          "byte": 0,
+          "length": 23,
+          "offset": 20799
+        },
+        {
+          "byte": 0,
+          "length": 105,
+          "offset": 20823
+        },
+        {
+          "byte": 0,
+          "length": 23,
+          "offset": 21087
+        },
+        {
+          "byte": 0,
+          "length": 105,
+          "offset": 21111
+        },
+        {
+          "byte": 0,
+          "length": 129,
+          "offset": 21439
+        },
+        {
+          "byte": 0,
+          "length": 129,
+          "offset": 21727
+        },
+        {
+          "byte": 0,
+          "length": 35,
+          "offset": 22075
+        },
+        {
+          "byte": 0,
+          "length": 97,
+          "offset": 22111
+        },
+        {
+          "byte": 0,
+          "length": 129,
+          "offset": 22367
+        },
+        {
+          "byte": 0,
+          "length": 25,
+          "offset": 22741
+        },
+        {
+          "byte": 0,
+          "length": 75,
+          "offset": 22773
+        },
+        {
+          "byte": 0,
+          "length": 115,
+          "offset": 23029
+        },
+        {
+          "byte": 0,
+          "length": 85,
+          "offset": 23411
+        },
+        {
+          "byte": 255,
+          "length": 8133,
+          "offset": 24633
+        }
+      ],
+      "sha1": "394e8511581abc796c8c612149eff280146b0ac8",
+      "sha256": "eb0426b403e8bcd4dc72b448f6253cad22cb30386b22d89b0b57667a901f135e",
+      "size": 32768,
+      "vectors": [
+        {
+          "bytes": "00 00 00 00 00 00 00 00",
+          "candidate": null,
+          "offset": 0
+        },
+        {
+          "bytes": "00 00 00 00 00 00 00 00",
+          "candidate": null,
+          "offset": 3
+        },
+        {
+          "bytes": "00 00 00 00 00 00 00 00",
+          "candidate": null,
+          "offset": 11
+        },
+        {
+          "bytes": "00 00 00 30 20 00 00 00",
+          "candidate": null,
+          "offset": 19
+        },
+        {
+          "bytes": "00 30 20 30 20 00 00 00",
+          "candidate": null,
+          "offset": 27
+        },
+        {
+          "bytes": "00 00 00 00 00 00 00 00",
+          "candidate": null,
+          "offset": 35
+        }
+      ]
+    }
+  ]
+}

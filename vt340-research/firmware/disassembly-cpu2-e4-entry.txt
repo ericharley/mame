@@ -1,0 +1,136 @@
+8000: 78 c0     mov   r0,#$C0
+8002: 83        movc  a,@a+pc
+8003: c0 82     push  dpl
+8005: 75 f0 04  mov   b,#$04
+8008: 78 04     mov   r0,#$04
+800a: e0        movx  a,@dptr
+800b: f6        mov   @r0,a
+800c: 08        inc   r0
+800d: a3        inc   dptr
+800e: d5 f0 f9  djnz  b,$800A
+8011: ec        mov   a,r4
+8012: c3        clr   c
+8013: 95 0e     subb  a,rb1r6
+8015: fc        mov   r4,a
+8016: ed        mov   a,r5
+8017: 95 0f     subb  a,rb1r7
+8019: fd        mov   r5,a
+801a: ee        mov   a,r6
+801b: c3        clr   c
+801c: 95 10     subb  a,rb2r0
+801e: fe        mov   r6,a
+801f: ef        mov   a,r7
+8020: 95 11     subb  a,rb2r1
+8022: ff        mov   r7,a
+8023: ec        mov   a,r4
+8024: 4d        orl   a,r5
+8025: 4e        orl   a,r6
+8026: 4f        orl   a,r7
+8027: 60 17     jz    $8040
+8029: ec        mov   a,r4
+802a: 4d        orl   a,r5
+802b: 60 39     jz    $8066
+802d: ee        mov   a,r6
+802e: 4f        orl   a,r7
+802f: 60 35     jz    $8066
+8031: 90 67 b0  mov   dptr,#$67B0
+8034: 30 0d 03  jnb   $21.5,$803A
+8037: 90 67 b3  mov   dptr,#$67B3
+803a: e0        movx  a,@dptr
+803b: 20 e2 44  jb    acc.2,$8082
+803e: 80 26     sjmp  $8066
+8040: d0 82     pop   dpl
+8042: d0 83     pop   dph
+8044: 7c 01     mov   r4,#$01
+8046: 7d 00     mov   r5,#$00
+8048: 7e 00     mov   r6,#$00
+804a: 7f 00     mov   r7,#$00
+804c: 12 28 a5  lcall $28A5
+804f: 12 80 e7  lcall $80E7
+8052: 90 80 58  mov   dptr,#$8058
+8055: 12 27 ea  lcall $27EA
+8058: 22        ret
+8059: 04        inc   a
+805a: 26        add   a,@r0
+805b: 00        nop
+805c: 01 27     ajmp  $8027
+805e: 00        nop
+805f: 00        nop
+8060: 09        inc   r1
+8061: 00        nop
+8062: c0 08     push  rb1r0
+8064: 06        inc   @r0
+8065: d0 d0     pop   psw
+8067: 82 d0     anl   c,p
+8069: 83        movc  a,@a+pc
+806a: e0        movx  a,@dptr
+806b: f5 71     mov   $71,a
+806d: 05 82     inc   dpl
+806f: e0        movx  a,@dptr
+8070: f5 72     mov   $72,a
+8072: 05 82     inc   dpl
+8074: e0        movx  a,@dptr
+8075: f5 73     mov   $73,a
+8077: 05 82     inc   dpl
+8079: e0        movx  a,@dptr
+807a: f5 74     mov   $74,a
+807c: 12 02 08  lcall $0208
+807f: 02 80 43  ljmp  $8043
+8082: 90 67 c9  mov   dptr,#$67C9
+8085: 78 0e     mov   r0,#$0E
+8087: 75 f0 04  mov   b,#$04
+808a: 12 2a 4c  lcall $2A4C
+808d: d0 82     pop   dpl
+808f: d0 83     pop   dph
+8091: c0 83     push  dph
+8093: c0 82     push  dpl
+8095: e0        movx  a,@dptr
+8096: f5 71     mov   $71,a
+8098: 05 82     inc   dpl
+809a: e0        movx  a,@dptr
+809b: f5 72     mov   $72,a
+809d: 85 10 73  mov   $73,rb2r0
+80a0: 85 11 74  mov   $74,rb2r1
+80a3: 12 02 08  lcall $0208
+80a6: 85 0e 71  mov   $71,rb1r6
+80a9: 85 0f 72  mov   $72,rb1r7
+80ac: d0 82     pop   dpl
+80ae: d0 83     pop   dph
+80b0: 05 82     inc   dpl
+80b2: 05 82     inc   dpl
+80b4: e0        movx  a,@dptr
+80b5: f5 73     mov   $73,a
+80b7: 05 82     inc   dpl
+80b9: e0        movx  a,@dptr
+80ba: f5 74     mov   $74,a
+80bc: 12 02 08  lcall $0208
+80bf: 90 67 c9  mov   dptr,#$67C9
+80c2: e0        movx  a,@dptr
+80c3: f5 71     mov   $71,a
+80c5: 05 82     inc   dpl
+80c7: e0        movx  a,@dptr
+80c8: f5 72     mov   $72,a
+80ca: 85 10 73  mov   $73,rb2r0
+80cd: 85 11 74  mov   $74,rb2r1
+80d0: 12 02 08  lcall $0208
+80d3: 85 0e 71  mov   $71,rb1r6
+80d6: 85 0f 72  mov   $72,rb1r7
+80d9: 90 67 cb  mov   dptr,#$67CB
+80dc: e0        movx  a,@dptr
+80dd: f5 73     mov   $73,a
+80df: 05 82     inc   dpl
+80e1: e0        movx  a,@dptr
+80e2: f5 74     mov   $74,a
+80e4: 12 02 08  lcall $0208
+80e7: 22        ret
+80e8: ac 0e     mov   r4,rb1r6
+80ea: ad 0f     mov   r5,rb1r7
+80ec: ae 10     mov   r6,rb2r0
+80ee: af 11     mov   r7,rb2r1
+80f0: 12 28 87  lcall $2887
+80f3: 22        ret
+80f4: 90 67 a9  mov   dptr,#$67A9
+80f7: 74 ff     mov   a,#$FF
+80f9: f0        movx  @dptr,a
+80fa: 90 67 48  mov   dptr,#$6748
+80fd: 75 f0 06  mov   b,#$06

@@ -1,0 +1,119 @@
+0212: b3        cpl   c
+0213: 12 80 06  lcall $8006
+0216: 02 02 90  ljmp  $0290
+0219: c2 b3     clr   int1
+021b: 12 80 09  lcall $8009
+021e: 02 02 90  ljmp  $0290
+0221: c2 b3     clr   int1
+0223: 12 80 0c  lcall $800C
+0226: 02 02 90  ljmp  $0290
+0229: c2 b3     clr   int1
+022b: 12 80 0f  lcall $800F
+022e: 02 02 90  ljmp  $0290
+0231: c2 b3     clr   int1
+0233: 12 80 12  lcall $8012
+0236: 02 02 90  ljmp  $0290
+0239: c2 b3     clr   int1
+023b: 12 80 15  lcall $8015
+023e: 02 02 90  ljmp  $0290
+0241: c2 b3     clr   int1
+0243: 12 80 18  lcall $8018
+0246: 02 02 90  ljmp  $0290
+0249: c2 b3     clr   int1
+024b: 12 80 1b  lcall $801B
+024e: 02 02 90  ljmp  $0290
+0251: c2 b3     clr   int1
+0253: 12 80 1e  lcall $801E
+0256: 02 02 90  ljmp  $0290
+0259: c2 b3     clr   int1
+025b: 12 80 21  lcall $8021
+025e: 02 02 90  ljmp  $0290
+0261: c2 b3     clr   int1
+0263: 12 80 24  lcall $8024
+0266: 02 02 90  ljmp  $0290
+0269: c2 b3     clr   int1
+026b: 12 80 27  lcall $8027
+026e: 02 02 90  ljmp  $0290
+0271: c2 b3     clr   int1
+0273: 12 80 2a  lcall $802A
+0276: 02 02 90  ljmp  $0290
+0279: c2 b3     clr   int1
+027b: 12 80 2d  lcall $802D
+027e: 02 02 90  ljmp  $0290
+0281: c2 b3     clr   int1
+0283: 12 80 30  lcall $8030
+0286: 02 02 90  ljmp  $0290
+0289: c2 b3     clr   int1
+028b: 12 80 33  lcall $8033
+028e: 02 02 90  ljmp  $0290
+0291: d2 b3     setb  int1
+0293: 90 f0 20  mov   dptr,#$F020
+0296: e4        clr   a
+0297: f5 90     mov   p1,a
+0299: f0        movx  @dptr,a
+029a: 05 82     inc   dpl
+029c: f0        movx  @dptr,a
+029d: 22        ret
+029e: 12 bb a4  lcall $BBA4
+02a1: 12 03 cd  lcall $03CD
+02a4: 80 43     sjmp  $02E9
+02a6: 12 bb a4  lcall $BBA4
+02a9: 90 61 4a  mov   dptr,#$614A
+02ac: e0        movx  a,@dptr
+02ad: 30 e0 03  jnb   acc.0,$02B3
+02b0: 12 03 a1  lcall $03A1
+02b3: 12 03 66  lcall $0366
+02b6: 02 02 e8  ljmp  $02E8
+02b9: 12 bb a4  lcall $BBA4
+02bc: 12 03 39  lcall $0339
+02bf: 75 90 00  mov   p1,#$00
+02c2: e5 31     mov   a,$31
+02c4: 78 26     mov   r0,#$26
+02c6: f2        movx  @r0,a
+02c7: e4        clr   a
+02c8: f5 90     mov   p1,a
+02ca: 78 1b     mov   r0,#$1B
+02cc: f2        movx  @r0,a
+02cd: 75 90 03  mov   p1,#$03
+02d0: 74 20     mov   a,#$20
+02d2: 78 1c     mov   r0,#$1C
+02d4: f2        movx  @r0,a
+02d5: 90 61 4a  mov   dptr,#$614A
+02d8: e0        movx  a,@dptr
+02d9: 30 e0 0d  jnb   acc.0,$02E9
+02dc: 75 90 01  mov   p1,#$01
+02df: 74 90     mov   a,#$90
+02e1: 78 1c     mov   r0,#$1C
+02e3: 30 0c 02  jnb   $21.4,$02E8
+02e6: 78 1b     mov   r0,#$1B
+02e8: f2        movx  @r0,a
+02e9: 75 90 00  mov   p1,#$00
+02ec: 74 00     mov   a,#$00
+02ee: 30 47 05  jnb   $28.7,$02F6
+02f1: 75 90 00  mov   p1,#$00
+02f4: 74 00     mov   a,#$00
+02f6: 90 f0 22  mov   dptr,#$F022
+02f9: f0        movx  @dptr,a
+02fa: 75 90 05  mov   p1,#$05
+02fd: 74 e0     mov   a,#$E0
+02ff: 30 08 05  jnb   $21.0,$0307
+0302: 75 90 05  mov   p1,#$05
+0305: 74 e1     mov   a,#$E1
+0307: 90 f0 23  mov   dptr,#$F023
+030a: f0        movx  @dptr,a
+030b: 75 90 1f  mov   p1,#$1F
+030e: 74 ff     mov   a,#$FF
+0310: 90 f0 2a  mov   dptr,#$F02A
+0313: f0        movx  @dptr,a
+0314: 75 90 0e  mov   p1,#$0E
+0317: 74 e0     mov   a,#$E0
+0319: 90 f0 08  mov   dptr,#$F008
+031c: f0        movx  @dptr,a
+031d: 12 bb a4  lcall $BBA4
+0320: 20 39 03  jb    $27.1,$0326
+0323: 30 38 03  jnb   $27.0,$0329
+0326: 12 e0 a8  lcall $E0A8
+0329: 75 90 04  mov   p1,#$04
+032c: 74 00     mov   a,#$00
+032e: 90 f0 1c  mov   dptr,#$F01C
+0331: f0        movx  @dptr,a

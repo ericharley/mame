@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "acquired": "2026-10-26",
+  "provenance": {
+    "page": "https://avitech.com.au/?page_id=1964",
+    "base_url": "https://www.avitech.com.au/mm-files/vt340/",
+    "notes": "Binary dumps made by Malcolm Macleod from a physical VT340; files are not tracked in the source tree."
+  },
+  "roms": [
+    {"filename":"e1.bin","component":"E1","size":32768,"crc32":"68b3cbde","sha1":"d51677c17e056c69a5864b1673f7887b24f50958","sha256":"66544299b3b045babb4c81f46412da74cd948430782a81a4a5f1ec112e5b9317"},
+    {"filename":"e2.bin","component":"E2","size":32768,"crc32":"19f788f0","sha1":"f4018501fee8c429bc1148014f2d9bb97e8cfdcf","sha256":"b796c962e72026461f9761b60e9ec0487e464ecccc91a30042125572ffebce53"},
+    {"filename":"e3.bin","component":"E3","size":32768,"crc32":"83919be1","sha1":"937b36e0475a8947a01d03c8e800c54a6461caf7","sha256":"55fb225855ac7a9e2c28a036c197c4e2625aae110ed70911b8bfb48ac392c9e0"},
+    {"filename":"e4.bin","component":"E4","size":32768,"crc32":"d6eddc42","sha1":"df8097bcd04bd9fed5618d88cd0e0159f81c074b","sha256":"b9ed8e8201f4e5c40f9a359b4ca1b2c5a1792bc76405c9200a88d3a2ad5399ab"},
+    {"filename":"e5.bin","component":"E5","size":32768,"crc32":"135c5c7c","sha1":"171d1582d6a62ec9fa8e42421693da6dac3b2a8a","sha256":"f9e190c824ee60f7d16bd29a2829042124982b642033746883c19554de4fb4dd"},
+    {"filename":"vt340e49.bin","component":"E49","size":32768,"crc32":"38379339","sha1":"394e8511581abc796c8c612149eff280146b0ac8","sha256":"eb0426b403e8bcd4dc72b448f6253cad22cb30386b22d89b0b57667a901f135e"}
+  ],
+  "missing": [
+    {"component":"E80","device":"Xicor X2804AP-45","size":512,"status":"not dumped"}
+  ]
+}
