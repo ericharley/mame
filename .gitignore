@@ -11,6 +11,15 @@
 
 /*
 /*/
+!/vt340-research/
+!/vt340-research/**
+/vt340-research/**/.DS_Store
+/vt340-research/traces/*.error.log
+/vt340-research/traces/*.stdout.txt
+/vt340-research/traces/*.stderr.txt
+/vt340-research/traces/**/*.log
+/vt340-research/traces/**/*.png
+/vt340-research/traces/**/*.tr
 !/.github/
 !/3rdparty/
 !/android-project/

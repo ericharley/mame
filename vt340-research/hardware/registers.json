@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "registers": [
+    {
+      "cpu": "E24/processor2",
+      "address": "f?00-f?3f",
+      "device": "E70 DC323 Adder",
+      "width_bits": 16,
+      "access": "read/write",
+      "decode": "BIOSEL I/O page; first 64 registers; BA11-BA8 mirrored in first model",
+      "evidence": "schematic PDF pages 25-28, DEC Dragon specification, and firmware traces",
+      "implementation": "64-word register file; CPU2 P1 is high byte and MOVX data is low byte",
+      "confidence": "high"
+    },
+    {
+      "cpu": "E24/processor2",
+      "address": "f?03",
+      "device": "E70 DC323 Adder",
+      "register": 3,
+      "access": "read",
+      "implemented_low_byte_or_mask": "3c",
+      "bits": {
+        "2": "rasterop initialization complete",
+        "3": "rasterop complete",
+        "4": "address output complete",
+        "5": "I/D data receive ready"
+      },
+      "evidence": "E5 firmware c043-c049",
+      "implementation": "ready mask supplied at the firmware's confirmed polling sites",
+      "confidence": "high"
+    },
+    {
+      "cpu": "E24/processor2",
+      "address": "f?08/f?09/f?22-f?2b/f?35",
+      "device": "E70 DC323 Adder",
+      "access": "write",
+      "observed_values": {
+        "08": ["0184", "0ec0"],
+        "09": ["0080"],
+        "22": ["character source X"],
+        "23": ["character source Y with E49 select"],
+        "24": ["destination X"],
+        "25": ["destination Y"],
+        "26": ["000a"],
+        "29": ["0014"],
+        "35": ["014d"]
+      },
+      "evidence": "DEC Dragon specification and normal E4 firmware trace",
+      "implementation": "retained register file drives the first E49-to-four-plane text rasterop",
+      "confidence": "high"
+    }
+  ],
+  "port_signals": [
+    {
+      "cpu": "E24/processor2",
+      "port": "P3.3/INT1",
+      "signal": "ROMBANK1_L",
+      "direction": "output latch used as board signal",
+      "reset_value": 1,
+      "evidence": "terminal control module schematic PDF pages 19-20",
+      "implementation": "implemented as E4 when high, E5 when low",
+      "confidence": "high"
+    },
+    {
+      "cpu": "E24/processor2",
+      "port": "P1.1",
+      "signal": "P2_DAT9_STATUS_H",
+      "direction": "output/status net to E57 processor1 external T1 input",
+      "reset_value": 1,
+      "evidence": "terminal control module schematic PDF pages 18-19 and 26-27",
+      "implementation": "latched P1 readback; bit 1 drives CPU1 T1 input",
+      "confidence": "high"
+    },
+    {
+      "cpu": "E24/processor2",
+      "port": "P3.2/INT0",
+      "signal": "P10_INTRREQ_L",
+      "direction": "input from E70 DC323 active-low interrupt output",
+      "evidence": "terminal control module schematic PDF pages 19 and 27",
+      "implementation": "frame interrupt asserted from the programmed 526-line timing model",
+      "confidence": "high"
+    }
+  ]
+}
