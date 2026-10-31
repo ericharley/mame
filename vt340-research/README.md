@@ -18,6 +18,14 @@ Primary evidence:
 The exact MAME checkout used for this sprint is commit
 `39eb9e44c394df9aec8186f2d2ef7517ace232e1`.
 
+Start here:
+
+- `PROJECT_SUMMARY.md` describes the current architecture and engineering
+  approach.
+- `SPRINT_STATUS.md` records the `Wait` to `VT340 OK` sprint result, tests,
+  remaining blocker, and recommended next work.
+- `BUILDING.md` contains the targeted build and debugger procedure.
+
 Raw debugger `.tr` streams, diagnostic `.log` files, and framebuffer `.png`
 captures are generated evidence and remain local rather than entering Git.
 Tracked summaries, disassemblies, and Lua reproduction scripts preserve the
