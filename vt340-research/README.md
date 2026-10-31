@@ -24,6 +24,8 @@ Start here:
   approach.
 - `SPRINT_STATUS.md` records the `Wait` to `VT340 OK` sprint result, tests,
   remaining blocker, and recommended next work.
+- `PHASE3_PLAN.md` defines the next firmware/hardware investigation and its
+  acceptance criteria.
 - `BUILDING.md` contains the targeted build and debugger procedure.
 
 Raw debugger `.tr` streams, diagnostic `.log` files, and framebuffer `.png`

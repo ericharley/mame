@@ -208,3 +208,4 @@ Tracked Lua scripts and disassemblies make the important paths reproducible.
 | `vt340-research/tests/` | Smoke and deterministic closeout tests |
 | `vt340-research/tools/` | ROM inspection and E49 decoding utilities |
 | `vt340-research/SPRINT_STATUS.md` | Current sprint result and next work |
+| `vt340-research/PHASE3_PLAN.md` | Next investigation plan and acceptance criteria |
