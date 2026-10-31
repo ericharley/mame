@@ -134,6 +134,8 @@ vt340-research/tests/phase2-closeout.sh ./vt340
 
 ## Recommended next work
 
+The detailed execution plan is in `PHASE3_PLAN.md`.
+
 The originally planned dispatcher audit is substantially complete: bank
 selection, stack behavior, indirect dispatch, returns, and the former
 synthetic continuation have all been resolved. The next productive round
