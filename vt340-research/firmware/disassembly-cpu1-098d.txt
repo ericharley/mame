@@ -1,0 +1,64 @@
+0960: 31 21     acall $0921
+0962: 75 41 9c  mov   $41,#$9C
+0965: a3        inc   dptr
+0966: cc        xch   a,r4
+0967: c5 82     xch   a,dpl
+0969: cc        xch   a,r4
+096a: cd        xch   a,r5
+096b: c5 83     xch   a,dph
+096d: cd        xch   a,r5
+096e: 22        ret
+096f: eb        mov   a,r3
+0970: 75 f0 08  mov   b,#$08
+0973: a4        mul   ab
+0974: 2a        add   a,r2
+0975: 04        inc   a
+0976: b4 01 01  cjne  a,#$01,$097A
+0979: 22        ret
+097a: 30 d5 05  jnb   f0,$0982
+097d: b4 85 00  cjne  a,#$85,$0980
+0980: 50 03     jnc   $0985
+0982: 12 09 8b  lcall $098B
+0985: c2 50     clr   $2A.0
+0987: 22        ret
+0988: a3        inc   dptr
+0989: 12 09 65  lcall $0965
+098c: c2 54     clr   $2A.4
+098e: 30 50 06  jnb   $2A.0,$0997
+0991: c0 e0     push  acc
+0993: 74 3b     mov   a,#$3B
+0995: 80 07     sjmp  $099E
+0997: 30 51 09  jnb   $2A.1,$09A3
+099a: c0 e0     push  acc
+099c: 74 2f     mov   a,#$2F
+099e: 12 09 e4  lcall $09E4
+09a1: d0 e0     pop   acc
+09a3: 75 f0 64  mov   b,#$64
+09a6: 84        div   ab
+09a7: 30 54 11  jnb   $2A.4,$09BB
+09aa: 24 02     add   a,#$02
+09ac: c5 f0     xch   a,b
+09ae: 24 38     add   a,#$38
+09b0: b4 64 00  cjne  a,#$64,$09B3
+09b3: 40 04     jc    $09B9
+09b5: 05 f0     inc   b
+09b7: 24 9c     add   a,#$9C
+09b9: c5 f0     xch   a,b
+09bb: 60 16     jz    $09D3
+09bd: 12 09 e2  lcall $09E2
+09c0: e5 f0     mov   a,b
+09c2: 75 f0 0a  mov   b,#$0A
+09c5: 84        div   ab
+09c6: 12 09 e2  lcall $09E2
+09c9: e5 f0     mov   a,b
+09cb: 12 09 e2  lcall $09E2
+09ce: d2 50     setb  $2A.0
+09d0: d2 51     setb  $2A.1
+09d2: 22        ret
+09d3: e5 f0     mov   a,b
+09d5: 75 f0 0a  mov   b,#$0A
+09d8: 84        div   ab
+09d9: 70 eb     jnz   $09C6
+09db: 80 ec     sjmp  $09C9
+09dd: a3        inc   dptr
+09de: 12 09 65  lcall $0965

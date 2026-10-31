@@ -1,0 +1,53 @@
+VT340 Wait-to-OK Phase 2 event summary
+=======================================
+
+All times are MAME emulation time.  The controlled path differs from normal
+execution only at CPU1 41F7, where the debugger clears B once before the
+original instruction executes.  No display operation is injected.
+
+Normal failing path
+-------------------
+
+  8.582408-8.583518  CPU2 C217 submits four firmware glyph operations: Wait
+  8.583658           CPU2 17B2 writes 60BB=01 (temporary-display latch)
+  9.373639           CPU1 A383 begins advancing producer index 7E7E
+  9.396660           CPU1 A383 advances producer to 1E
+  after ring drain   CPU1 41F7 observes B=40; JB B.6 takes the retry path
+  25.000000          No FF 32 09 packet; 60BB remains 01; screen remains Wait
+
+Controlled decision-point path
+------------------------------
+
+  CPU1 41F7          Debugger clears B once; original firmware takes 41FA
+  CPU1 48F6/A639     Original firmware submits FF 32 09
+  CPU2 92D6/DB98     Native dispatcher selects command-32 handler DB98
+  CPU2 E5 F2DD       Repaired eight-entry bit-mask loop completes normally
+  CPU2 E4 DC02       Handler calls BC9D to poll the shared command ring
+  25.014000          Still at DC02: 7E7E == 7E7F, 4BE5=00, 7FF7=00
+
+Expected but not observed
+-------------------------
+
+  CPU1 A383          A genuine subsequent event advances producer 7E7E
+  CPU2 BC9D          Producer/consumer inequality returns carry set
+  CPU2 DC18/DC1C     Firmware clears 60BB and continues final-screen setup
+
+Phase 2 closeout experiment
+---------------------------
+
+  10.278789          Debugger makes one sentinel slot visible at DC02
+  10.278812          Native BC9D carry path reaches DC18; 60BB is still 01
+  10.278817          Original DC1C completes; 60BB is now 00
+
+The run terminates at DC1D, before the sentinel can be interpreted by the
+packet decoder.  This proves the producer/consumer transition is sufficient
+for the documented branch without substituting a usable control packet.
+
+Conclusion
+----------
+
+B.6 is the first gate that prevents command 32 in the ordinary boot.  Forcing
+only that gate proves the request and dispatcher path, then exposes a second,
+exact wait: CPU2 needs a later CPU1 ring event.  The closeout experiment proves
+the event would clear 60BB, but does not manufacture it in normal execution;
+its hardware/firmware source is the starting point for the next investigation.
