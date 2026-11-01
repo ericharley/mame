@@ -2,11 +2,12 @@
 
 ## Objective
 
-Determine why CPU2 clears shared byte `7ff2` before CPU1 posts its startup
-request, then implement only the physical signal, timing, or device behavior
-that restores the firmware's intended request/acknowledgement order.
+Determine why CPU2 publishes the shared `7ff2` checkpoint zero before CPU1
+installs its pending sentinel, then implement only the physical signal,
+timing, or device behavior that restores the firmware's intended
+sentinel/checkpoint/result order.
 
-Phase 4 will not delay an acknowledgement at a firmware PC, force a mailbox
+Phase 4 will not delay a checkpoint at a firmware PC, force a mailbox
 value, extend pulses indefinitely, or render `VT340 OK` directly.
 
 ## Starting boundary
@@ -23,12 +24,12 @@ The corrected Phase 3 baseline is deterministic:
 | 8.228786-8.228791 s | CPU2 writes P1 low/high around a DC323 transfer |
 | 8.235659 s | CPU1 emits handshake pulse 6 |
 | 8.295748 s | CPU1 accepts later P1.1 activity as response 6 |
-| 8.295771 s | CPU1 posts `7ff2=10` |
+| 8.295771 s | CPU1 installs pending sentinel `7ff2=10` |
 | 8.309648 s | CPU1 emits notification pulse 7 |
 
 CPU1 then waits at `3a18-3a21` for a zero that CPU2 already wrote. CPU2 later
 posts authentic result `80`, but CPU1 cannot consume it without first seeing
-the acknowledgement state.
+the checkpoint state.
 
 ## Findings from the opening audit
 
@@ -72,8 +73,8 @@ from response 5 to `136d`. The exact sequence is recorded in
 
 A debugger-only experiment masked CPU1 `ET0` immediately after response 5.
 Pulse 6 moved from 8.235659 s to 8.234513 s, only 1.146 milliseconds earlier,
-and still occurred 5.734 milliseconds after CPU2's acknowledgement. Response
-6 and the `7ff2=10` request remained tied to the same later CPU2 P1.1 table
+and still occurred 5.734 milliseconds after CPU2's checkpoint. Response
+6 and the `7ff2=10` sentinel remained tied to the same later CPU2 P1.1 table
 transition at approximately 8.29575 s. Timer-0 delivery is therefore not the
 immediate cause of the missed acknowledgement.
 
@@ -85,15 +86,15 @@ removed from the normal driver:
 - CPU1 is no longer configured as MAME's perfect-quantum device.
 - The driver no longer imposes a 10 microsecond maximum scheduler quantum;
   MAME's default scheduling produces the same startup sequence.
-- A CPU1 P3.5 edge at the `7ff2=10` report request no longer queues a retained
+- A CPU1 P3.5 edge near the `7ff2=10` sentinel write no longer queues a retained
   DAT9/T1 pulse.  Retention remains limited to the existing CPU2
   `1701-1711` rendezvous while its pin-level replacement is investigated.
 
 After each removal, the ROM-boundary audit and Phase 2/3 regression suites
-passed.  With default scheduling, CPU2 acknowledged at 8.228779 s, CPU1
-emitted pulse 6 at 8.235677 s, and CPU1 posted the request at 8.295773 s.
+passed. With default scheduling, CPU2 published its checkpoint at 8.228779 s, CPU1
+emitted pulse 6 at 8.235677 s, and CPU1 installed the sentinel at 8.295773 s.
 Three additional cold runs reproduced the 66.994 ms
-acknowledgement-before-request gap and 6.898 ms pulse-6 delay exactly.  This
+checkpoint-before-sentinel gap and 6.898 ms pulse-6 delay exactly. This
 rules out all three removed interventions as the source of the current fault.
 
 ### Firmware interval breakdown
@@ -146,10 +147,10 @@ paths are not identical. CPU2 `CPUBCLK` is an ungated derived clock. CPU1
 `CPUACLK` passes through logic controlled by `P3 MC/R H`, so the board can
 stop CPU1 during memory-controller ownership. Modeling that gate could only
 delay CPU1 relative to CPU2, however, and would increase the current
-acknowledgement-before-request lead. It is a remaining fidelity item, not a
+checkpoint-before-sentinel lead. It is a remaining fidelity item, not a
 candidate correction for this ordering failure.
 
-### Mailbox lifecycle
+### `7ff2=10` is a pending sentinel, not a CPU2 request
 
 `traces/phase4-mailbox-lifecycle.lua` records every CPU1 and CPU2 access to
 `7ff2`. After the destructive POST/shared-memory tests, the complete startup
@@ -157,17 +158,24 @@ transaction is:
 
 | Emulated time | Processor/PC | Operation |
 |---:|---|---|
-| 8.228779 s | CPU2 `136e` | write `00` |
-| 8.295773 s | CPU1 `3a0e` | write request `10` |
+| 8.228779 s | CPU2 `136d` | write checkpoint `00` |
+| 8.295773 s | CPU1 `3a0d` | write pending sentinel `10` |
 | 8.295773-13.194725 s | CPU1 `3a19` | repeatedly read `10` |
 | 13.194725 s | CPU2 `163f` | write result `80` |
 | after 13.194725 s | CPU1 `3a19` | repeatedly read `80` |
 
-CPU2 does not read `7ff2` during this exchange, no second CPU2 zero is
-written, and CPU1's first-stage loop requires zero before its second-stage
-result wait can consume `80`. Thus `136d-136e` is the sole native
-acknowledgement for this request/result protocol. The failure is a strict
-ordering error, not a mistaken classification of an initialization clear.
+The complete ROM cross-reference strengthens the trace result: CPU2 never
+reads `7ff2`. CPU1 `3a0d` installs `10` so its first-stage loop at `3a18` can
+distinguish CPU2's checkpoint zero from the later final result. CPU2 writes
+that zero at `136d`, writes success `80` at `163e`, and has error writers at
+`159f`, `197a`, and `1b24`. CPU1's `3a31` loop accepts the final nonzero value,
+`3a3a` tests for success `80`, and `3aaf` maps other values to error reports.
+
+Thus `10` neither requests work nor notifies CPU2, and zero does not
+acknowledge a CPU2 read. The exact failure is that CPU2 publishes its sole
+checkpoint zero before CPU1 installs the pending sentinel; CPU1 overwrites
+the checkpoint and waits forever for a second zero. The cross-reference and
+timeline are recorded in `traces/phase4-mailbox-semantics-summary.txt`.
 
 ### Remaining rendezvous suspension is not the cause
 
@@ -179,7 +187,7 @@ logic. The complete handshake trace was unchanged: response 5 remained at
 8.295750 s. The intervention was restored after the experiment.
 
 This also exposes a stronger constraint on the next hypothesis. CPU1 cannot
-write request `10` until it accepts response 6, but the CPU2 table transition
+write pending `10` until it accepts response 6, but the CPU2 table transition
 currently accepted as response 6 is executed after `136d`. Uniform CPU2
 slowdown or ordinary per-access wait states cannot reverse two events in the
 same processor's program order. A viable board-timing explanation must affect
@@ -203,18 +211,19 @@ accepted low is the later CPU2 table transition at 8.295622 s.
 This rules out Timer 1 edge-capture semantics as the missing behavior and
 confirms that direct DAT9 visibility alone reproduces the failure.
 
-### Controlled request-visibility experiment
+### Controlled sentinel-visibility experiment
 
 `traces/phase4-request-visibility-experiment.lua` performs one debugger-only
 experiment at the mailbox decision boundary. Immediately after CPU1 executes
-its authentic `7ff2=10` write, the script restores the already-issued zero;
+its authentic pending `7ff2=10` write, the script restores the already-issued
+checkpoint zero;
 it does not alter either CPU's PC and does not inject a result or display
 command.
 
 Original CPU1 firmware then accepts zero at 8.309677 s, enters its native
 result wait, observes CPU2's authentic `80` at 13.194736 s, and continues
 through `4551`. This proves that preserving the earlier zero across CPU1's
-request write is sufficient to clear the immediate Phase 4 blocker. It does
+sentinel write is sufficient to clear the immediate Phase 4 blocker. It does
 not prove that the real board suppresses, delays, or redirects that write.
 The schematic/PAL ownership path must establish such semantics before any
 driver change is justified.
@@ -274,12 +283,12 @@ loops in the four-byte CPU1 report immediately after response 5. It preserves
 the SBUF writes, calls, stack operations, three-iteration outer loop, and both
 processors' native control flow. CPU1 then emits pulse 6 at 8.222291 s,
 accepts a native table transition as response 6 at 8.222432 s, and writes the
-authentic `7ff2=10` request at 8.222455 s. CPU2's unchanged `136d` write
+authentic `7ff2=10` sentinel at 8.222455 s. CPU2's unchanged `136d` write
 clears it at 8.228779 s; CPU1 consumes that zero at 8.236053 s and later
 consumes CPU2's authentic `80` result at 13.194734 s.
 
 This is the smallest controlled timing experiment that restores the native
-request -> zero -> `80` order. It is not a production fix. CPU1 configures
+sentinel -> checkpoint -> `80` order. It is not a production fix. CPU1 configures
 TMOD=`21`, TH1=`f3`, and PCON=`ff`; at the schematic 12 MHz clock that is
 approximately 4807.7 baud, or 2.08 ms per 8N1 character. The approximately
 3.07 ms software delay around each byte is plainly deliberate UART pacing.
@@ -312,9 +321,9 @@ With no public V2.1 image or release note located, the next controlled test
 repeated CPU2's authentic first `17cf` table group before its native second
 group. Four additional groups (+9.540 ms) are insufficient: pulse 6 occurs
 after the last pre-ack table transition, and CPU1 still accepts the
-post-`136d` transition before writing request `10`. Five additional groups
+post-`136d` transition before writing pending `10`. Five additional groups
 (+11.925 ms) are sufficient: pulse 6 occurs during the final table group,
-CPU1 accepts a pre-ack transition, writes `10` at 8.236771 s, and then consumes
+CPU1 accepts a pre-checkpoint transition, writes `10` at 8.236771 s, and then consumes
 CPU2's authentic zero and `80` result.
 
 This brackets the timing dependency but rejects the repetition as hardware
@@ -325,20 +334,37 @@ The script and exact timelines are in
 `traces/phase4-table-duration-experiment.lua` and
 `traces/phase4-table-duration-summary.txt`.
 
+### CPU2 is launched by DAT9, not by `7ff2` or a missing `e795` update
+
+`traces/phase4-control-launch.lua` follows both CPUs across the control
+boundary. CPU1 pulse 5 releases CPU2's sixth `1701` rendezvous at `1322`, and
+CPU2 reads shared `e795=00` at 8.220511 s. CPU1 does not compute and write
+`e795=01` until 8.295768 s, immediately before installing pending `7ff2=10`.
+CPU2's startup test is therefore already running under DAT9 control; neither
+shared write launches it.
+
+A controlled decision-point experiment supplied the later `e795=01` value at
+CPU2 `1325`. CPU2 took its authentic nonzero branch, but wrote checkpoint zero
+0.348 ms earlier and final result `80` about 4.43 seconds earlier. CPU1 still
+missed the checkpoint. The executed zero-path selection is not the missing
+delay or synchronization behavior, and no `e795` forcing belongs in the
+driver. Exact traces are in `traces/phase4-config-race-summary.txt`.
+
 ## Investigation sequence
 
 1. Obtain V2.1 cartridge images or `EK-VT3XX-RN-003`, then compare CPU1
    `3ac9/3b64`, the six CPU2 `1701` rendezvous, and CPU2 `1325-136d` against
    the matched V1.1 set.
-2. Reconstruct the purpose of request value `10` and CPU1's following DAT9
-   pulse from both ROMs as an independent protocol check.
-3. Use the bounded +9.540/+11.925 ms table threshold to compare V1.1 and V2.1
-   control flow; do not model the repeated groups or generic delay as hardware.
-4. Implement only verified physical behavior, remove all forcing, and run repeated
-   cold boots plus the Phase 2/3 regressions.
+2. Compare the DAT9/report sequence and bounded +9.540/+11.925 ms table
+   threshold with V2.1. V1.1 launches CPU2 from pulse 5 and cannot install the
+   sentinel until after response 6; do not treat `10` as a CPU2 request.
+3. Audit any remaining board input that could alter pulse/report sequencing,
+   but require a ROM dependency before adding hardware behavior.
+4. Implement only verified physical behavior, remove all forcing, and run
+   repeated cold boots plus the Phase 2/3 regressions.
 
 ## Exit condition
 
-An ordinary cold boot must place CPU1's `7ff2=10` request before the native
-CPU2 acknowledgement, allow CPU1 to consume the authentic `80` result, and
+An ordinary cold boot must place CPU1's `7ff2=10` pending sentinel before the
+native CPU2 checkpoint zero, allow CPU1 to consume the authentic `80` result, and
 continue stably without a PC-qualified timing or mailbox workaround.

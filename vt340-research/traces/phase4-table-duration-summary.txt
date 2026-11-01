@@ -29,7 +29,7 @@ Four extra groups: insufficient
     8.235677  CPU1 emits pulse 6, after the original second group has ended
     8.238335  CPU2 executes 136D and writes zero
     8.238353  CPU1 accepts the post-ack 1376/137C transition as response 6
-    8.238376  CPU1 writes request 10 after the zero
+    8.238376  CPU1 writes pending sentinel 10 after the checkpoint zero
 
 The +9.540 ms extension does not repair ordering.
 
@@ -40,7 +40,7 @@ Five extra groups: sufficient
     8.235195  fifth extra first-group execution completes
     8.235677  CPU1 emits pulse 6 during the original second group
     8.236748  CPU1 accepts a native pre-ack table transition as response 6
-    8.236771  CPU1 writes request 10
+    8.236771  CPU1 writes pending sentinel 10
     8.240716  CPU2 executes 136D and writes zero
     8.250369  CPU1 accepts the authentic zero
    13.211431  CPU2 writes the authentic result 80

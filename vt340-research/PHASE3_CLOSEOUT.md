@@ -49,24 +49,26 @@ The remaining first divergence is ordering on DAT9 and shared byte `7ff2`:
 | Emulated time | Event |
 |---:|---|
 | 8.220495 s | CPU2 begins configuration after the fifth DAT9 rendezvous |
-| 8.228776 s | CPU2 clears `7ff2` at `136d` |
+| 8.228776 s | CPU2 publishes checkpoint `7ff2=00` at `136d` |
 | 8.228786-8.228791 s | CPU2 drives its explicit DAT9 low/high response |
 | 8.235659 s | CPU1 emits its sixth DAT9 pulse |
 | 8.295748 s | CPU1 finally observes a later P1.1 transition and completes the response wait |
-| 8.295771 s | CPU1 writes request `7ff2=10` |
+| 8.295771 s | CPU1 installs pending sentinel `7ff2=10` |
 | 13.194725 s | CPU2 writes result `7ff2=80` |
 
-CPU1 loop `3a18-3a21` requires an observed zero after posting `10`. Because
+CPU1 loop `3a18-3a21` requires an observed zero after installing `10`. Because
 CPU2's only normal zero write occurred earlier, CPU1 ignores the later `80`.
+CPU2 has no read of `7ff2`; the Phase 4 cross-reference therefore identifies
+`10` as a pending sentinel rather than a request.
 
 A bounded diagnostic read substitution presents zero at `3a19` only when the
-authentic `80` arrives. CPU1 then exits the acknowledgement loop at
+authentic `80` arrives. CPU1 then exits the checkpoint loop at
 13.194739 s and consumes the untouched `80` at `3a3a` at 14.582721 s. This
 proves the controlling condition and preserves original firmware result
 handling; it is not enabled in normal configuration.
 
 The next phase must determine why the physical DAT9/table-transfer sequence
-places CPU1's sixth pulse and request before CPU2's `136d` acknowledgement.
+places CPU1's sixth pulse and sentinel before CPU2's `136d` checkpoint.
 Candidate scope is scheduler ordering, P1.1 open-collector sampling, and
-graphics-bus/status timing. A delayed PC-triggered acknowledgement or a
+graphics-bus/status timing. A delayed PC-triggered checkpoint or a
 permanent forced mailbox value is not an acceptable fix.

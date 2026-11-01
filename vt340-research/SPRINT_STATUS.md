@@ -23,8 +23,8 @@ Phase 4 handoff.
 Phase 4 has now ruled out scheduler quantum, perfect-quantum selection, a
 stale retained pulse, immediate DC323 ready latency, and CPU1 timer-0 service
 as sufficient causes. The deterministic first failure remains CPU2's `136d`
-clear before CPU1 pulse 6 and the later `7ff2=10` request. The active evidence
-and investigation sequence are in `PHASE4_PLAN.md`.
+checkpoint before CPU1 pulse 6 and the later `7ff2=10` pending sentinel. The
+active evidence and investigation sequence are in `PHASE4_PLAN.md`.
 
 The first cycle-level interval audit is complete. CPU2's `1325-136d` path is
 accounted for as 8.268 ms of native table transfers, T0 synchronization, and
@@ -36,9 +36,9 @@ startup trace also shows no off-by-one rendezvous count.
 The schematic and mailbox follow-up close the next two questions. CPU2 P1.1,
 CPU1 T1, and DC323 DAT09 are directly connected on `P2 DAT9/TSTATUS H`, so
 graphics-table transitions really are visible to CPU1. After POST, CPU2's
-`136e` write is the only `7ff2=00`; CPU1 subsequently writes request `10`,
-waits for zero, and cannot advance to consume CPU2's later result `80`.
-CPU2 never reads the mailbox during this exchange. The remaining Phase 4
+`136d` write is the only `7ff2=00`; CPU1 subsequently installs pending
+sentinel `10`, waits for zero, and cannot advance to consume CPU2's later
+result `80`. CPU2 never reads `7ff2`. The remaining Phase 4
 boundary is board timing: shared-memory arbitration, `P3 MC/R H`, and any
 CPU2 bus stalls or wait states omitted by the flat shared-RAM model. Although
 the schematic shows that CPU1's clock can be gated by MC/R, that behavior
@@ -50,7 +50,7 @@ handoff at the CPU2 `170e` rendezvous. It produced an identical handshake and
 mailbox timeline, so the intervention was restored and ruled out as the
 source of the inversion. CPU1 currently accepts response 6 from a CPU2 table
 transition that is program-ordered after `136d`; consequently uniform CPU2
-slowdown cannot put the request before that write. The next audit must test
+slowdown cannot put the sentinel before that write. The next audit must test
 shared-RAM write visibility/commit semantics or identify an earlier DAT9 edge
 that real CPU1 hardware would consume.
 
@@ -68,7 +68,7 @@ continued through `4551`. This establishes mailbox write visibility as the
 smallest sufficient boundary but is not a production fix. The next task is to
 prove whether E58/shared-RAM arbitration can legitimately inhibit or redirect
 that CPU1 write, and to reconstruct why CPU2 starts the operation from DAT9
-without reading request value `10`. On the schematic-correct I8031 baseline,
+without reading value `10`. On the schematic-correct I8031 baseline,
 the controlled path later encounters the already documented upper-stack issue
 before reaching `41f7`.
 
@@ -122,10 +122,27 @@ The fallback table-duration experiment is complete. Repeating CPU2's
 authentic first `17cf` group four extra times (+9.540 ms) is insufficient;
 CPU1 still obtains response 6 only after `136d`. Five extra groups
 (+11.925 ms) are sufficient because pulse 6 then overlaps the native second
-group, allowing request `10` to precede CPU2's unchanged zero. This bounds the
+group, allowing pending sentinel `10` to precede CPU2's unchanged zero. This bounds the
 dependency but strongly rejects ordinary DC323-ready latency or a generic CPU
 stall: success requires continued DAT9 table transitions and five unrequested
 18-command groups. Nothing from this experiment is enabled in production.
+
+The complete `7ff2` cross-reference now corrects the protocol terminology.
+CPU2 has no read of `7ff2`; CPU1's `10` is therefore a pending sentinel, not a
+request. CPU2 publishes checkpoint zero at `136d`, success `80` at `163e`, or
+an error result through writers at `159f`, `197a`, and `1b24`. CPU1 first waits
+for zero at `3a18`, then for a nonzero final result at `3a31`. The failure is
+precisely that CPU1 overwrites the already-published checkpoint with `10` and
+waits for a second zero that never occurs. See
+`traces/phase4-mailbox-semantics-summary.txt`.
+
+The launch path is now explicit as well. CPU1 pulse 5 releases CPU2's sixth
+`1701` rendezvous, after which CPU2 reads `e795=00` and starts the test. CPU1
+does not write its computed `e795=01` until immediately before the much later
+pending-sentinel write. Forcing that later value at CPU2's exact decision
+point moves checkpoint zero 0.348 ms earlier and result `80` about 4.43 s
+earlier, worsening the failure. This rules out stale `e795` configuration as
+the missing synchronization and confirms DAT9—not `7ff2`—launches CPU2.
 
 The same archive supplies the previously missing 512-byte `23-001N2` E80
 image. It contains structured setup data rather than an erased pattern. A
@@ -145,7 +162,7 @@ active-high reset, plus CPU1 `3aff`, which returns the successful POST path
 instead of entering the error reporter. The driver now models the schematic
 reset connection. CPU2 is released at 0.558338 s and the native DAT9 handshake
 succeeds at 0.573882 s. CPU2 currently clears `7ff2` at 8.228779 s, before CPU1
-writes request `10` at 8.295773 s, then writes result `80` at 13.194725 s.
+writes pending `10` at 8.295773 s, then writes result `80` at 13.194725 s.
 CPU1's `3a18` loop waits for zero, so it cannot consume the result. This
 DAT9/mailbox ordering is the current blocker. Older 13-19 s timings below
 describe the pre-audit, simultaneous-CPU baseline and are retained only as
@@ -241,9 +258,9 @@ DAT9/mailbox ordering defect is identified and modeled.
 |---|---:|---|---|
 | CPU1 receive SBUF after transmit | `00` | Remain independent of transmit `55` | MCS-51 RX/TX latches; read at CPU1 `3906` |
 | CPU1 `B` after serial POST | `40` | Remain `40` | initialized at `38e6`; checked at `390e` |
-| CPU2 `7ff2` acknowledgement | `00` at 8.228779 s | Occur after CPU1 posts request | CPU2 `136d`; CPU1 reads at `3a19` |
-| CPU1 `7ff2` request | `10` at 8.295773 s | Precede acknowledgement | CPU1 request routine; CPU2 startup service |
-| CPU2 `7ff2` result | `80` at 13.194725 s | Be consumed after acknowledgement | CPU2 `1639`; CPU1 reads at `3a3a` |
+| CPU2 `7ff2` checkpoint | `00` at 8.228779 s | Occur after CPU1 installs sentinel | CPU2 `136d`; CPU1 reads at `3a18` |
+| CPU1 `7ff2` pending sentinel | `10` at 8.295773 s | Precede checkpoint | CPU1 `3a0d`; CPU2 never reads it |
+| CPU2 `7ff2` result | `80` at 13.194725 s | Be consumed after checkpoint | CPU2 `163e`; CPU1 reads at `3a31`/`3a3a` |
 | DAT9 response | low/high at 8.228786-8.228791 s | Align CPU1 response wait with the transaction | CPU2 P1.1; CPU1 handshake code |
 
 ## Acceptance status
@@ -289,10 +306,10 @@ vt340-research/tests/phase2-closeout.sh ./vt340
 
 ## Remaining risks and synthetic behavior
 
-- DAT9 response sampling and the `7ff2` request/acknowledgement order do not
+- DAT9 response sampling and the `7ff2` sentinel/checkpoint order do not
   yet match the physical protocol.
 - CPU1 perfect-quantum scheduling, the 10 microsecond maximum-quantum
-  override, and the request-specific retained DAT9/T1 pulse have been removed;
+  override, and the sentinel-adjacent retained DAT9/T1 pulse have been removed;
   none changed the Phase 4 event sequence.
 - CPU1 now uses the schematic-correct I8031 core. The former I8032 storage
   workaround has been removed; the current Phase 4 timeline is unchanged.
@@ -311,7 +328,7 @@ Continue Phase 4 from the stable timeline in `PHASE4_PLAN.md`. Locate a V2.1
 cartridge dump or `EK-VT3XX-RN-003`, then compare CPU1 `3ac9/3b64`, CPU2's
 six `1701` rendezvous, and CPU2 `1325-136d` with the matched V1.1 firmware.
 The report-delay experiment is a dependency proof only. Do not shorten it,
-repeat table groups, add a PC-qualified acknowledgement, or force a mailbox
+repeat table groups, add a PC-qualified checkpoint, or force a mailbox
 value in the normal configuration.
 
 ## Key references

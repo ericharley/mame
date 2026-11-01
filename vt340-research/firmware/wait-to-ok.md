@@ -14,8 +14,8 @@ and all three screenshots were byte-identical
 
 | Emulated time | Processor/address | Event |
 |---:|---|---|
-| 7.971353 s | CPU1 `3a0e` | Writes startup request `7ff2=10` |
-| 7.977509 s | CPU2 `136e` | Acknowledges with `7ff2=00` |
+| 7.971353 s | CPU1 `3a0d` | Writes pending sentinel `7ff2=10` |
+| 7.977509 s | CPU2 `136d` | Publishes checkpoint `7ff2=00` |
 | 8.552364 s | CPU2 `163f` | Reports POST success with `7ff2=80` |
 | 8.582408-8.583518 s | CPU2 `c217`, E4 | Submits the four E49 glyphs spelling `Wait` |
 | 9.373805 s | CPU2 `bcd2`, E4 | Begins consuming the CPU1 command ring |
@@ -274,13 +274,13 @@ The corrected unforced timeline is:
 |---:|---|
 | 7.970617 s | CPU2 reads shared `e795=00` |
 | 7.970627 s | CPU2 enters repaired `30f9` configuration routine |
-| 7.977888 s | CPU2 acknowledges CPU1 request with `7ff2=00` |
+| 7.977888 s | CPU2 publishes checkpoint `7ff2=00` |
 | 12.842099 s | CPU2 crosses repaired `14ff` without returning to reset |
 | 12.994345 s | CPU2 writes authentic result `7ff2=80` at `1639` |
 | 12.994357 s | CPU1 observes the result at `3a3a` |
 | 13.084467 s | CPU2 jumps to operational E4 firmware at `16ef` |
 | 19.380864 s | CPU1 reaches `41f7` with preserved `B=40` |
-| 19.380877 s | CPU1 submits the still-unresolved second `7ff2=10` request |
+| 19.380877 s | CPU1 installs a second `7ff2=10` pending sentinel |
 
 Thus Phase 3 has validated the native low-ROM stack/return path and completed
 the previously hidden full hardware test. The remaining `Wait` blocker is now
@@ -311,12 +311,12 @@ first physically sequenced boot now records:
 | 0.000002 s | CPU1 asserts P1 RESET H; CPU2 remains at reset vector |
 | 0.558338 s | CPU1 clears P1.0 and releases CPU2 |
 | 0.573882 s | CPU1/CPU2 DAT9 rendezvous reaches CPU1 success path `3952` |
-| 8.228872 s | CPU2 clears `7ff2` before CPU1's request write |
-| 8.295870 s | CPU1 submits the first `7ff2=10` startup request |
+| 8.228872 s | CPU2 publishes checkpoint zero before CPU1's sentinel write |
+| 8.295870 s | CPU1 installs pending sentinel `7ff2=10` |
 | 13.194725 s | CPU2 writes result `7ff2=80` |
 
-The current post-audit blocker is ordering: CPU2 acknowledges before CPU1
-writes the request, then writes the result without a second zero transition.
+The current post-audit blocker is ordering: CPU2 publishes its checkpoint
+before CPU1 writes the sentinel, then writes the result without a second zero transition.
 CPU1's `3a18-3a21` loop waits specifically for zero and therefore ignores the
 later `80`. At 30 s CPU1 remains in `3a18`. The physical DAT9/mailbox ordering
 is the next Phase 4 trace boundary. Full reconstruction evidence and the five
@@ -333,7 +333,8 @@ keeps `B=40`, and avoids the false `B=bf` error path.
 
 The native dispatcher and CPU2 execution-integrity work are therefore closed.
 The exact remaining fault is the Phase 4 synchronization handoff documented
-in `PHASE3_CLOSEOUT.md`: CPU2 clears `7ff2` before CPU1 posts `10`, while CPU1
+in `PHASE3_CLOSEOUT.md`: CPU2 publishes checkpoint zero before CPU1 installs
+`10`, while CPU1
 requires a zero after that post before it can consume result `80`.
 
 ## Remaining synthetic behavior
