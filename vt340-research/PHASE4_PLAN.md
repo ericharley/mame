@@ -315,6 +315,12 @@ CPU1 `3b64` report contract and CPU2 `1325-136d` table path.
 Sources: [Avitech VT340 internals](https://avitech.com.au/?page_id=1964) and
 [DEC FCO VT330-I001](https://manx-docs.org/collections/mds-199909/cd2/fco/vt330i01.pdf).
 
+The two most relevant DECnotes topics survive only as metadata. Inspection of
+the archive directory shows no `NT/0056.nt` body file for the terminal
+conference, so the missing replies are not recoverable from its 1.2 GB public
+download. Public ROM inventories likewise contain no V2.1 E1-E5 set. The
+search record and exact comparison targets are in `firmware/v21-search.md`.
+
 ### Extra table-duration threshold is too large for ordinary ready latency
 
 With no public V2.1 image or release note located, the next controlled test
@@ -350,9 +356,14 @@ missed the checkpoint. The executed zero-path selection is not the missing
 delay or synchronization behavior, and no `e795` forcing belongs in the
 driver. Exact traces are in `traces/phase4-config-race-summary.txt`.
 
+Schematic page 18 identifies CPU1 P1.6 as the firmware-driven
+`P1 CPMRESET H` output. The driver returns the live 8031 P1 latch, so the low
+value used to compute `e795=01` is not a missing external strap or input.
+
 ## Investigation sequence
 
-1. Obtain V2.1 cartridge images or `EK-VT3XX-RN-003`, then compare CPU1
+1. Obtain V2.1 cartridge images or `EK-VT3XX-RN-003` from a new physical or
+   archival source, then compare CPU1
    `3ac9/3b64`, the six CPU2 `1701` rendezvous, and CPU2 `1325-136d` against
    the matched V1.1 set.
 2. Compare the DAT9/report sequence and bounded +9.540/+11.925 ms table

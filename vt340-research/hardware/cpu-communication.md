@@ -16,6 +16,10 @@ bidirectional: CPU2 pulses P1.1 in routine `1701`, while CPU1 acknowledges by
 pulling P3.5/T1 low in routines `3919` and `3b8e`.  Pulse latches preserve
 these sub-millisecond events across MAME timeslice boundaries.
 
+CPU1 P1.6 is the schematic `P1 CPMRESET H` output, not a configuration input.
+The CPU1 firmware drives it and later snapshots its state into shared `e795`;
+the driver correctly returns the live 8031 port latch for that read.
+
 The first confirmed software mailbox is shared RAM `7ff1`.  CPU1 writes `ff`
 and polls for completion; CPU2 ROM clears it in its initialization/service
 path.  The DC323 E70 also drives CPU2's active-low INT0 input as

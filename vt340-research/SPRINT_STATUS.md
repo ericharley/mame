@@ -143,6 +143,15 @@ pending-sentinel write. Forcing that later value at CPU2's exact decision
 point moves checkpoint zero 0.348 ms earlier and result `80` about 4.43 s
 earlier, worsening the failure. This rules out stale `e795` configuration as
 the missing synchronization and confirms DAT9—not `7ff2`—launches CPU2.
+Schematic page 18 also identifies P1.6 as the firmware-driven `CPMRESET H`
+output, so the computed value is not sourced from a missing external strap.
+
+The V2.1 search has reached the limit of current public artifacts. DECnotes
+retains metadata for two directly relevant V1.1/V2.1 discussions, but its
+downloadable archive has no note-body file for that conference. Public ROM
+inventories have no V2.1 E1-E5 set. Details and immediate comparison targets
+are recorded in `firmware/v21-search.md`; further progress on that branch
+requires a new physical dump or archival source.
 
 The same archive supplies the previously missing 512-byte `23-001N2` E80
 image. It contains structured setup data rather than an erased pattern. A
@@ -335,6 +344,7 @@ value in the normal configuration.
 
 - `PROJECT_SUMMARY.md`: architecture and engineering approach.
 - `firmware/wait-to-ok.md`: firmware analysis through the Phase 3 boundary.
+- `firmware/v21-search.md`: V2.1 provenance search and comparison targets.
 - `PHASE3_CLOSEOUT.md`: Phase 3 evidence and exact Phase 4 handoff.
 - `traces/wait-to-ok/phase2-event-summary.txt`: concise timestamped paths.
 - `hardware/unknowns.md`: unresolved and provisional hardware behavior.
