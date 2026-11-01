@@ -54,6 +54,40 @@ slowdown cannot put the request before that write. The next audit must test
 shared-RAM write visibility/commit semantics or identify an earlier DAT9 edge
 that real CPU1 hardware would consume.
 
+The complete DAT9 transition audit now rules out that earlier-edge branch.
+CPU1 polls the live P3.5 level at `3bab/3bbc`; it does not use Timer 1 edge
+capture. After response 5 it is inside the native four-byte report delay for
+every intervening DAT9 transition, and the last low ends 6.886 ms before CPU1
+starts the next wait. Direct pin semantics therefore reproduce the current
+behavior.
+
+A debugger-only request-visibility experiment restored the already-issued
+zero immediately after CPU1's authentic `7ff2=10` write. Original firmware
+then accepted the acknowledgement, consumed CPU2's authentic `80` result, and
+continued through `4551`. This establishes mailbox write visibility as the
+smallest sufficient boundary but is not a production fix. The next task is to
+prove whether E58/shared-RAM arbitration can legitimately inhibit or redirect
+that CPU1 write, and to reconstruct why CPU2 starts the operation from DAT9
+without reading request value `10`. On the schematic-correct I8031 baseline,
+the controlled path later encounters the already documented upper-stack issue
+before reaching `41f7`.
+
+Recovered PAL dumps now close the shared-write hypothesis. `23-168K5` is E58
+and `23-335J5` matches E78. Their decoded equations assert E58 `WDS L` and E78
+DRAM `MWR L` for CPU1's observed external write state, so the real E93/E94
+pair must store `7ff2=10`. The debugger visibility experiment is therefore a
+dependency proof only, not plausible hardware behavior. Phase 4 returns to
+the pre-ack DC323 table interval: determine whether command latency or an
+external DAT9 ownership interval lets CPU1 complete pulse/response 6 before
+CPU2 executes `136d`.
+
+The same archive supplies the previously missing 512-byte `23-001N2` E80
+image. It contains structured setup data rather than an erased pattern. A
+live-P1 trace found no CPU1 external access while NVREN was low before the
+current mailbox boundary, so E80 does not directly cause the first inversion.
+Its E10-latched chip-select/read/write interface still needs reconstruction
+before the image can be connected for later-startup testing.
+
 The ROM baseline has been corrected more broadly than the earlier isolated
 repairs. The published Arduino dump corrupts every page transition; all 630
 recoverable E1-E5 page-final positions are now reconstructed from their raw

@@ -1,0 +1,52 @@
+VT340 Phase 4 DAT9 level sequence
+=================================
+
+Captured with temporary bit-change logging in cpu1_p3_w/cpu2_p1_w. The
+instrumentation was removed after capture. Times are MAME emulation time.
+
+time (s)     source  writer PC  CPU1 PC  transition / meaning
+8.220509000  CPU1    3B90       3B90     1->0 pulse 5
+8.220521000  CPU1    3B98       3B98     0->1 pulse 5 ends
+8.221939000  CPU2    BB96       3BAE     1->0 response 5 begins
+8.222091000  CPU2    BB6B       3BBC     0->1 response 5 ends
+8.222133000  CPU2    BB6B       3B6E     1->0 table data
+8.222154000  CPU2    BB6B       3B6E     0->1 table data
+8.222196000  CPU2    BB6B       3B6E     1->0 table data
+8.222427000  CPU2    BB6B       3B6E     0->1 table data
+8.222460000  CPU2    BB6B       3B6E     1->0 table data
+8.222775000  CPU2    BB6B       3B70     0->1 table data
+8.222825000  CPU2    BB82       3B70     1->0 table data
+8.222897000  CPU2    BB82       3B70     0->1 table data
+8.222910000  CPU2    BB8C       3B70     1->0 table data
+8.222921000  CPU2    BB82       3B70     0->1 table data
+8.222934000  CPU2    BB8C       3B70     1->0 table data
+8.223103000  CPU2    BB82       3B70     0->1 table data
+8.223116000  CPU2    BB8C       3B70     1->0 table data
+8.224476000  CPU2    BB6B       3B6E     0->1 table data
+8.224518000  CPU2    BB6B       3B6E     1->0 table data
+8.224539000  CPU2    BB6B       3B6E     0->1 table data
+8.224581000  CPU2    BB6B       3B6E     1->0 table data
+8.224812000  CPU2    BB6B       3B70     0->1 table data
+8.224845000  CPU2    BB6B       3B70     1->0 table data
+8.225160000  CPU2    BB6B       000D     0->1 table data
+8.225210000  CPU2    BB82       A085     1->0 table data
+8.225282000  CPU2    BB82       A0C4     0->1 table data
+8.225295000  CPU2    BB8C       A0D4     1->0 table data
+8.225306000  CPU2    BB82       A0E4     0->1 table data
+8.225319000  CPU2    BB8C       A0F4     1->0 table data
+8.225488000  CPU2    BB82       3B70     0->1 table data
+8.225501000  CPU2    BB8C       3B70     1->0 final pre-ack low
+8.228776000  CPU2    136D       3B6E     writes 7FF2=00
+8.228791000  CPU2    137F       3B6E     0->1 final pre-ack low ends
+8.235677000  CPU1    3B90       3B90     1->0 pulse 6
+8.235689000  CPU1    3B98       3B98     0->1 pulse 6 ends
+8.295622000  CPU2    BB82       3BAB     1->0 response 6 begins
+8.295742000  CPU2    BB82       3BBF     0->1 response 6 ends
+8.295773000  CPU1    3A0D       3A0D     writes request 7FF2=10
+
+CPU1 routine 3BA0-3BCE polls the live P3.5 level: it first waits for low at
+3BAB, then waits for high at 3BBC. It does not use Timer 1 edge capture. After
+accepting response 5, CPU1 executes the four-byte 3AC9/3B64 report delay and
+is at 3B6E/3B70 (or its timer interrupt) for every intervening CPU2 transition.
+The final low is released 6.886 ms before CPU1 emits pulse 6, so no edge is
+pending for the next level-polling call.
