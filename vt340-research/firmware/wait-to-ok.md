@@ -242,7 +242,8 @@ forced state was added.
 > control-flow evidence, but are no longer the current cold-boot timing.
 
 Removing CPU2's incorrect private E80 overlay exposed the board's real shared
-`e795` state. On the first startup transaction CPU1 writes `e795=00`; CPU2
+`e795` state. On the first startup transaction CPU2 reads the preexisting
+`e795=00`; CPU1 does not write its computed `e795=01` until later. CPU2
 therefore takes `132d-132f`, sets configuration bit `$20.5`, and calls `30f9`.
 The old mapping had left a destructive-POST pattern in a private EEPROM shadow,
 making this read nonzero and hiding the entire configuration path.
