@@ -1,0 +1,26 @@
+VT340 Phase 4 DC323 startup-table command summary
+=================================================
+
+Captured from the two CPU2 calls to 17CF between configuration entry 1325
+and the mailbox clear at 136D. Times are MAME emulation time.
+
+Each 17CF group submits 18 I/D commands, in this order:
+
+  0180 0181 0183 0188 0189 0184 0185 0186 0187
+  018B 018E 018F 0190 0191 0192 0194 0195 0196
+
+The two groups therefore submit 36 I/D commands total. Consecutive commands
+are normally 24 us apart. Each group has one 38 us gap between 0189 and 0184,
+and each complete group lasts 2.383 ms.
+
+The documented immediate command-spacing requirement is approximately 3 us.
+The observed 24 us spacing is already about eight times that minimum; omitted
+immediate-ready latency cannot add the approximately 6.9 ms required to put
+CPU1 pulse 6 before CPU2's 136D mailbox clear.
+
+The table stream also independently supports the generalized dump repair.
+The first table crosses E4 logical 60FF (CPU address E0FF). Raw offset 6000
+contains 3A, producing the coherent next command/value record `3A 38 88`.
+The naive one-byte rotation would use raw 6100 (`C5`) and break the otherwise
+ordered table. E3 logical 30FF is similarly constrained as `80`, producing
+the coherent `SJMP 3119` in the zero-configuration routine.
