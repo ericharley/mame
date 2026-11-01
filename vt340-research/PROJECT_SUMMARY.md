@@ -102,9 +102,10 @@ CPU2's XDATA handler separates shared RAM from the decoded video apertures:
 - DC7051 low/high timing-register apertures.
 - Diagnostic bitmap and graphics POST behavior.
 
-E80 is a CPU1-owned Xicor X2804 EEPROM. Its contents are undumped and the bus
-interface is not yet modeled; the ROM declaration preserves that dependency
-without exposing the earlier, incorrect CPU2 `e600-e7ff` overlay.
+E80 is a CPU1-owned Xicor X2804 EEPROM. Its 512-byte `23-001N2` image has been
+recovered, but the E10-latched bus interface is not yet modeled; the ROM
+declaration preserves that dependency without exposing the earlier, incorrect
+CPU2 `e600-e7ff` overlay.
 
 The raster path retains DC323 origins, extents, scale, mode, masks, source
 selection, and Viper logic functions. It supports the proven E49-to-bitmap

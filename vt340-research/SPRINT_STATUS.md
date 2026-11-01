@@ -81,6 +81,25 @@ the pre-ack DC323 table interval: determine whether command latency or an
 external DAT9 ownership interval lets CPU1 complete pulse/response 6 before
 CPU2 executes `136d`.
 
+That DC323 follow-up is now bounded as well. The two `17cf` groups contain 18
+I/D commands each (36 total), normally spaced 24 microseconds apart, and each
+group lasts 2.383 milliseconds. This already exceeds the documented minimum
+command spacing by about eight times, so ordinary missing-ready latency cannot
+add the required 6.9 milliseconds. The third recovered PAL, `23-336J5`, is
+E16—the output-map/palette decoder—not a DC323 or DAT9 ownership PAL. E78
+directly generates the DC323 `P3 DS L` select, and E16 has no DAT9 connection.
+The next Phase 4 branch is therefore ROM/board revision consistency and the
+exact CPU2 configuration-table selection, not another scheduler or PAL delay.
+
+The first ROM-consistency check supports the executed path. The independent
+9track `23-236E6` E49 image exactly matches the Avitech E49 dump. On the
+critical code path, E3 `30ff=80` is the coherent `SJMP 3119`, and E4's table
+boundary uses raw `6000=3a` to form command/value record `3a 38 88`; the naive
+rotated value `c5` would corrupt the table. No remaining page-boundary repair
+currently explains the extra table work. The next audit is the contract
+between CPU1's four fixed-delay `3ac9/3b64` SBUF writes and CPU2's rendezvous
+sequence.
+
 The same archive supplies the previously missing 512-byte `23-001N2` E80
 image. It contains structured setup data rather than an erased pattern. A
 live-P1 trace found no CPU1 external access while NVREN was low before the

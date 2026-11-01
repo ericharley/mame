@@ -58,8 +58,15 @@ that multiplexed behavior.
 The two startup table loaders deliberately enter at `bb5f` and `bb76`, after
 the optional Address Output Complete polls at `bba4`. They issue I/D commands
 about 24 microseconds apart; the Dragon specification requires only about 3
-microseconds before another command. No status poll is being prematurely
-satisfied on the path from response 5 to `136d`.
+microseconds before another command. A command-level trace now counts exactly
+18 I/D commands in each `17cf` group, 36 total. Consecutive commands are
+normally 24 microseconds apart, with one 38 microsecond gap between `0189`
+and `0184`; each complete group lasts 2.383 milliseconds. Existing spacing
+is already about eight times the documented minimum, so omitted immediate
+ready latency cannot supply the roughly 6.9 milliseconds needed to reverse
+the mailbox order. No status poll is being prematurely satisfied on the path
+from response 5 to `136d`. The exact sequence is recorded in
+`traces/phase4-table-command-summary.txt`.
 
 ### Timer-0 service is not sufficient to explain the ordering
 
@@ -231,17 +238,45 @@ remaining viable ordering mechanism is before `136d`: CPU1 must reach pulse 6
 while CPU2 is still producing pre-ack table/DAT9 transitions. The next audit
 returns to the duration and bus ownership of the DC323 table-transfer path.
 
+### All recovered PALs are now assigned
+
+The terminal-control parts list places its two J5 PALs at E16 and E78, not E15
+and E78. E15 is a bitmap DRAM. The remaining `23-336J5` fuse map is E16 and
+matches the output-map/palette address decoder shown on the schematic. Its
+pins carry CPU2 address, read/write, `AIOSEL`, and `WDS` signals; it has no
+DAT9/TSTATUS connection.
+
+The DC323 select is E78's `P3 DS L` output. Together with the direct-net audit,
+this rules out a missing PAL-controlled DAT9 ownership interval. The recovered
+PAL set now accounts for shared-memory control, DC323 selection, and output-map
+decoding without revealing any hardware mechanism that can reorder the two
+mailbox writes.
+
+### Critical ROM boundaries remain coherent
+
+The independent 9track `23-236E6` E49 image is byte-for-byte identical to the
+Avitech E49 dump used by this project. That does not identify the E1-E5
+cartridge revision, but it confirms both physical sources carry the same
+graphics character ROM.
+
+The two reconstructed boundaries on the immediate CPU2 configuration path are
+also independently constrained by instruction and table structure. E3
+`30ff=80` forms the coherent `SJMP 3119`. The first E4 graphics table crosses
+logical `60ff`: raw `6000=3a` produces the ordered command/value record
+`3a 38 88`, whereas the naive rotated raw `6100=c5` would introduce an invalid
+command into that table. The known page-transition reconstruction is therefore
+not adding the two `17cf` groups or their observed duration.
+
 ## Investigation sequence
 
-1. Count the exact DC323 I/D operations in both `17cf` table groups and map
-   their command classes to documented Address Output Complete/busy timing.
-   Determine whether any external DAT9 ownership interval is absent from the
-   current latch-only model.
-2. Perform a bounded timing experiment on that physical DC323 boundary. The
-   target is to place CPU1 pulse 6 before the native `136d` clear and let a
-   genuine pre-ack DAT9 transition complete response 6.
-3. Reconstruct the purpose of request value `10` and CPU1's following DAT9
+1. Reconstruct the purpose of request value `10` and CPU1's following DAT9
    pulse from both ROMs as an independent protocol check.
+2. Continue comparing the recovered E1-E5 set with any independently
+   identified VT340 cartridge revision. Current public archives identify E49,
+   E80, and the PALs but do not identify a second E1-E5 cartridge dump.
+3. Audit the CPU1 `3ac9/3b64` report-delay contract against the CPU2 rendezvous
+   sequence. Its four fixed-delay SBUF writes consume most of the ordering
+   gap and are now the narrowest unexplained firmware-level timing contract.
 4. Implement only verified physical behavior, remove all forcing, and run repeated
    cold boots plus the Phase 2/3 regressions.
 
