@@ -1,0 +1,61 @@
+VT340 Phase 4 controlled table-duration experiment
+==================================================
+
+Purpose
+-------
+
+Bound how much additional pre-136D DC323 table activity is required for
+CPU1's unchanged report/pulse sequence to produce the native mailbox order.
+This is a debugger-only timing experiment, not proposed hardware behavior.
+
+Method
+------
+
+`phase4-table-duration-experiment.lua` intercepts CPU2 at 133D, after its
+first authentic 17CF table group, and returns it to 133A for a selected number
+of extra executions.  It does not change table contents, either CPU's clock,
+the CPU1 report loop, DAT9 polling, or mailbox values.  After the configured
+repetitions, CPU2 executes its original second group and continues normally.
+
+Set `VT340_EXTRA_TABLE_GROUPS` to select the repetition count.  One group is
+2.385 ms in this breakpoint-instrumented run (2.383 ms in the command-only
+trace).
+
+Four extra groups: insufficient
+--------------------------------
+
+    8.222098  CPU1 accepts response 5
+    8.232810  fourth extra first-group execution completes
+    8.235677  CPU1 emits pulse 6, after the original second group has ended
+    8.238335  CPU2 executes 136D and writes zero
+    8.238353  CPU1 accepts the post-ack 1376/137C transition as response 6
+    8.238376  CPU1 writes request 10 after the zero
+
+The +9.540 ms extension does not repair ordering.
+
+Five extra groups: sufficient
+-----------------------------
+
+    8.222098  CPU1 accepts response 5
+    8.235195  fifth extra first-group execution completes
+    8.235677  CPU1 emits pulse 6 during the original second group
+    8.236748  CPU1 accepts a native pre-ack table transition as response 6
+    8.236771  CPU1 writes request 10
+    8.240716  CPU2 executes 136D and writes zero
+    8.250369  CPU1 accepts the authentic zero
+   13.211431  CPU2 writes the authentic result 80
+   13.211712  CPU1 observes result 80 at 3A3A
+
+The +11.925 ms extension repairs ordering without changing CPU1 timing or
+mailbox values.
+
+Conclusion
+----------
+
+The successful path needs not merely a later 136D write, but a usable DAT9
+table transition after pulse 6 and before 136D.  The threshold lies between
+four and five additional 2.385 ms table groups.  This is far beyond the
+DC323's approximately 3 us minimum command spacing and repeats 18-command
+configuration groups that the V1.1 ROM requests only twice.  It therefore
+rules against explaining the failure with ordinary omitted ready latency or a
+generic CPU stall.  No repetition belongs in the production driver.

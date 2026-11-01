@@ -118,6 +118,15 @@ yet a causal claim. No public V2.1 dump has been found; acquiring V2.1 or its
 `EK-VT3XX-RN-003` release notes is now the highest-value comparison before a
 production timing change is considered.
 
+The fallback table-duration experiment is complete. Repeating CPU2's
+authentic first `17cf` group four extra times (+9.540 ms) is insufficient;
+CPU1 still obtains response 6 only after `136d`. Five extra groups
+(+11.925 ms) are sufficient because pulse 6 then overlaps the native second
+group, allowing request `10` to precede CPU2's unchanged zero. This bounds the
+dependency but strongly rejects ordinary DC323-ready latency or a generic CPU
+stall: success requires continued DAT9 table transitions and five unrequested
+18-command groups. Nothing from this experiment is enabled in production.
+
 The same archive supplies the previously missing 512-byte `23-001N2` E80
 image. It contains structured setup data rather than an erased pattern. A
 live-P1 trace found no CPU1 external access while NVREN was low before the
@@ -302,8 +311,8 @@ Continue Phase 4 from the stable timeline in `PHASE4_PLAN.md`. Locate a V2.1
 cartridge dump or `EK-VT3XX-RN-003`, then compare CPU1 `3ac9/3b64`, CPU2's
 six `1701` rendezvous, and CPU2 `1325-136d` with the matched V1.1 firmware.
 The report-delay experiment is a dependency proof only. Do not shorten it,
-add a PC-qualified acknowledgement, or force a mailbox value in the normal
-configuration.
+repeat table groups, add a PC-qualified acknowledgement, or force a mailbox
+value in the normal configuration.
 
 ## Key references
 
