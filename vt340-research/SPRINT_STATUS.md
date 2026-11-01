@@ -100,6 +100,24 @@ currently explains the extra table work. The next audit is the contract
 between CPU1's four fixed-delay `3ac9/3b64` SBUF writes and CPU2's rendezvous
 sequence.
 
+A controlled debugger experiment now proves that contract is the immediate
+dependency. Shortening only the two inner delay loops for the four-byte report
+after response 5 moves pulse 6 into CPU2's still-active table transfer. Native
+CPU1 then posts `7ff2=10` at 8.222455 s, native CPU2 clears it at 8.228779 s,
+and CPU1 consumes the authentic zero and later result `80`. This is diagnostic
+evidence only: TMOD=`21`, TH1=`f3`, PCON=`ff` establishes approximately
+4800-baud UART pacing, so the fixed report delay is intentional and remains
+unchanged in production. See `traces/phase4-report-delay-summary.txt`.
+
+The firmware provenance is also resolved more precisely. Archive photographs
+show that all five dumps came from one cartridge labeled `VT330/340 V1.1`,
+and E5 contains localized V1.1 version text. DEC field-change order
+VT330-I001 replaced this cartridge with V2.1 because multiple V1.1 bugs were
+corrected. The order does not name the current startup timing, so this is not
+yet a causal claim. No public V2.1 dump has been found; acquiring V2.1 or its
+`EK-VT3XX-RN-003` release notes is now the highest-value comparison before a
+production timing change is considered.
+
 The same archive supplies the previously missing 512-byte `23-001N2` E80
 image. It contains structured setup data rather than an erased pattern. A
 live-P1 trace found no CPU1 external access while NVREN was low before the
@@ -280,12 +298,12 @@ vt340-research/tests/phase2-closeout.sh ./vt340
 
 ## Recommended next work
 
-Continue Phase 4 from the stable timeline in `PHASE4_PLAN.md`. Account for
-the CPU1 interval from response 5 through pulse 6 and the CPU2 interval from
-configuration entry through `136d`, then test the first identified physical
-timing or pin-level dependency. Scheduler quantum and CPU1 timer-0 service are
-already ruled out as sufficient causes. Do not add a PC-qualified
-acknowledgement or force a mailbox value in the normal configuration.
+Continue Phase 4 from the stable timeline in `PHASE4_PLAN.md`. Locate a V2.1
+cartridge dump or `EK-VT3XX-RN-003`, then compare CPU1 `3ac9/3b64`, CPU2's
+six `1701` rendezvous, and CPU2 `1325-136d` with the matched V1.1 firmware.
+The report-delay experiment is a dependency proof only. Do not shorten it,
+add a PC-qualified acknowledgement, or force a mailbox value in the normal
+configuration.
 
 ## Key references
 
