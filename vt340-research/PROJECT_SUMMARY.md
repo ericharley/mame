@@ -71,7 +71,7 @@ contention or arbitration delays.
 Known communication mechanisms include:
 
 - `7ff1`: CPU1/CPU2 initialization completion mailbox.
-- `7ff2`: startup request and CPU2 POST result exchange.
+- `7ff2`: CPU1 pending sentinel and CPU2 checkpoint/final-result state.
 - `7e00-7e7d`: command-ring data.
 - `7e7e`: CPU1 producer index.
 - `7e7f`: CPU2 consumer index.
@@ -192,16 +192,17 @@ Tracked Lua scripts and disassemblies make the important paths reproducible.
 2. CPU1 releases CPU2; both processors complete their native startup and
    DAT9/T1 rendezvous paths.
 3. CPU2 renders `Wait` from E49 and begins its graphics configuration.
-4. CPU2 clears the `7ff2` acknowledgement at approximately 8.228779 s.
+4. CPU2 publishes the `7ff2=00` checkpoint at approximately 8.228779 s.
 5. CPU1 emits its next DAT9 pulse approximately 6.898 ms later, but does not
-   post `7ff2=10` until approximately 8.295773 s.
-6. CPU1 waits for an acknowledgement that CPU2 has already issued. CPU2 later
+   install pending sentinel `7ff2=10` until approximately 8.295773 s.
+6. CPU1 waits for a checkpoint that CPU2 has already issued. CPU2 later
    writes the authentic `7ff2=80` result and enters operational E4 firmware,
    but CPU1 cannot consume the result through the missed state transition.
 
 The older command-32/ring experiment remains valid Phase 2 control-flow
 evidence, but the corrected ROM baseline exposes this earlier Phase 4
-request/acknowledgement ordering as the first failing boundary.
+sentinel/checkpoint ordering as the first failing boundary. CPU2 never reads
+`7ff2`; `10` is not a request notification.
 
 ## Known provisional or incomplete behavior
 

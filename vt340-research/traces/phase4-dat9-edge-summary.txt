@@ -42,7 +42,7 @@ time (s)     source  writer PC  CPU1 PC  transition / meaning
 8.235689000  CPU1    3B98       3B98     0->1 pulse 6 ends
 8.295622000  CPU2    BB82       3BAB     1->0 response 6 begins
 8.295742000  CPU2    BB82       3BBF     0->1 response 6 ends
-8.295773000  CPU1    3A0D       3A0D     writes request 7FF2=10
+8.295773000  CPU1    3A0D       3A0D     writes pending sentinel 7FF2=10
 
 CPU1 routine 3BA0-3BCE polls the live P3.5 level: it first waits for low at
 3BAB, then waits for high at 3BBC. It does not use Timer 1 edge capture. After

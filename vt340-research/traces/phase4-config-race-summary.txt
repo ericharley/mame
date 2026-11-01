@@ -1,0 +1,48 @@
+VT340 Phase 4 E795 control-byte experiment
+==========================================
+
+Question
+--------
+
+CPU2 reads shared E795 at 1325 immediately after its sixth 1701 rendezvous.
+CPU1 writes E795 immediately before it installs the 7FF2 pending sentinel.
+Could CPU2 be consuming a stale configuration byte and thereby taking the
+wrong path to the 136D checkpoint?
+
+Observed native ordering
+------------------------
+
+  8.220509  CPU1 emits pulse 5
+  8.220511  pulse 5 releases CPU2's 1322 rendezvous; CPU2 reads E795=00
+  8.228779  CPU2 writes checkpoint 7FF2=00
+  8.235677  CPU1 emits pulse 6
+  8.295750  CPU1 accepts response 6
+  8.295768  CPU1 writes its computed E795=01
+  8.295773  CPU1 installs pending sentinel 7FF2=10
+
+The CPU2 sequence is therefore launched by the DAT9 rendezvous, not by the
+7FF2 value. CPU1's E795 update is also intentionally downstream of CPU2's
+current read in the executed ROM order.
+
+Controlled experiment
+---------------------
+
+`phase4-config-race-experiment.lua` writes 01 to E795 at CPU2 1325, the exact
+decision point, then leaves both processors' PCs and all other state alone.
+CPU2 takes its authentic nonzero branch at 1334.
+
+  8.220511  force E795=01 at CPU2 1325
+  8.220518  CPU2 enters nonzero path 1334
+  8.228431  CPU2 writes checkpoint 00
+  8.295423  CPU1 installs pending sentinel 10
+  8.769443  CPU2 writes final result 80
+
+Result
+------
+
+The nonzero path moves the checkpoint 0.348 ms earlier, increasing the bad
+checkpoint-before-sentinel lead. It also skips later work and publishes the
+final result about 4.43 seconds earlier, while CPU1 is still trapped in its
+checkpoint loop. E795 path selection is therefore not the missing behavior
+that can restore sentinel -> checkpoint -> result ordering. The forced value
+is diagnostic only and is not enabled in the driver.
