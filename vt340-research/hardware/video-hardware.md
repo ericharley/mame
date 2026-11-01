@@ -23,6 +23,14 @@ major read supplies 64 pixels, so `014d` establishes a physical scan width of
 13 * 64 = 832 pixels.  The configured MAME screen exposes the observed 800
 active pixels from that scan.
 
+Register 3 is a read-status/write-clear register during normal operation.
+Dragon defines bit 0 as Pause Complete and bit 1 as Scroll Service; both are
+sticky at the vertical frame boundary, gated onto the interrupt output by the
+matching register-2 enable bits, and cleared when firmware writes a zero to
+the status bit. CPU2 routine `1bd2` uses this contract to wait for and
+acknowledge eight Pause Complete events. Bits 2-5 report the previously
+documented raster/address/I-D completion conditions.
+
 The first observed text rasterops have been decoded from the E4 firmware and
 runtime register stream.  Later synchronized POST work showed that the
 resulting `Wait` display belongs to the delayed-status/failure path rather than

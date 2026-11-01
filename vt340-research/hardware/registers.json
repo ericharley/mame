@@ -18,15 +18,17 @@
       "device": "E70 DC323 Adder",
       "register": 3,
       "access": "read",
-      "implemented_low_byte_or_mask": "3c",
+      "implemented_low_byte_or_mask": "3f",
       "bits": {
+        "0": "pause complete; sticky at vertical frame boundary",
+        "1": "scroll service; sticky at vertical frame boundary",
         "2": "rasterop initialization complete",
         "3": "rasterop complete",
         "4": "address output complete",
         "5": "I/D data receive ready"
       },
       "evidence": "E5 firmware c043-c049",
-      "implementation": "ready mask supplied at the firmware's confirmed polling sites",
+      "implementation": "bits 0/1 are enabled by register 2, set at the frame boundary, and cleared by writing zero to register 3; ready mask 3c remains supplied at confirmed polling sites",
       "confidence": "high"
     },
     {
