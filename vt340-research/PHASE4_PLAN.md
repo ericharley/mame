@@ -267,16 +267,55 @@ logical `60ff`: raw `6000=3a` produces the ordered command/value record
 command into that table. The known page-transition reconstruction is therefore
 not adding the two `17cf` groups or their observed duration.
 
+### Controlled report-delay experiment identifies the immediate dependency
+
+`traces/phase4-report-delay-experiment.lua` shortens only the two inner DJNZ
+loops in the four-byte CPU1 report immediately after response 5. It preserves
+the SBUF writes, calls, stack operations, three-iteration outer loop, and both
+processors' native control flow. CPU1 then emits pulse 6 at 8.222291 s,
+accepts a native table transition as response 6 at 8.222432 s, and writes the
+authentic `7ff2=10` request at 8.222455 s. CPU2's unchanged `136d` write
+clears it at 8.228779 s; CPU1 consumes that zero at 8.236053 s and later
+consumes CPU2's authentic `80` result at 13.194734 s.
+
+This is the smallest controlled timing experiment that restores the native
+request -> zero -> `80` order. It is not a production fix. CPU1 configures
+TMOD=`21`, TH1=`f3`, and PCON=`ff`; at the schematic 12 MHz clock that is
+approximately 4807.7 baud, or 2.08 ms per 8N1 character. The approximately
+3.07 ms software delay around each byte is plainly deliberate UART pacing.
+The 8031 clock, instruction timing, and report loop must remain unchanged.
+The complete method and timestamps are in
+`traces/phase4-report-delay-summary.txt`.
+
+### The public cartridge dump is a matched V1.1 set
+
+The Avitech archive photographs show the terminal's installed rear cartridge
+labeled `VT330/340 V1.1`; its opened-cartridge photographs show all five
+E1-E5 devices on one PCB. E5 also contains localized `V1.1` setup-directory
+text. The CPU1 and CPU2 images are therefore a matched V1.1 firmware set, not
+an accidental cross-revision mixture.
+
+DEC field-change order VT330-I001 required replacement of the V1.1 cartridge
+with `VT330/340 V2.1`, part `70-22623-04 REV. C01`, because multiple V1.1
+firmware bugs were corrected. The order does not identify this startup timing
+as one of those bugs, so revision alone is not yet a causal explanation. No
+public V2.1 E1-E5 dump has been located. A V2.1 dump or release note
+`EK-VT3XX-RN-003` is now the strongest independent comparison for the
+CPU1 `3b64` report contract and CPU2 `1325-136d` table path.
+
+Sources: [Avitech VT340 internals](https://avitech.com.au/?page_id=1964) and
+[DEC FCO VT330-I001](https://manx-docs.org/collections/mds-199909/cd2/fco/vt330i01.pdf).
+
 ## Investigation sequence
 
-1. Reconstruct the purpose of request value `10` and CPU1's following DAT9
+1. Obtain V2.1 cartridge images or `EK-VT3XX-RN-003`, then compare CPU1
+   `3ac9/3b64`, the six CPU2 `1701` rendezvous, and CPU2 `1325-136d` against
+   the matched V1.1 set.
+2. Reconstruct the purpose of request value `10` and CPU1's following DAT9
    pulse from both ROMs as an independent protocol check.
-2. Continue comparing the recovered E1-E5 set with any independently
-   identified VT340 cartridge revision. Current public archives identify E49,
-   E80, and the PALs but do not identify a second E1-E5 cartridge dump.
-3. Audit the CPU1 `3ac9/3b64` report-delay contract against the CPU2 rendezvous
-   sequence. Its four fixed-delay SBUF writes consume most of the ordering
-   gap and are now the narrowest unexplained firmware-level timing contract.
+3. If V2.1 is unavailable, bound which additional pre-`136d` table interval
+   would be required to reproduce the successful controlled ordering, while
+   continuing to reject PC-qualified delay or mailbox fixes.
 4. Implement only verified physical behavior, remove all forcing, and run repeated
    cold boots plus the Phase 2/3 regressions.
 

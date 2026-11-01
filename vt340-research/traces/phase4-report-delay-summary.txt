@@ -1,0 +1,58 @@
+VT340 Phase 4 controlled report-delay experiment
+================================================
+
+Purpose
+-------
+
+Test whether CPU1's four-byte report interval after response 5 is the timing
+boundary that prevents the native request/acknowledgement order.  This is a
+debugger-only dependency experiment, not proposed hardware behavior.
+
+Method
+------
+
+`phase4-report-delay-experiment.lua` activates only after CPU1 accepts its
+fifth regular DAT9 response at 3BC8.  For the immediately following four-byte
+report, it changes R0 to 1 at both DJNZ loops (3B6E and 3B70).  Calls, stack
+operations, all three outer iterations, the SBUF writes, and both processors'
+program counters remain native.  The intervention removes itself at 3AE1.
+
+The normal firmware routine is:
+
+    3B64  CLR TI / MOV SBUF,A
+    3B68  MOV A,#03
+    3B6A  PUSH R0
+    3B6C  MOV R0,#00
+    3B6E  DJNZ R0,3B6E
+    3B70  DJNZ R0,3B70
+    3B72  DEC A / JNZ 3B6C
+
+CPU1 configures TMOD=21, TH1=F3, PCON=FF at 3B78.  With the schematic 12 MHz
+8031 clock and SMOD=1, the internal UART rate is approximately 4807.7 baud;
+one 10-bit 8N1 character is approximately 2.08 ms.  The two 256-iteration
+DJNZ loops repeated three times take approximately 3.072 ms plus surrounding
+instructions.  The delay is therefore deliberate UART pacing and must not be
+removed in the production driver.
+
+Observed emulation-time path
+----------------------------
+
+    8.222098  CPU1 accepts response 5
+    8.222281  shortened four-byte report completes
+    8.222291  CPU1 emits pulse 6
+    8.222432  CPU1 accepts response 6 from a native CPU2 table transition
+    8.222455  CPU1 writes the authentic request 7FF2=10
+    8.228779  CPU2 executes its authentic 136D write; 7FF2 becomes 00
+    8.236053  CPU1 accepts the authentic zero
+   13.194727  CPU2 writes the authentic result 7FF2=80
+   13.194734  CPU1 observes result 80 at 3A3A
+
+Result
+------
+
+Shortening only this one report interval is sufficient for unmodified ROM
+control flow to obtain request -> zero -> 80 ordering.  The experiment proves
+that the report/table timing relationship is the immediate dependency.  It
+does not justify changing the 8031 clock, instruction timing, UART delay, or
+mailbox semantics.  A valid correction must explain why real matched firmware
+places CPU1 pulse 6 within CPU2's pre-136D table interval.
