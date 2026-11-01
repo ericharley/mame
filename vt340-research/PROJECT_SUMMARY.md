@@ -50,11 +50,16 @@ flowchart LR
 - CPU2 performs video POST, timing work, command dispatch, and graphics setup.
   It uses the MAME I8031 core.
 - Both processors run from the board's 12 MHz clock.
+- The shared MCS-51 core models SBUF's direction-selected hardware latches:
+  writes start transmission without overwriting the receive value returned by
+  reads. This is required by CPU1's negative-loopback POST.
 - CPU1 maps E1 at `0000-7fff` and E2 at `8000-ffff`.
 - CPU2 maps E3 at `0000-7fff`; P3.3 selects E4 or E5 in the upper half.
-- The published dumps are displaced by one byte. ROM declarations rotate the
-  files during load and reconstruct individually proven corrupt boundary and
-  checksum bytes with `ROM_FILL`. The original ROM files are not modified.
+- The published dumps are displaced by one byte and have a systematic page-
+  transition artifact. The driver retains the raw files, reconstructs all 630
+  recoverable page-final positions at initialization, and derives each missing
+  checksum tail from the firmware's rotate/XOR test. The original ROM files
+  are not modified; see `firmware/rom-dump-reconstruction.md`.
 
 ### Shared memory and communication
 
@@ -73,8 +78,9 @@ Known communication mechanisms include:
 - DC323 active-low interrupt request: CPU2 INT0/frame service.
 
 Short DAT9/T1 pulses are retained only at the firmware's known rendezvous so
-they survive MAME scheduling boundaries. A 10 microsecond maximum quantum and
-CPU1 perfect quantum keep both processors synchronized during startup.
+they survive MAME scheduling boundaries. Controlled Phase 4 tests removed the
+former perfect-quantum selection, 10 microsecond maximum quantum, and
+request-specific retained pulse without changing the startup event sequence.
 
 ### CPU1 peripherals
 
@@ -93,8 +99,11 @@ CPU2's XDATA handler separates shared RAM from the decoded video apertures:
 - DC323 Adder registers in the mirrored `f?00-f?3f` window.
 - E51/E52 16-entry red and green/blue palette apertures.
 - DC7051 low/high timing-register apertures.
-- E80 EEPROM at `e600-e7ff` after POST ownership changes.
 - Diagnostic bitmap and graphics POST behavior.
+
+E80 is a CPU1-owned Xicor X2804 EEPROM. Its contents are undumped and the bus
+interface is not yet modeled; the ROM declaration preserves that dependency
+without exposing the earlier, incorrect CPU2 `e600-e7ff` overlay.
 
 The raster path retains DC323 origins, extents, scale, mode, masks, source
 selection, and Viper logic functions. It supports the proven E49-to-bitmap
@@ -143,8 +152,10 @@ behavior and are not treated as final hardware models.
 
 A damaged dump byte is reconstructed only when surrounding instruction flow,
 call contracts, runtime behavior, and the ROM's own checksum constrain the
-value. Each reconstruction is documented next to its `ROM_FILL`. This has
-replaced earlier synthetic continuations with native firmware execution.
+value. The reconstruction algorithm and its independently constrained
+descriptor repair are documented in `firmware/rom-dump-reconstruction.md`.
+This has replaced earlier synthetic continuations with native firmware
+execution.
 
 ### Controlled experiments
 
@@ -161,6 +172,12 @@ The repository provides:
 - A basic executable/ROM smoke test in `tests/smoke.sh`.
 - A Phase 2 normal-path and controlled-handshake regression in
   `tests/phase2-closeout.sh`.
+- A Phase 3 low-ROM and operational-entry checkpoint in
+  `tests/phase3-checkpoint.sh`.
+- A complete recoverable-ROM boundary audit in
+  `tests/rom-boundary-audit.sh`.
+- The current synchronization boundary in
+  `traces/phase4-sync-baseline.lua`.
 - Concise timestamped evidence in
   `traces/wait-to-ok/phase2-event-summary.txt`.
 
@@ -169,20 +186,20 @@ Tracked Lua scripts and disassemblies make the important paths reproducible.
 
 ## Current boot path
 
-1. CPU1 and CPU2 execute their ROM tests and board initialization.
-2. CPU1 and CPU2 exchange DAT9/T1 handshakes and shared mailbox values.
-3. CPU2 reports POST success with `7ff2=80`.
-4. CPU2 renders `Wait` from E49 and sets latch `60bb=01`.
-5. CPU1 submits its initial graphics command stream; CPU2's repaired native
-   dispatcher consumes it normally.
-6. CPU1 reaches `41f7` with `B=40`, takes the `B.6` retry path, and does not
-   submit command 32 during an ordinary boot.
-7. A debugger-only clear of `B.6` makes original CPU1 firmware submit command
-   32. CPU2 executes handler `db98`, then waits at `dc02` because producer
-   `7e7e` equals consumer `7e7f`.
-8. A bounded diagnostic ring transition makes native firmware branch through
-   `dc18` and clear `60bb` at `dc1c`. The real source of that event is not yet
-   known, so no equivalent behavior exists in the production driver.
+1. CPU1 holds CPU2 in reset while it executes its ROM and board tests.
+2. CPU1 releases CPU2; both processors complete their native startup and
+   DAT9/T1 rendezvous paths.
+3. CPU2 renders `Wait` from E49 and begins its graphics configuration.
+4. CPU2 clears the `7ff2` acknowledgement at approximately 8.228779 s.
+5. CPU1 emits its next DAT9 pulse approximately 6.898 ms later, but does not
+   post `7ff2=10` until approximately 8.295773 s.
+6. CPU1 waits for an acknowledgement that CPU2 has already issued. CPU2 later
+   writes the authentic `7ff2=80` result and enters operational E4 firmware,
+   but CPU1 cannot consume the result through the missed state transition.
+
+The older command-32/ring experiment remains valid Phase 2 control-flow
+evidence, but the corrected ROM baseline exposes this earlier Phase 4
+request/acknowledgement ordering as the first failing boundary.
 
 ## Known provisional or incomplete behavior
 
@@ -190,7 +207,7 @@ Tracked Lua scripts and disassemblies make the important paths reproducible.
 - Short DAT9/T1 handshakes use narrowly scoped pulse retention.
 - The LK201 power-on reply is synthesized rather than produced by a keyboard
   device.
-- E80 has no dump and starts erased.
+- E80 has no dump and its CPU1 bus interface is not yet modeled.
 - Some graphics POST/status behavior remains PC-qualified.
 - Destination-only/source-2 operations, fill modes, scrolling, complete
   palette initialization, and sound are incomplete.
@@ -208,4 +225,5 @@ Tracked Lua scripts and disassemblies make the important paths reproducible.
 | `vt340-research/tests/` | Smoke and deterministic closeout tests |
 | `vt340-research/tools/` | ROM inspection and E49 decoding utilities |
 | `vt340-research/SPRINT_STATUS.md` | Current sprint result and next work |
-| `vt340-research/PHASE3_PLAN.md` | Next investigation plan and acceptance criteria |
+| `vt340-research/PHASE3_CLOSEOUT.md` | Completed Phase 3 evidence and Phase 4 handoff |
+| `vt340-research/PHASE4_PLAN.md` | Active synchronization investigation and acceptance criteria |

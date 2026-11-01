@@ -21,8 +21,10 @@
 - [x] Pass the DC323 bitmap AA, zero/readback, complement, and final clear sweeps.
 - [x] Retain the aliased DC7051 F080-F0BF timing-register apertures.
 - [x] Pass the DC7051 vertical-period check at the ROM's accepted `0cfb-0cfd` count.
-- [x] Resolve the initial multiplexed DAT9 status/report phases and CPU1's
+- [x] Identify the initial multiplexed DAT9 status/report phases and CPU1's
   `7ff2=10` / CPU2 `7ff2=80` POST report exchange.
+- [ ] Correct the startup ordering so CPU1 posts `7ff2=10` before CPU2 clears
+  the acknowledgement and returns `7ff2=80`.
 - [x] Model DC323 register 3's separate control-write/status-read behavior so
   each level-triggered frame interrupt is acknowledged exactly once.
 - [x] Add exact 800x500 active raster timing and a MAME screen device.

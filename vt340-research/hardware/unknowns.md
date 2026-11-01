@@ -84,14 +84,17 @@
 - Rejected explanations: the banner is not hidden in the off-screen E49
   initialization grid, is not waiting behind a PBT command, and is not exposed
   by the final DC323 offset/index/scroll state (all are zero).
-- Current lead: CPU1 reaches `41f7` with `B=40`, so `B.6` prevents command 32.
-  Clearing only that decision bit makes original firmware submit command 32;
-  CPU2 executes its repaired handler through `dc02`, where it waits because
-  ring producer `7e7e` equals consumer `7e7f`.
+- Historical Phase 2 lead: CPU1 reached `41f7` with `B=40`, so `B.6` prevented
+  command 32. Clearing only that decision bit made original firmware submit
+  command 32; CPU2 executed its repaired handler through `dc02`, where it
+  waited because ring producer `7e7e` equaled consumer `7e7f`.
 - Controlled result: making one debugger-only ring slot visible at `dc02`
   takes the native carry branch to `dc18` and clears `60bb` at `dc1c`.
-- Status: unresolved but bounded to the real source of the missing CPU1 ring
-  event; this is not a missing raster primitive or dispatcher return path.
+- Current Phase 4 boundary: after full ROM reconstruction and correction of
+  the MCS-51 SBUF latches, CPU2 clears `7ff2` before CPU1 posts request `10`.
+  CPU1 consequently misses the required zero acknowledgement and cannot
+  consume CPU2's later authentic result `80`. This is not a missing raster
+  primitive or dispatcher return path.
 
 ## CPU2 ROM bank polarity for the dumped cartridge - resolved
 

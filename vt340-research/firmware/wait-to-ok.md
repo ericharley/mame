@@ -235,10 +235,111 @@ the request, but CPU2 then waits at `dc02` for a ring event that never occurs.
 No hardcoded string, display command, PC-triggered success path, or permanent
 forced state was added.
 
+## Phase 3: CPU2 low-ROM configuration path
+
+> **Superseded timing note:** the isolated repairs and timeline in this section
+> preceded the full E1-E5 page-boundary reconstruction. They remain useful as
+> control-flow evidence, but are no longer the current cold-boot timing.
+
+Removing CPU2's incorrect private E80 overlay exposed the board's real shared
+`e795` state. On the first startup transaction CPU1 writes `e795=00`; CPU2
+therefore takes `132d-132f`, sets configuration bit `$20.5`, and calls `30f9`.
+The old mapping had left a destructive-POST pattern in a private EEPROM shadow,
+making this read nonzero and hiding the entire configuration path.
+
+Three E3 page-boundary defects were identified. The published Arduino dumper
+writes the high address port, then the low address port, and samples without a
+settling delay. At the relevant page crossings, the authentic logical `xxff`
+byte survives in raw offset `xx00`, independently confirming each repair:
+
+| E3 logical byte | Dumped | Raw proof | Reconstructed | Effect |
+|---|---:|---:|---:|---|
+| `14ff` | `22` | raw `1400=e5` | `e5` | Continues `MOV A,DPL`; avoids an empty-frame `RET` to reset vector zero |
+| `30ff` | `63` | raw `3000=80` | `80` | `SJMP 3119`; selects the second hardware table instead of entering malformed code |
+| `48ff` | `64` | raw `4800=75` | `75` | Restores `MOV P1,#00` at the start of the four-phase transfer |
+
+With these repairs E3's rotate/XOR checksum tail is `55`. No synthetic stack
+or continuation is involved.
+
+The newly reached routine `1bd2` also exposed missing DC323 register-3
+semantics. DEC's Dragon specification identifies bit 0 as Pause Complete and
+bit 1 as Scroll Service. They are sticky frame-boundary status conditions,
+enabled through register 2 and cleared by writing zeroes to register 3. The
+driver now implements those device semantics rather than returning a
+PC-qualified value. CPU2 completes each eight-frame wait naturally.
+
+The corrected unforced timeline is:
+
+| Emulated time | Event |
+|---:|---|
+| 7.970617 s | CPU2 reads shared `e795=00` |
+| 7.970627 s | CPU2 enters repaired `30f9` configuration routine |
+| 7.977888 s | CPU2 acknowledges CPU1 request with `7ff2=00` |
+| 12.842099 s | CPU2 crosses repaired `14ff` without returning to reset |
+| 12.994345 s | CPU2 writes authentic result `7ff2=80` at `1639` |
+| 12.994357 s | CPU1 observes the result at `3a3a` |
+| 13.084467 s | CPU2 jumps to operational E4 firmware at `16ef` |
+| 19.380864 s | CPU1 reaches `41f7` with preserved `B=40` |
+| 19.380877 s | CPU1 submits the still-unresolved second `7ff2=10` request |
+
+Thus Phase 3 has validated the native low-ROM stack/return path and completed
+the previously hidden full hardware test. The remaining `Wait` blocker is now
+later and narrower: after a successful first CPU2 transaction, CPU1's `B.6`
+path requests a second graphics test while CPU2 is already in operational E4
+firmware. The source of the state that should prevent or service that retry is
+still unresolved.
+
+`tests/phase3-checkpoint.sh` verifies a single reset entry, native
+`30f9 -> 3119`, continuation across `14ff`, absence of the old `3106` dead
+loop, result `7ff2=80`, and entry to operational E4 firmware.
+
+## Phase 3 ROM-boundary baseline
+
+The page-crossing mechanism applies to all five processor ROMs. The current
+driver reconstructs every recoverable logical `01ff` through `7eff` byte from
+raw `xx00`, rather than maintaining a growing list of individual `ROM_FILL`
+repairs. Across E1-E5, 613 byte values change. The resulting checksum tails
+are E1 `8e`, E2 `77`, E3 `62`, E4 `eb`, and E5 `6e`.
+
+The newly restored E1 `38ff=78` makes CPU1 execute its intended UART check and
+then clear P1.0, the schematic's active-high CPU2 reset net. Restored CPU1
+`3aff` returns that path to the main POST instead of the error reporter. The
+first physically sequenced boot now records:
+
+| Emulated time | Event |
+|---:|---|
+| 0.000002 s | CPU1 asserts P1 RESET H; CPU2 remains at reset vector |
+| 0.558338 s | CPU1 clears P1.0 and releases CPU2 |
+| 0.573882 s | CPU1/CPU2 DAT9 rendezvous reaches CPU1 success path `3952` |
+| 8.228872 s | CPU2 clears `7ff2` before CPU1's request write |
+| 8.295870 s | CPU1 submits the first `7ff2=10` startup request |
+| 13.194725 s | CPU2 writes result `7ff2=80` |
+
+The current post-audit blocker is ordering: CPU2 acknowledges before CPU1
+writes the request, then writes the result without a second zero transition.
+CPU1's `3a18-3a21` loop waits specifically for zero and therefore ignores the
+later `80`. At 30 s CPU1 remains in `3a18`. The physical DAT9/mailbox ordering
+is the next Phase 4 trace boundary. Full reconstruction evidence and the five
+unrecoverable-but-structurally-valid `00ff` classifications are in
+`firmware/rom-dump-reconstruction.md`.
+
+## Phase 3 closeout and Phase 4 boundary
+
+CPU1's first POST serial check also exposed an MCS-51 core issue independent
+of the ROM reconstruction. SBUF uses separate transmit and receive latches in
+the physical 8031. A write of `55` must not change the value returned by a
+subsequent SBUF read. After correcting the core, CPU1 observes receive `00`,
+keeps `B=40`, and avoids the false `B=bf` error path.
+
+The native dispatcher and CPU2 execution-integrity work are therefore closed.
+The exact remaining fault is the Phase 4 synchronization handoff documented
+in `PHASE3_CLOSEOUT.md`: CPU2 clears `7ff2` before CPU1 posts `10`, while CPU1
+requires a zero after that post before it can consume result `80`.
+
 ## Remaining synthetic behavior
 
 The CPU2 continuation stack injection is no longer present. Other known
 synthetic or provisional hardware behavior remains outside this phase,
 including retained short T1 handshake observations, the synthetic LK201
-power-on byte sequence, erased E80 EEPROM contents, and incomplete graphics
-device semantics. None was changed in this round.
+power-on byte sequence, the undumped and currently unmapped CPU1-owned E80,
+and incomplete graphics device semantics. None was changed in this round.
