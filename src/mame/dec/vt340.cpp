@@ -75,6 +75,7 @@ public:
 	}
 
 	void vt340(machine_config &config);
+	void init_vt340();
 
 private:
 	required_device<mcs51_cpu_device> m_cpu1;
@@ -111,8 +112,8 @@ private:
 	u32 m_bitmap_test_reads = 0;
 	u8 m_adder_test_data = 0;
 	bool m_adder_raster_test = false;
-	std::array<u8, 0x200> m_eeprom{};
 	std::array<u16, 0x40> m_adder_regs{};
+	u16 m_adder_status = 0;
 	std::array<u16, 0x20> m_viper_regs{};
 	std::array<u8, 16> m_dc7051_low{};
 	std::array<u8, 16> m_dc7051_high{};
@@ -157,6 +158,53 @@ private:
 	TIMER_CALLBACK_MEMBER(keyboard_tick);
 	void trace_exit();
 };
+
+
+void vt340_state::init_vt340()
+{
+	// The published Arduino dump changes the high address byte before the low
+	// byte and samples without a settling delay.  Apart from byte zero, the
+	// file is one byte behind the requested address.  At each page transition,
+	// raw xx00 consequently preserves logical xxFF while the usual shifted
+	// reconstruction incorrectly substitutes the following page's last byte.
+	auto reconstruct = [this](char const *destination, u32 destination_offset, char const *source)
+	{
+		u8 *const dest = memregion(destination)->base() + destination_offset;
+		u8 const *const raw = memregion(source)->base();
+
+		std::copy_n(raw + 1, 0x7fff, dest);
+		for (u32 page = 1; page < 0x7f; page++)
+			dest[(page << 8) | 0xff] = raw[page << 8];
+	};
+
+	auto finish_checksum = [this](char const *region, u32 offset, u8 seed)
+	{
+		u8 *const data = memregion(region)->base() + offset;
+		u8 checksum = seed;
+		for (u32 address = 0; address < 0x7fff; address++)
+			checksum = u8((data[address] << 1) | (data[address] >> 7)) ^ checksum;
+		data[0x7fff] = u8((checksum >> 1) | (checksum << 7));
+	};
+
+	reconstruct("cpu1low", 0x0000, "e1raw");
+	reconstruct("cpu1high", 0x0000, "e2raw");
+	reconstruct("cpu2low", 0x0000, "e3raw");
+	reconstruct("cpu2banks", 0x0000, "e4raw");
+	reconstruct("cpu2banks", 0x8000, "e5raw");
+
+	// This descriptor byte is an independent non-boundary dump defect.  CPU1
+	// emits command 21 as FF 21 01 xx, so the E4 descriptor is length 02 and
+	// handler C569; dumped 69 would consume the following packets as payload.
+	memregion("cpu2banks")->base()[0x622d] = 0x02;
+
+	// The last byte was not captured.  The firmware's rotate/XOR POST yields
+	// its unique value after all recoverable page-boundary bytes are restored.
+	finish_checksum("cpu1low", 0x0000, 0x07);
+	finish_checksum("cpu1high", 0x0000, 0x08);
+	finish_checksum("cpu2low", 0x0000, 0x07);
+	finish_checksum("cpu2banks", 0x0000, 0x08);
+	finish_checksum("cpu2banks", 0x8000, 0x09);
+}
 
 
 void vt340_state::cpu1_program_map(address_map &map)
@@ -240,7 +288,7 @@ u8 vt340_state::cpu2_xdata_r(offs_t offset)
 	// bitmap memory through the DC323 rather than processor RAM.  The sweep
 	// covers the complete 16-bit address space and ends when the address wraps.
 	// After all bitmap sweeps and two success handshakes, 1325 is the first
-	// normal decoded read (the E80 EEPROM probe).
+	// normal decoded read on the shared-memory configuration path.
 	if (m_bitmap_test_active && (m_cpu2->pc() == 0x1329))
 	{
 		m_bitmap_test_active = false;
@@ -263,11 +311,6 @@ u8 vt340_state::cpu2_xdata_r(offs_t offset)
 			m_cpu1_status = 1;
 		return 0x55;
 	}
-
-	// E80 is an undumped Xicor X2804 (512 x 8).  Its aperture becomes visible
-	// after destructive RAM POST; an erased device reads as all ones.
-	if (m_cpu1_status && (offset >= 0xe600) && (offset <= 0xe7ff))
-		return m_eeprom[offset & 0x1ff];
 
 	// E16 decodes two 16-entry output-map apertures.  E51 stores the red
 	// nibble (its upper nibble is unused), while E52 stores green in its low
@@ -301,6 +344,11 @@ u8 vt340_state::cpu2_xdata_r(offs_t offset)
 		}
 
 		u8 data = u8(m_adder_regs[offset & 0x3f]);
+		// Register 3 is a read-status/write-clear register once graphics POST
+		// has released the DC323.  Status bits are sticky until firmware writes
+		// a zero in the corresponding position.
+		if (((offset & 0x3f) == 0x03) && m_bitmap_post_done)
+			data = u8(m_adder_status);
 		// Register 3 is a control/status register: the write latch and read
 		// status are not identical.  A DC323 frame request presents bit 0 low
 		// to the INT0 dispatcher; returning the previous FD acknowledge value
@@ -368,13 +416,6 @@ void vt340_state::cpu2_xdata_w(offs_t offset, u8 data)
 		m_bitmap_test_pending = true;
 		return;
 	}
-
-	if (m_cpu1_status && (offset >= 0xe600) && (offset <= 0xe7ff))
-	{
-		m_eeprom[offset & 0x1ff] = data;
-		return;
-	}
-
 	if ((offset & 0xfff0) == 0xf040)
 	{
 		m_palette_rg[offset & 0x0f] = data;
@@ -422,11 +463,20 @@ void vt340_state::cpu2_xdata_w(offs_t offset, u8 data)
 		}
 		if (((offset & 0x3f) == 0x07) && (value == 0x00c6))
 			m_adder_raster_test = true;
-		if (((offset & 0x3f) == 0x02) && (value == 0x0002) && m_cpu1_status)
-			m_cpu2_vsync_timer->adjust(attotime::from_ticks(526, 31'500), 0,
-				attotime::from_ticks(526, 31'500));
-		if (((offset & 0x3f) == 0x03) && !BIT(data, 1) && m_cpu1_status)
-			m_cpu2->set_input_line(MCS51_INT0_LINE, CLEAR_LINE);
+		if (((offset & 0x3f) == 0x02) && m_bitmap_post_done)
+		{
+			attotime const frame_period = attotime::from_ticks(526, 31'500);
+			m_cpu2_vsync_timer->adjust(value ? frame_period : attotime::never, 0,
+				value ? frame_period : attotime::never);
+			if (!(m_adder_status & value))
+				m_cpu2->set_input_line(MCS51_INT0_LINE, CLEAR_LINE);
+		}
+		if (((offset & 0x3f) == 0x03) && m_bitmap_post_done)
+		{
+			m_adder_status &= value;
+			if (!(m_adder_status & m_adder_regs[0x02]))
+				m_cpu2->set_input_line(MCS51_INT0_LINE, CLEAR_LINE);
+		}
 		if ((offset & 0x3f) == 0x08)
 		{
 			// I/D commands 0180-019f broadcast the retained I/D data word to
@@ -453,8 +503,7 @@ void vt340_state::cpu1_p3_w(u8 data)
 	if (BIT(old, 5) && !BIT(data, 5))
 	{
 		bool const peer_waiting = (m_cpu2->pc() >= 0x1701) && (m_cpu2->pc() <= 0x1711);
-		bool const report_request = (m_cpu1->pc() == 0x3b90) && (m_shared_ram[0x7ff2] == 0x10);
-		if ((peer_waiting || report_request) && !m_cpu1_t1_pulses)
+		if (peer_waiting && !m_cpu1_t1_pulses)
 			m_cpu1_t1_pulses = 1;
 	}
 	if (BIT(old, 5) && !BIT(data, 5) && (m_cpu2->pc() == 0x170e))
@@ -491,9 +540,10 @@ u8 vt340_state::cpu1_p3_r()
 
 u8 vt340_state::cpu1_p1_r()
 {
-	// P1.4 is MFGTEST/STATUS and is high in normal operation.
-	u8 const data = m_cpu1_status ? (m_cpu1_p1 | 0x10) : (m_cpu1_p1 & ~0x10);
-	return data;
+	// P1.4 is the NVREN output and P1.5 is MFGTEST/STATUS.  Both are driven by
+	// CPU1 firmware during startup; do not replace either output latch with the
+	// separate board-status state used by the shared-memory POST arbitration.
+	return m_cpu1_p1;
 }
 
 void vt340_state::cpu1_p1_w(u8 data)
@@ -501,6 +551,10 @@ void vt340_state::cpu1_p1_w(u8 data)
 	if (data != m_cpu1_p1)
 		LOGMASKED(LOG_PORTS, "%s CPU1 P1 %02X -> %02X (PC=%04X)\n", machine().describe_context(), m_cpu1_p1, data, m_cpu1->pc());
 	m_cpu1_p1 = data;
+
+	// CPU1 P1.0 is the active-high P1 RESET H net connected directly to
+	// CPU2's RST pin (terminal-control-module schematic sheets 1 and 2).
+	m_cpu2->set_input_line(INPUT_LINE_RESET, BIT(data, 0) ? ASSERT_LINE : CLEAR_LINE);
 }
 
 u8 vt340_state::cpu2_p1_r()
@@ -698,7 +752,6 @@ void vt340_state::machine_start()
 	// observed for this unimplemented location on the target processor.
 	m_cpu1->space(MCS51_SFR_SPACE).install_read_handler(0xc2, 0xc2,
 		read8smo_delegate(*this, FUNC(vt340_state::cpu1_reserved_c2_r)));
-	m_eeprom.fill(0xff);
 	std::fill_n(&m_bitmap_planes[0], 4 * BITMAP_PLANE_SIZE, 0);
 	m_cpu2_hsync_timer = timer_alloc(FUNC(vt340_state::cpu2_hsync_tick), this);
 	m_cpu2_vsync_timer = timer_alloc(FUNC(vt340_state::cpu2_vsync_tick), this);
@@ -726,8 +779,8 @@ void vt340_state::machine_start()
 	save_item(NAME(m_bitmap_test_reads));
 	save_item(NAME(m_adder_test_data));
 	save_item(NAME(m_adder_raster_test));
-	save_item(NAME(m_eeprom));
 	save_item(NAME(m_adder_regs));
+	save_item(NAME(m_adder_status));
 	save_item(NAME(m_viper_regs));
 	save_item(NAME(m_dc7051_low));
 	save_item(NAME(m_dc7051_high));
@@ -763,7 +816,12 @@ TIMER_CALLBACK_MEMBER(vt340_state::cpu2_hsync_tick)
 
 TIMER_CALLBACK_MEMBER(vt340_state::cpu2_vsync_tick)
 {
-	m_cpu2->set_input_line(MCS51_INT0_LINE, ASSERT_LINE);
+	// Pause Complete and Scroll Service are generated at the vertical frame
+	// boundary.  Both are sticky DC323 status conditions; interrupt assertion
+	// additionally depends on the matching enable bit in register 2.
+	m_adder_status |= 0x0003;
+	if (m_adder_status & m_adder_regs[0x02])
+		m_cpu2->set_input_line(MCS51_INT0_LINE, ASSERT_LINE);
 }
 
 TIMER_CALLBACK_MEMBER(vt340_state::keyboard_tick)
@@ -817,6 +875,7 @@ void vt340_state::machine_reset()
 	m_adder_test_data = 0;
 	m_adder_raster_test = false;
 	m_adder_regs.fill(0);
+	m_adder_status = 0;
 	m_viper_regs.fill(0);
 	m_dc7051_low.fill(0);
 	m_dc7051_high.fill(0);
@@ -834,6 +893,7 @@ void vt340_state::machine_reset()
 	// startup bus test samples it while performing its probe read.
 	m_cpu1->set_input_line(MCS51_T0_LINE, CLEAR_LINE);
 	m_cpu1->set_input_line(MCS51_T1_LINE, ASSERT_LINE);
+	m_cpu2->set_input_line(INPUT_LINE_RESET, ASSERT_LINE);
 	// Unconnected serial inputs idle in the marking state.  Leaving these
 	// device pins at their zero-initialized level presents a continuous break
 	// to the firmware and can manufacture receive characters during startup.
@@ -852,11 +912,6 @@ void vt340_state::machine_reset()
 
 void vt340_state::vt340(machine_config &config)
 {
-	// The processors exchange sub-millisecond pulses on P2 DAT9/T1 during
-	// POST.  Keep timeslices short enough that neither CPU can consume an
-	// entire handshake pulse before the peer gets a chance to sample it.
-	config.set_maximum_quantum(attotime::from_usec(10));
-
 	// The schematic calls E57 an 8031.  Normal firmware serial service grows
 	// the indirect stack through 8c before unwinding; an 8031 core corrupts at
 	// 80, while the otherwise compatible 8032 RAM organization completes the
@@ -892,8 +947,6 @@ void vt340_state::vt340(machine_config &config)
 	m_cpu2->port_out_cb<2>().set(FUNC(vt340_state::cpu2_p2_w));
 	m_cpu2->port_in_cb<3>().set(FUNC(vt340_state::cpu2_p3_r));
 	m_cpu2->port_out_cb<3>().set(FUNC(vt340_state::cpu2_p3_w));
-	config.set_perfect_quantum(m_cpu1);
-
 	// Y1 clocks the DC7051.  Its 32.3174 MHz rate divided by the programmed
 	// 1026 clocks and 526 lines gives the measured 31.5 kHz / 59.89 Hz raster.
 	// The 800x500 visible area includes the terminal's 25th status line.
@@ -908,68 +961,23 @@ INPUT_PORTS_END
 
 
 ROM_START(vt340)
-	ROM_REGION(0x8000, "cpu1low", 0)
-	ROM_LOAD("e1.bin", 0x7fff, 0x0001, CRC(68b3cbde) SHA1(d51677c17e056c69a5864b1673f7887b24f50958))
-	ROM_CONTINUE(        0x0000, 0x7fff)
-	// The lagged reader lost each EPROM's final byte.  CPU1's rotate/XOR ROM
-	// tests at 3BDA reconstruct the unique values that make both checks pass.
-	ROM_FILL(            0x7fff, 0x0001, 0x83)
+	// Keep the published files byte-for-byte intact.  init_vt340 reconstructs
+	// their lagged address stream, including every recoverable xxFF boundary.
+	ROM_REGION(0x8000, "e1raw", 0)
+	ROM_LOAD("e1.bin", 0x0000, 0x8000, CRC(68b3cbde) SHA1(d51677c17e056c69a5864b1673f7887b24f50958))
+	ROM_REGION(0x8000, "e2raw", 0)
+	ROM_LOAD("e2.bin", 0x0000, 0x8000, CRC(19f788f0) SHA1(f4018501fee8c429bc1148014f2d9bb97e8cfdcf))
+	ROM_REGION(0x8000, "e3raw", 0)
+	ROM_LOAD("e3.bin", 0x0000, 0x8000, CRC(83919be1) SHA1(937b36e0475a8947a01d03c8e800c54a6461caf7))
+	ROM_REGION(0x8000, "e4raw", 0)
+	ROM_LOAD("e4.bin", 0x0000, 0x8000, CRC(d6eddc42) SHA1(df8097bcd04bd9fed5618d88cd0e0159f81c074b))
+	ROM_REGION(0x8000, "e5raw", 0)
+	ROM_LOAD("e5.bin", 0x0000, 0x8000, CRC(135c5c7c) SHA1(171d1582d6a62ec9fa8e42421693da6dac3b2a8a))
 
-	ROM_REGION(0x8000, "cpu1high", 0)
-	ROM_LOAD("e2.bin", 0x7fff, 0x0001, CRC(19f788f0) SHA1(f4018501fee8c429bc1148014f2d9bb97e8cfdcf))
-	ROM_CONTINUE(        0x0000, 0x7fff)
-	// The boundary-corrupted byte at bbff makes the call at bbfd enter be20,
-	// the second byte of the valid LCALL at be1f.  Decoding that byte stream as
-	// ACALL bb35 recursively re-enters the timer worker through bbfd and grows
-	// the stack until the firmware's overflow trap fires.  The intended be1f
-	// target returns a DPTR from the table following the call, as required by
-	// the caller at bc00.
-	ROM_FILL(            0x3bff, 0x0001, 0x1f)
-	// E2's rotate/XOR POST checksum reconstructs the missing final byte as f4
-	// with the corrected byte at 3bff (the uncorrected dump required cb).
-	ROM_FILL(            0x7fff, 0x0001, 0xf4)
-
-	ROM_REGION(0x8000, "cpu2low", 0)
-	ROM_LOAD("e3.bin", 0x7fff, 0x0001, CRC(83919be1) SHA1(937b36e0475a8947a01d03c8e800c54a6461caf7))
-	ROM_CONTINUE(        0x0000, 0x7fff)
-	// The lagged dump duplicated byte 0 and lost byte 7fff.  At 28ff, F0 would
-	// write A and then poll its unchanged bit 4 forever; the surrounding
-	// save/read/poll/restore routine proves the opcode must be E0 (MOVX A,@DPTR).
-	// At 15ff, FD would fall through from SETB C into CLR C, making the timeout
-	// result required by the caller impossible; the symmetric wait routine and
-	// branch target at 1600 prove this byte must be 22 (RET).  With both repairs,
-	// E3's rotate/XOR checksum reconstructs the missing final byte as 60.
-	ROM_FILL(            0x15ff, 0x0001, 0x22)
-	ROM_FILL(            0x28ff, 0x0001, 0xe0)
-	ROM_FILL(            0x7fff, 0x0001, 0x60)
-
-	ROM_REGION(0x10000, "cpu2banks", 0)
-	ROM_LOAD("e4.bin", 0x7fff, 0x0001, CRC(d6eddc42) SHA1(df8097bcd04bd9fed5618d88cd0e0159f81c074b))
-	ROM_CONTINUE(        0x0000, 0x7fff)
-	// The lagged reader also corrupted E4 byte 12ff.  The decoder at 92f6
-	// builds a three-byte state block at 60ab-60ad; after its two pointer-byte
-	// stores, 92fe loads the packet length and must store it at 60ad before
-	// falling through to the continuation at 9300.  The dumped 22 (RET) both
-	// omits that store and returns through an empty stack; F0 is MOVX @DPTR,A.
-	ROM_FILL(            0x12ff, 0x0001, 0xf0)
-	// Command 21 is emitted as FF 21 01 xx.  Its descriptor's first byte is
-	// therefore 02, followed by the intact C569 handler address.  The dump's
-	// 69 69 C5 duplicates the adjacent handler byte, makes the decoder consume
-	// 105 bytes, and swallows every following packet as payload.
-	ROM_FILL(            0x622d, 0x0001, 0x02)
-	// E4's rotate/XOR POST checksum reconstructs the missing final byte as aa
-	// with both corrected bytes (12ff=f0 alone required c1).
-	ROM_FILL(            0x7fff, 0x0001, 0xaa)
-	ROM_LOAD("e5.bin", 0xffff, 0x0001, CRC(135c5c7c) SHA1(171d1582d6a62ec9fa8e42421693da6dac3b2a8a))
-	ROM_CONTINUE(        0x8000, 0x7fff)
-	// E5 F2DD walks the eight bits of the byte at 60af, with R5 numbering
-	// entries 1 through 8.  The boundary-corrupted immediate at f2ff is FA,
-	// making the loop run 249 times; 09 is the exclusive terminating value.
-	ROM_FILL(            0xf2ff, 0x0001, 0x09)
-	// E5's rotate/XOR POST checksum reconstructs the missing final byte as 86
-	// with the corrected f2ff byte (the uncorrected dump happened to require
-	// the duplicated first byte, 75).
-	ROM_FILL(            0xffff, 0x0001, 0x86)
+	ROM_REGION(0x8000, "cpu1low", ROMREGION_ERASEFF)
+	ROM_REGION(0x8000, "cpu1high", ROMREGION_ERASEFF)
+	ROM_REGION(0x8000, "cpu2low", ROMREGION_ERASEFF)
+	ROM_REGION(0x10000, "cpu2banks", ROMREGION_ERASEFF)
 
 	ROM_REGION(0x8000, "chargen", 0)
 	ROM_LOAD("vt340e49.bin", 0x0000, 0x8000, CRC(38379339) SHA1(394e8511581abc796c8c612149eff280146b0ac8))
@@ -981,4 +989,4 @@ ROM_END
 } // anonymous namespace
 
 
-COMP(1987, vt340, 0, 0, vt340, vt340, vt340_state, empty_init, "Digital Equipment Corporation", "VT340 Video Terminal", MACHINE_NO_SOUND | MACHINE_NOT_WORKING)
+COMP(1987, vt340, 0, 0, vt340, vt340, vt340_state, init_vt340, "Digital Equipment Corporation", "VT340 Video Terminal", MACHINE_NO_SOUND | MACHINE_NOT_WORKING)

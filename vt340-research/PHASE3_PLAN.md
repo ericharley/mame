@@ -1,6 +1,10 @@
 # Phase 3 plan: find the real startup completion event
 
-## Objective
+> **Closed 2026-10-31.** Dispatcher, stack, ROM execution, CPU2 reset, and
+> low-ROM-to-E4 integrity are verified. The remaining DAT9/`7ff2` ordering
+> fault is Phase 4 synchronization work. See `PHASE3_CLOSEOUT.md`.
+
+## Archived objective
 
 Identify the physical device state or interprocessor event that should move
 CPU1 from the `B.6` retry path into command 32 and subsequently make CPU2's
@@ -8,9 +12,59 @@ command-32 handler observe a non-empty ring at `dc02`. Implement only the
 verified hardware semantics that produce those transitions, then demonstrate
 an unforced cold boot beyond `Wait`.
 
-Phase 3 will not add raster features or render `VT340 OK` directly. It will
-remain focused on firmware control flow, peripheral status, interrupts, and
-CPU synchronization.
+Phase 3 did not add raster features or render `VT340 OK` directly. It remained
+focused on firmware control flow, peripheral status, interrupts, and CPU
+synchronization.
+
+## Progress update: 2026-10-31
+
+### Full ROM-boundary audit
+
+The earlier list of isolated ROM repairs was incomplete. The published dumper
+mechanism affects every 256-byte transition, not only boundaries already
+reached by failing execution. The driver now reconstructs all 126 recoverable
+`xxff` positions in each E1-E5 image from raw `xx00`, changing 613 values, and
+then rebuilds the five missing checksum tails. This generalized reconstruction
+reproduces every previously proven repair and newly restores E1 `38ff=78` and
+CPU1 `3aff`.
+
+E1 `38ff=78` restores the coherent `MOV R0,#55 / LCALL 3B63 / CLR RI /
+MOV A,SBUF` stream followed by `CLR P1.0`. Schematic sheets 1 and 2 show P1.0
+driving CPU2's active-high reset directly, which is now modeled. CPU1 releases
+CPU2 at 0.558338 s, and the native DAT9 rendezvous succeeds at 0.573882 s.
+This supersedes the earlier simultaneous-start timing and the later second-
+request boundary described below. CPU2 begins configuration before CPU1 writes
+`7ff2=10` at 8.295870 s, clears the mailbox too early at 8.228872 s, and later
+writes result `80` at 13.194725 s. CPU1 remains in `3a18-3a21`, which waits for
+an acknowledgement value of zero, so it never consumes that result. The
+physical DAT9/mailbox ordering that should align the request write and CPU2
+acknowledgement is now the Phase 4 handoff.
+
+The deterministic reconstruction audit is documented in
+`firmware/rom-dump-reconstruction.md` and checked by
+`tests/rom-boundary-audit.sh`. Phase 3 hardware diagnosis should resume only
+from this reconstructed-ROM baseline.
+
+The initial `e789`/`d70b` hypothesis has been tested and rejected as the
+immediate path: normal startup performs no post-POST CPU1 access in
+`e600-e7ff`, and `d70b/d70f` are not executed. Schematic review established
+that E80 belongs to CPU1, not CPU2. Removing CPU2's erroneous private E80
+overlay exposed the actual first-request state `e795=00` and a previously
+hidden CPU2 low-ROM configuration path.
+
+That path is now complete. E3 page-boundary bytes `14ff=e5`, `30ff=80`, and
+`48ff=75` are independently recoverable from raw dump offsets `1400`, `3000`,
+and `4800`, consistent with the published Arduino reader's address-port
+ordering. Documented DC323 Pause Complete/Scroll Service status semantics are
+implemented. CPU2 now writes `7ff2=80` at 12.994345 s and enters E4 at
+13.084467 s without a restart or synthetic stack frame.
+
+The next Phase 3 boundary is the second CPU1 graphics test request at
+19.380877 s. CPU1 reaches `41f7` with `B=40`, enters the overlapping `3a00`
+entry, writes `e795=81`, and submits `7ff2=10` while CPU2 is already in E4.
+The immediate next work is to determine what hardware/firmware event should
+either prevent this retry or return CPU2 to the low-ROM mailbox service. The
+old `e789` work items remain historical hypotheses, not the current priority.
 
 ## Why this differs from the original Phase 3 proposal
 
