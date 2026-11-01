@@ -49,8 +49,11 @@
 - Contradiction: schematic page 18 and the parts list explicitly identify E57
   as an 8031.  No Timer 2 behavior is required or used; only the 256-byte RAM
   organization is currently needed.
-- Status: operationally worked around with I8032 storage behavior; production
-  CPU marking versus firmware RAM requirement remains unresolved.
+- Current decision: use the schematic-correct I8031 core. Removing the I8032
+  storage substitution leaves the current startup path and Phase 2/3/4
+  checkpoints unchanged because CPU1 is still blocked before the later
+  serial-service condition becomes decisive. The upper-stack observation
+  remains an unresolved risk once startup progresses.
 
 ## CPU2 graphics initialization and command-ring handoff - resolved for current path
 
