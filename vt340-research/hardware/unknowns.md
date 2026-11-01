@@ -109,7 +109,14 @@
 
 ## E80 initial state
 
-- Evidence: X2804AP-45 is present but not dumped.
-- Hypothesis: erased contents may trigger legitimate firmware initialization.
-- Needed: EEPROM bus reconstruction and real-terminal observation.
-- Status: absent; declared as an erased, undumped region only.
+- Evidence: the schematic identifies E80 as an X2804AP-45. The archived DEC
+  `23-001N2` image is independently catalogued as VT340 location E80 and is
+  exactly 512 bytes. Its SHA-256 is
+  `1470ab44a5412341d384cb917e13b9ae1ba209b8b61041b2c5ad57d998cc55a8`.
+- Finding: the payload contains structured setup data and is not erased.
+- Trace result: no CPU1 external access occurs while live P1.4/NVREN is low
+  before the current 13.2-second mailbox boundary. E80 therefore does not
+  directly explain the first acknowledgement inversion.
+- Needed: reconstruct E10-latched `NVRCS`, `NVRRD`, and write timing before
+  connecting the image to CPU1's data map. Re-test the later startup path.
+- Status: dump acquired; bus interface not yet modeled.

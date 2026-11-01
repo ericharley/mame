@@ -179,20 +179,70 @@ same processor's program order. A viable board-timing explanation must affect
 the visibility or commit order of the `136d` external write, or cause CPU1 to
 accept a different earlier DAT9 transition.
 
+### DAT9 is level-polled and no earlier edge is pending
+
+`traces/phase4-dat9-edge-summary.txt` records every DAT9 bit transition in
+the critical interval. CPU1 routine `3ba0-3bce` does not use Timer 1 edge
+capture: it polls live P3.5, first waiting for low at `3bab` and then for high
+at `3bbc`. Response 5 is the low/high interval at 8.221939-8.222091 s.
+
+CPU1 then executes the four-byte `3ac9/3b64` report delay and is not polling
+DAT9 during the table-data transitions that follow. The final pre-ack low is
+held from 8.225501 through 8.228791 s, but CPU1 does not emit pulse 6 and
+enter the next low-level wait until 8.235677 s. There is therefore no physical
+edge or retained level for an exact 8031 input model to recover. The next
+accepted low is the later CPU2 table transition at 8.295622 s.
+
+This rules out Timer 1 edge-capture semantics as the missing behavior and
+confirms that direct DAT9 visibility alone reproduces the failure.
+
+### Controlled request-visibility experiment
+
+`traces/phase4-request-visibility-experiment.lua` performs one debugger-only
+experiment at the mailbox decision boundary. Immediately after CPU1 executes
+its authentic `7ff2=10` write, the script restores the already-issued zero;
+it does not alter either CPU's PC and does not inject a result or display
+command.
+
+Original CPU1 firmware then accepts zero at 8.309677 s, enters its native
+result wait, observes CPU2's authentic `80` at 13.194736 s, and continues
+through `4551`. This proves that preserving the earlier zero across CPU1's
+request write is sufficient to clear the immediate Phase 4 blocker. It does
+not prove that the real board suppresses, delays, or redirects that write.
+The schematic/PAL ownership path must establish such semantics before any
+driver change is justified.
+
+With the driver restored to the schematic-correct I8031, the controlled path
+subsequently reaches the separately documented upper-stack problem before
+`41f7`. That later issue is no longer hidden by an I8032 substitution and is
+not evidence against the mailbox result.
+
+### Recovered PAL equations reject write suppression
+
+The actual `23-168K5` E58 PAL16R8 and `23-335J5` E78 PAL16L8 fuse maps are
+now recovered and decoded in `hardware/pal-analysis.md`. E58 asserts `WDS L`
+for the observed CPU1 MOVX write state. E78 then asserts shared-DRAM `MWR L`
+when CPU1 `AWR L` and `WDS L` are active outside the I/O aperture. Both E93
+and E94 therefore store CPU1's `7ff2=10` on the real board.
+
+The visibility experiment remains useful as a dependency proof, but its
+implied hardware behavior is ruled out and must not be implemented. The
+remaining viable ordering mechanism is before `136d`: CPU1 must reach pulse 6
+while CPU2 is still producing pre-ack table/DAT9 transitions. The next audit
+returns to the duration and bus ownership of the DC323 table-transfer path.
+
 ## Investigation sequence
 
-1. Trace `P3 MC/R H`, `P3 ARB*`, and the E58 PAL paths around shared E93/E94
-   RAM. Determine whether a CPU2 MOVX write can be held, masked, or committed
-   later while CPU1 owns the memory bus; a simple CPU stall is insufficient.
-2. Trace every DAT9 falling edge from pulse 5 through response 6 against CPU1's
-   timer/counter state. Determine whether physical edge capture, rather than
-   port-level polling, should let CPU1 consume a different earlier transition.
-3. Verify the exact 8031 external-input and MOVX semantics against the board
-   part and compare them with the MAME MCS-51 core.
-4. Perform one bounded experiment at the first identified visibility or
-   commit boundary. Do not
-   alter `7ff2` or branch at `3a19` as the production solution.
-5. Implement the verified behavior, remove the experiment, and run repeated
+1. Count the exact DC323 I/D operations in both `17cf` table groups and map
+   their command classes to documented Address Output Complete/busy timing.
+   Determine whether any external DAT9 ownership interval is absent from the
+   current latch-only model.
+2. Perform a bounded timing experiment on that physical DC323 boundary. The
+   target is to place CPU1 pulse 6 before the native `136d` clear and let a
+   genuine pre-ack DAT9 transition complete response 6.
+3. Reconstruct the purpose of request value `10` and CPU1's following DAT9
+   pulse from both ROMs as an independent protocol check.
+4. Implement only verified physical behavior, remove all forcing, and run repeated
    cold boots plus the Phase 2/3 regressions.
 
 ## Exit condition

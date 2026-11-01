@@ -209,7 +209,8 @@ request/acknowledgement ordering as the first failing boundary.
 - Short DAT9/T1 handshakes use narrowly scoped pulse retention.
 - The LK201 power-on reply is synthesized rather than produced by a keyboard
   device.
-- E80 has no dump and its CPU1 bus interface is not yet modeled.
+- The 512-byte E80 `23-001N2` dump has been recovered, but its E10-latched
+  CPU1 bus interface is not yet modeled.
 - Some graphics POST/status behavior remains PC-qualified.
 - Destination-only/source-2 operations, fill modes, scrolling, complete
   palette initialization, and sound are incomplete.
