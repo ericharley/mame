@@ -23,8 +23,8 @@
 - [x] Pass the DC7051 vertical-period check at the ROM's accepted `0cfb-0cfd` count.
 - [x] Identify the initial multiplexed DAT9 status/report phases and CPU1's
   `7ff2=10` / CPU2 `7ff2=80` POST report exchange.
-- [ ] Correct the startup ordering so CPU1 posts `7ff2=10` before CPU2 clears
-  the acknowledgement and returns `7ff2=80`.
+- [ ] Correct the startup ordering so CPU1 installs pending `7ff2=10` before
+  CPU2 publishes checkpoint `7ff2=00` and final result `7ff2=80`.
 - [x] Model DC323 register 3's separate control-write/status-read behavior so
   each level-triggered frame interrupt is acknowledged exactly once.
 - [x] Add exact 800x500 active raster timing and a MAME screen device.

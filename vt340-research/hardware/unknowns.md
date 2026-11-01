@@ -94,10 +94,12 @@
 - Controlled result: making one debugger-only ring slot visible at `dc02`
   takes the native carry branch to `dc18` and clears `60bb` at `dc1c`.
 - Current Phase 4 boundary: after full ROM reconstruction and correction of
-  the MCS-51 SBUF latches, CPU2 clears `7ff2` before CPU1 posts request `10`.
-  CPU1 consequently misses the required zero acknowledgement and cannot
+  the MCS-51 SBUF latches, CPU2 writes the `7ff2=00` checkpoint before CPU1
+  installs pending sentinel `10`. CPU1 consequently overwrites the only zero
+  checkpoint and cannot
   consume CPU2's later authentic result `80`. This is not a missing raster
-  primitive or dispatcher return path.
+  primitive or dispatcher return path. CPU2 has no read of `7ff2`, so this is
+  not a request/acknowledgement mailbox.
 
 ## CPU2 ROM bank polarity for the dumped cartridge - resolved
 

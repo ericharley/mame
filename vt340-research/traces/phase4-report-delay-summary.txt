@@ -5,7 +5,7 @@ Purpose
 -------
 
 Test whether CPU1's four-byte report interval after response 5 is the timing
-boundary that prevents the native request/acknowledgement order.  This is a
+boundary that prevents the native sentinel/checkpoint order. This is a
 debugger-only dependency experiment, not proposed hardware behavior.
 
 Method
@@ -41,7 +41,7 @@ Observed emulation-time path
     8.222281  shortened four-byte report completes
     8.222291  CPU1 emits pulse 6
     8.222432  CPU1 accepts response 6 from a native CPU2 table transition
-    8.222455  CPU1 writes the authentic request 7FF2=10
+    8.222455  CPU1 writes the authentic pending sentinel 7FF2=10
     8.228779  CPU2 executes its authentic 136D write; 7FF2 becomes 00
     8.236053  CPU1 accepts the authentic zero
    13.194727  CPU2 writes the authentic result 7FF2=80
@@ -51,7 +51,7 @@ Result
 ------
 
 Shortening only this one report interval is sufficient for unmodified ROM
-control flow to obtain request -> zero -> 80 ordering.  The experiment proves
+control flow to obtain sentinel 10 -> checkpoint zero -> result 80 ordering. The experiment proves
 that the report/table timing relationship is the immediate dependency.  It
 does not justify changing the 8031 clock, instruction timing, UART delay, or
 mailbox semantics.  A valid correction must explain why real matched firmware
