@@ -43,10 +43,11 @@ flowchart LR
 ### Processor and ROM organization
 
 - CPU1 controls the terminal, serial devices, keyboard path, configuration,
-  and command production. The physical board identifies an Intel 8031, but
-  current firmware execution requires indirect RAM through address `8c`.
-  The driver therefore uses the otherwise compatible I8032 RAM organization
-  while the hardware/firmware discrepancy remains unresolved.
+  and command production. It uses the schematic-correct MAME I8031 core.
+  Earlier experiments used I8032 storage to accommodate a later serial-service
+  stack excursion through address `8c`; that compatibility substitution has
+  been removed. The current startup path and Phase 2-4 boundary are unchanged,
+  while the later stack excursion remains an open risk once startup advances.
 - CPU2 performs video POST, timing work, command dispatch, and graphics setup.
   It uses the MAME I8031 core.
 - Both processors run from the board's 12 MHz clock.
@@ -203,7 +204,8 @@ request/acknowledgement ordering as the first failing boundary.
 
 ## Known provisional or incomplete behavior
 
-- CPU1 uses I8032 internal RAM behavior despite the documented 8031 part.
+- CPU1 is back on the documented I8031 core; the previously observed later
+  serial-service stack excursion above `7f` remains unresolved.
 - Short DAT9/T1 handshakes use narrowly scoped pulse retention.
 - The LK201 power-on reply is synthesized rather than produced by a keyboard
   device.

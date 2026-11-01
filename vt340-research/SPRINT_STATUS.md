@@ -26,6 +26,34 @@ as sufficient causes. The deterministic first failure remains CPU2's `136d`
 clear before CPU1 pulse 6 and the later `7ff2=10` request. The active evidence
 and investigation sequence are in `PHASE4_PLAN.md`.
 
+The first cycle-level interval audit is complete. CPU2's `1325-136d` path is
+accounted for as 8.268 ms of native table transfers, T0 synchronization, and
+fixed delay loops. After response 5, CPU1's four native SBUF writes and timer
+services take 13.579 ms before pulse 6. The resulting 6.898 ms lead of the
+CPU2 clear is therefore firmware execution, not lost scheduler time. A full
+startup trace also shows no off-by-one rendezvous count.
+
+The schematic and mailbox follow-up close the next two questions. CPU2 P1.1,
+CPU1 T1, and DC323 DAT09 are directly connected on `P2 DAT9/TSTATUS H`, so
+graphics-table transitions really are visible to CPU1. After POST, CPU2's
+`136e` write is the only `7ff2=00`; CPU1 subsequently writes request `10`,
+waits for zero, and cannot advance to consume CPU2's later result `80`.
+CPU2 never reads the mailbox during this exchange. The remaining Phase 4
+boundary is board timing: shared-memory arbitration, `P3 MC/R H`, and any
+CPU2 bus stalls or wait states omitted by the flat shared-RAM model. Although
+the schematic shows that CPU1's clock can be gated by MC/R, that behavior
+would delay CPU1 and worsen this particular ordering, so it is not itself the
+candidate fix.
+
+A controlled build also removed the remaining CPU1 `spin_until_trigger`
+handoff at the CPU2 `170e` rendezvous. It produced an identical handshake and
+mailbox timeline, so the intervention was restored and ruled out as the
+source of the inversion. CPU1 currently accepts response 6 from a CPU2 table
+transition that is program-ordered after `136d`; consequently uniform CPU2
+slowdown cannot put the request before that write. The next audit must test
+shared-RAM write visibility/commit semantics or identify an earlier DAT9 edge
+that real CPU1 hardware would consume.
+
 The ROM baseline has been corrected more broadly than the earlier isolated
 repairs. The published Arduino dump corrupts every page transition; all 630
 recoverable E1-E5 page-final positions are now reconstructed from their raw
@@ -186,7 +214,10 @@ vt340-research/tests/phase2-closeout.sh ./vt340
 - CPU1 perfect-quantum scheduling, the 10 microsecond maximum-quantum
   override, and the request-specific retained DAT9/T1 pulse have been removed;
   none changed the Phase 4 event sequence.
-- CPU1 currently uses I8032 RAM organization despite the documented 8031.
+- CPU1 now uses the schematic-correct I8031 core. The former I8032 storage
+  workaround has been removed; the current Phase 4 timeline is unchanged.
+  A previously observed later serial-service stack excursion above `7f`
+  remains a risk after the startup blocker is resolved.
 - DAT9/T1 pulses are retained at known rendezvous to cross scheduler slices.
 - The LK201 power-on reply is synthetic.
 - E80 contents are undumped and its CPU1 bus interface is not yet modeled.

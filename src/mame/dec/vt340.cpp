@@ -912,12 +912,8 @@ void vt340_state::machine_reset()
 
 void vt340_state::vt340(machine_config &config)
 {
-	// The schematic calls E57 an 8031.  Normal firmware serial service grows
-	// the indirect stack through 8c before unwinding; an 8031 core corrupts at
-	// 80, while the otherwise compatible 8032 RAM organization completes the
-	// same path and returns with SP=4d.  Retain the 8032 storage behavior while
-	// the production CPU marking/firmware discrepancy remains unresolved.
-	I8032(config, m_cpu1, 12_MHz_XTAL);
+	// E57 is an Intel 8031 on the terminal-control-module schematic.
+	I8031(config, m_cpu1, 12_MHz_XTAL);
 	m_cpu1->set_addrmap(AS_PROGRAM, &vt340_state::cpu1_program_map);
 	m_cpu1->set_addrmap(AS_DATA, &vt340_state::cpu1_data_map);
 	m_cpu1->port_in_cb<1>().set(FUNC(vt340_state::cpu1_p1_r));
