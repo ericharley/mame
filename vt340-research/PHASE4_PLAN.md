@@ -306,6 +306,25 @@ CPU1 `3b64` report contract and CPU2 `1325-136d` table path.
 Sources: [Avitech VT340 internals](https://avitech.com.au/?page_id=1964) and
 [DEC FCO VT330-I001](https://manx-docs.org/collections/mds-199909/cd2/fco/vt330i01.pdf).
 
+### Extra table-duration threshold is too large for ordinary ready latency
+
+With no public V2.1 image or release note located, the next controlled test
+repeated CPU2's authentic first `17cf` table group before its native second
+group. Four additional groups (+9.540 ms) are insufficient: pulse 6 occurs
+after the last pre-ack table transition, and CPU1 still accepts the
+post-`136d` transition before writing request `10`. Five additional groups
+(+11.925 ms) are sufficient: pulse 6 occurs during the final table group,
+CPU1 accepts a pre-ack transition, writes `10` at 8.236771 s, and then consumes
+CPU2's authentic zero and `80` result.
+
+This brackets the timing dependency but rejects the repetition as hardware
+behavior. It requires five extra 18-command groups, not a small per-command
+ready interval, and it works because table data continues toggling DAT9. A
+generic stall that merely moves `136d` cannot provide the required response.
+The script and exact timelines are in
+`traces/phase4-table-duration-experiment.lua` and
+`traces/phase4-table-duration-summary.txt`.
+
 ## Investigation sequence
 
 1. Obtain V2.1 cartridge images or `EK-VT3XX-RN-003`, then compare CPU1
@@ -313,9 +332,8 @@ Sources: [Avitech VT340 internals](https://avitech.com.au/?page_id=1964) and
    the matched V1.1 set.
 2. Reconstruct the purpose of request value `10` and CPU1's following DAT9
    pulse from both ROMs as an independent protocol check.
-3. If V2.1 is unavailable, bound which additional pre-`136d` table interval
-   would be required to reproduce the successful controlled ordering, while
-   continuing to reject PC-qualified delay or mailbox fixes.
+3. Use the bounded +9.540/+11.925 ms table threshold to compare V1.1 and V2.1
+   control flow; do not model the repeated groups or generic delay as hardware.
 4. Implement only verified physical behavior, remove all forcing, and run repeated
    cold boots plus the Phase 2/3 regressions.
 
