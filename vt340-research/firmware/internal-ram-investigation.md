@@ -85,5 +85,11 @@ An I8031 core loses the return frames beginning at `80`; an I8032 core follows
 the same ROM path to completion, after which CPU1 and CPU2 remain stable at
 20- and 30-second checkpoints.  This does not overturn the explicit schematic
 and parts-list identification of E57 as an 8031, and the firmware does not use
-Timer 2.  The driver therefore uses I8032 storage behavior as a documented
-compatibility measure while the physical-part/firmware discrepancy is open.
+Timer 2.
+
+The driver has since been returned to I8031. Smoke, Phase 2, Phase 3, and the
+current Phase 4 mailbox timeline remain unchanged because the present startup
+block occurs before that later serial-service path becomes decisive. The
+upper-stack behavior remains an open issue to re-test after the mailbox
+ordering problem is resolved; it is no longer hidden by a production CPU
+substitution.
