@@ -144,3 +144,30 @@ render its actual POST error screen. See `../traces/phase4-pbt-report.md`.
 The DC323 register trace also confirms zero final Y offset, zero pending/new/
 old indexes, zero scroll constants, and refresh limits `0340/020a`.  Scanout
 from bitmap origin zero remains correct for this boot path.
+
+## Clear/erase command audit
+
+A complete 300-second command trace is documented in
+`../traces/graphics-clear-erase-report.md`.  It identified 35 normal-mode
+rasterops with destination enabled and both memory sources disabled.  Dragon
+defines this as a constant-source operation; the Viper source register supplies
+the constant and the selected logic function combines it with destination.
+The driver now executes that documented class.  Source 2 and non-normal modes
+remain unsupported.
+
+The six late zero-source clears target `(0,522)` at `800x20` and `(0,1506)` at
+`800x24`.  Both bands were already clear, so the corrected commands change no
+pixels and do not erase visible `Wait`.  No post-115-second rasterop intersects
+the visible `Wait` or status-line regions.
+
+The actual erase is a separate DC323 frame operation. At 124.024578 seconds
+firmware loads register 14 with `2001` after setting scroll bounds X=`0..800`,
+Y=`0..480`, Y offset zero, and Viper fill zero. Dragon defines bit 13 as erase
+mode: the following frame clears the complete scroll region to the fill color.
+The driver now executes that one-shot frame-boundary operation. The visible
+`Wait` hash changes to the all-zero value while the status line, outside the
+exclusive Y=480 boundary, is preserved.
+
+Direct framebuffer hashes also show that the success panel and copyright
+bitmap persist unchanged from 130 through 300 seconds; intermittent blank
+snapshots are in the presentation path, not the bitmap raster engine.
