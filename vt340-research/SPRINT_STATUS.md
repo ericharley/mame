@@ -1,8 +1,8 @@
 # Sprint status: resolve `Wait` to `VT340 OK`
 
-- **Status:** Phase 4 DAT9/mailbox synchronization active
+- **Status:** native POST result clear; firmware-generated `VT340 OK` visible
 - **Checkpoint:** `acd91b61` (`mame: add VT340 ROM-level emulation checkpoint`)
-- **Updated:** 2026-11-01
+- **Updated:** 2026-11-02
 
 ## Sprint objective
 
@@ -12,6 +12,32 @@ display, and implement only verified hardware behavior. Do not manually draw
 `VT340 OK`, inject a success command, or expand unrelated graphics features.
 
 ## Executive status
+
+The recovered E80 EEPROM is decoded on CPU1's selected `f000-f1ff` access
+path, clearing POST bit 0. The SCN2681 local-loopback failure is also resolved:
+generic serial framing calculated parity from all eight input bits even when
+emitting a shorter character. Masking parity input to the configured width
+lets both native DUART diagnostics complete with status `0d`. The remaining
+printer diagnostic was caused by an incorrect E81 address decode and two
+SCN2641-specific omissions in the shared PCI/EPCI model: MR2 was overwritten
+on a later MR1 write, and the asynchronous-only ACI's invalid reset mode was
+executed as synchronous mode. Correcting those behaviors lets all 18 native
+printer loopback transfers pass and clears the firmware result to `00`. See
+`traces/phase4-scn2641-printer-report.md`.
+
+The original firmware now leaves `Wait` and displays a persistent, meaningful
+POST screen. The repeated rows of `4` were traced to missing DC323
+bitmap-to-processor semantics: command `0bc4` should stream 1,024 bytes from
+E49 through register 7, but the driver returned retained I/D value `34` for
+every FIFO read. The implemented E49 PBT now copies the real localized string
+table. CPU1 result `63` originally produced four authentic messages: NVR,
+Comm 1 data, Comm 2 DEC-423 data, and printer-port errors. Corrected E80 and
+SCN2681 and SCN2641 paths now produce result `00`; the original firmware
+renders `VT340 OK`. A separate display persistence issue leaves the old
+top-left `Wait` glyph and intermittently omits the success panel, despite the
+stable `00` result. See
+`traces/phase4-pbt-report.md` and
+`traces/phase4-scn2641-printer-report.md`.
 
 Phase 3 is closed. CPU2 dispatch, ROM banking, stack/return behavior, reset
 sequencing, reconstructed ROM execution, and the native low-ROM-to-E4 path are
@@ -36,9 +62,10 @@ startup trace also shows no off-by-one rendezvous count.
 The schematic and mailbox follow-up close the next two questions. CPU2 P1.1,
 CPU1 T1, and DC323 DAT09 are directly connected on `P2 DAT9/TSTATUS H`, so
 graphics-table transitions really are visible to CPU1. After POST, CPU2's
-`136d` write is the only `7ff2=00`; CPU1 subsequently installs pending
-sentinel `10`, waits for zero, and cannot advance to consume CPU2's later
-result `80`. CPU2 never reads `7ff2`. The remaining Phase 4
+`136d` write is the only protocol-phase `7ff2=00`; CPU1 subsequently installs
+stale-zero guard `10` and loses the fast checkpoint. CPU2 never reads `7ff2`.
+A long-run trace now proves that CPU1's bounded wait expires and consumes the
+later `80`, reaching native success at 119.995547 s. The remaining Phase 4
 boundary is board timing: shared-memory arbitration, `P3 MC/R H`, and any
 CPU2 bus stalls or wait states omitted by the flat shared-RAM model. Although
 the schematic shows that CPU1's clock can be gated by MC/R, that behavior
@@ -56,7 +83,7 @@ that real CPU1 hardware would consume.
 
 The complete DAT9 transition audit now rules out that earlier-edge branch.
 CPU1 polls the live P3.5 level at `3bab/3bbc`; it does not use Timer 1 edge
-capture. After response 5 it is inside the native four-byte report delay for
+capture. After response 5 it is inside the native four-byte LK201 command delay for
 every intervening DAT9 transition, and the last low ends 6.886 ms before CPU1
 starts the next wait. Direct pin semantics therefore reproduce the current
 behavior.
@@ -88,26 +115,98 @@ command spacing by about eight times, so ordinary missing-ready latency cannot
 add the required 6.9 milliseconds. The third recovered PAL, `23-336J5`, is
 E16—the output-map/palette decoder—not a DC323 or DAT9 ownership PAL. E78
 directly generates the DC323 `P3 DS L` select, and E16 has no DAT9 connection.
-The next Phase 4 branch is therefore ROM/board revision consistency and the
-exact CPU2 configuration-table selection, not another scheduler or PAL delay.
+The next Phase 4 branch is therefore the exact CPU2 configuration-table
+selection and any verified hardware state that changes the pre-checkpoint
+DAT9 sequence, not another scheduler or generic PAL delay.
 
 The first ROM-consistency check supports the executed path. The independent
 9track `23-236E6` E49 image exactly matches the Avitech E49 dump. On the
 critical code path, E3 `30ff=80` is the coherent `SJMP 3119`, and E4's table
 boundary uses raw `6000=3a` to form command/value record `3a 38 88`; the naive
 rotated value `c5` would corrupt the table. No remaining page-boundary repair
-currently explains the extra table work. The next audit is the contract
-between CPU1's four fixed-delay `3ac9/3b64` SBUF writes and CPU2's rendezvous
-sequence.
+currently explains the extra table work. The next audit examined the apparent
+contract between CPU1's four fixed-delay `3ac9/3b64` SBUF writes and CPU2's
+rendezvous sequence.
 
-A controlled debugger experiment now proves that contract is the immediate
-dependency. Shortening only the two inner delay loops for the four-byte report
+A controlled debugger experiment now proves that timing is the immediate
+dependency. Shortening only the two inner delay loops for the four-byte keyboard command block
 after response 5 moves pulse 6 into CPU2's still-active table transfer. Native
 CPU1 then posts `7ff2=10` at 8.222455 s, native CPU2 clears it at 8.228779 s,
 and CPU1 consumes the authentic zero and later result `80`. This is diagnostic
 evidence only: TMOD=`21`, TH1=`f3`, PCON=`ff` establishes approximately
-4800-baud UART pacing, so the fixed report delay is intentional and remains
+4800-baud UART pacing, so the fixed keyboard-command delay is intentional and remains
 unchanged in production. See `traces/phase4-report-delay-summary.txt`.
+
+The VT240 comparison corrected the interpretation of that traffic: it is an
+LK201 keyboard command block, not a CPU1-to-CPU2 report. The VT340 now uses
+MAME's full ROM-driven `lk201_device` in place of the synthetic four-byte
+power-on timer. A controlled interval run with the exact keyboard ROMs leaves
+the Phase 4 boundary unchanged: checkpoint zero at 8.228779 s, pulse 6 at
+8.235679 s, and a 6.900 ms inversion. Keyboard interaction is therefore
+closed as the cause while the driver retains the more accurate device.
+
+The requested bounded CPU2 pre-checkpoint and DAT9-ownership audit is now
+complete with **Outcome D**. From `1325` through completion of the `136d`
+write CPU2 consumes exactly 8,270 1-us machine cycles. Both `17cf` groups are
+deterministic write-only table loaders: no DC323 status read, ready poll,
+interrupt, or frame wait occurs. Reconstructed `30ff=80` unconditionally
+jumps over the apparent `3102-3116` frame/configuration path. The only live
+timing input is T0/HSYNC phase and its validated edge count; it cannot add the
+required 6.9 ms to a successful path. Interrupt-vector breakpoints confirm no
+INT0 or timer-0 service in the interval.
+
+Schematic sheets 1, 2, and 10 confirm that CPU1 P3.5/T1, CPU2 P1.1, and
+DC323 DAT09 share one uninterrupted `P2 DAT9/TSTATUS H` net. CPU2's table-data
+transitions are therefore physically visible to CPU1. Existing PC-qualified
+DC323 status substitutions remain a fidelity debt, but do not create response
+6 or reverse the mailbox order. No fix was made. The complete path, decoded
+tables, branch report, ownership model, and cross-CPU timeline are in
+`traces/phase4-precheckpoint-dat9-report.md`; the next evidence-led branch is
+to trace the CPU1 conditions that enter the response-5 `3ac9/3b64` LK201
+command block.
+
+That upstream CPU1 audit is now complete. The final exchanges are consecutive
+calls at `39ec` and `39ef`. After response 5 returns successfully at `3bce`,
+CPU1 executes the second `LCALL 3b9a` without any intervening branch and sends
+`11 8f 13 8c`. `3ac9-3b77` never reads TI, RI, keyboard RX, or any other
+device state; its delays and four SBUF writes are unconditional. The only
+immediate predecessor decision is the carry result of the shared-RAM tests,
+which passes normally.
+
+Response 5 is also authentic. CPU2 P1.1 goes low for the first DC323 zero
+command and high for the following direct-register high byte; CPU1 samples
+those physical levels through P3.5 at `3bab/3bbc`. No PC-qualified status or
+retained-pulse accommodation applies at those CPU1 PCs.
+
+The expanded `7ff2` audit includes indirect destructive-test accesses as well
+as every literal reader/writer. Both CPUs test the byte as ordinary RAM and
+CPU1's last pass leaves zero. CPU1 later writes `10` to invalidate that stale
+zero, its first bounded loop prefers a new zero, and its second bounded loop
+prefers a nonzero terminal result. CPU2 has one normal checkpoint-zero writer,
+one success writer, three terminal error writers, and no protocol-phase read.
+Thus `10 -> 00 -> nonzero` is proved as the fast path by firmware dataflow,
+not assumed from a successful experiment. The first wait also provides a
+valid `10 -> terminal nonzero` timeout fallback. An unmodified cold run exits
+the checkpoint wait at 119.955290 s and enters native startup routine `4551`
+at 119.995547 s. A subsequent unmodified 301-second run corrected the earlier
+interpretation of that address: CPU1 reaches `7289`, enqueues 23 packets, and
+waits with producer `17` and consumer `00`. CPU2 is starved by immediate DC323
+INT0 re-entry, so the framebuffer remains `Wait` and no late raster command is
+submitted. The ordering mismatch is an avoidable startup delay, but it is not
+the last blocker. Full evidence is in
+`traces/phase4-cpu1-entry-and-7ff2-report.md` and
+`traces/phase4-post-timeout-report.md`.
+
+The CPU2 starvation is now corrected. An obsolete read substitution forced
+DC323 status bit 0 low only at CPU2 `0047`, so both interrupt passes wrote
+`fd`, Scroll Service cleared, and Pause Complete remained asserted. Removing
+that PC-specific inversion restores the documented status value: firmware
+writes `fe` for bit 0 and `fd` for bit 1, then INT0 releases. Two repeated
+cold boots drained all 102 produced packets, returned from both `7289` calls,
+submitted command 32 at 121.688120 s, and entered CPU2 handler `db98` at
+121.691819 s. CPU2 reaches `dc02` at 122.047438 s with producer and consumer
+both `66`; the next boundary is the later event required to take `dc18` and
+clear `60bb`.
 
 The firmware provenance is also resolved more precisely. Archive photographs
 show that all five dumps came from one cartridge labeled `VT330/340 V1.1`,
@@ -131,9 +230,10 @@ The complete `7ff2` cross-reference now corrects the protocol terminology.
 CPU2 has no read of `7ff2`; CPU1's `10` is therefore a pending sentinel, not a
 request. CPU2 publishes checkpoint zero at `136d`, success `80` at `163e`, or
 an error result through writers at `159f`, `197a`, and `1b24`. CPU1 first waits
-for zero at `3a18`, then for a nonzero final result at `3a31`. The failure is
-precisely that CPU1 overwrites the already-published checkpoint with `10` and
-waits for a second zero that never occurs. See
+for zero at `3a18`, then for a nonzero final result at `3a31`. CPU1 overwrites
+the already-published checkpoint with `10` and loses the fast path, but the
+bounded first loop eventually times out and consumes the retained terminal
+result. See
 `traces/phase4-mailbox-semantics-summary.txt`.
 
 The launch path is now explicit as well. CPU1 pulse 5 releases CPU2's sixth
@@ -303,6 +403,9 @@ overall sprint remains open in Phase 4 synchronization work.
 - `tests/phase3-checkpoint.sh` passes the smoke test and verifies exactly one
   reset entry, separate UART latches, `30f9 -> 3119`, continuation across
   `14ff`, `7ff2=80`, and entry to operational E4 firmware.
+- `tests/phase4-ring-drain.sh` verifies authentic `fe`/`fd` DC323
+  acknowledgements, equal producer/consumer counts, completion of both
+  startup `7289` calls, and native entry to command-32 handler `db98`.
 - `tests/rom-boundary-audit.sh` verifies all recoverable page-final bytes and
   the reconstructed checksum tails for E1-E5.
 - MAME reports only the expected `e80.bin` `NO_DUMP` warning.
@@ -325,20 +428,21 @@ vt340-research/tests/phase2-closeout.sh ./vt340
   A previously observed later serial-service stack excursion above `7f`
   remains a risk after the startup blocker is resolved.
 - DAT9/T1 pulses are retained at known rendezvous to cross scheduler slices.
-- The LK201 power-on reply is synthetic.
-- E80 contents are undumped and its CPU1 bus interface is not yet modeled.
+- The LK201 is the ROM-driven MAME device; terminal key mapping remains
+  outside the current startup scope.
+- E80 contents have been recovered, but its CPU1 bus interface is not yet
+  modeled.
 - Some video POST/status behavior is still PC-qualified.
 - Incomplete raster modes and palette behavior remain, but current evidence
   rules them out as the cause of this startup transition.
 
 ## Recommended next work
 
-Continue Phase 4 from the stable timeline in `PHASE4_PLAN.md`. Locate a V2.1
-cartridge dump or `EK-VT3XX-RN-003`, then compare CPU1 `3ac9/3b64`, CPU2's
-six `1701` rendezvous, and CPU2 `1325-136d` with the matched V1.1 firmware.
-The report-delay experiment is a dependency proof only. Do not shorten it,
-repeat table groups, add a PC-qualified checkpoint, or force a mailbox
-value in the normal configuration.
+Continue Phase 4 from CPU2 `dc02`. Reconstruct which native event after
+command 32 should make producer and consumer differ or otherwise take `dc18`
+and clear `60bb`. Keep the earlier `7ff2` ordering as a separate startup-
+latency defect. Do not inject a ring packet, clear `60bb`, shorten the LK201
+delay, or add a PC-qualified completion trigger in the normal configuration.
 
 ## Key references
 

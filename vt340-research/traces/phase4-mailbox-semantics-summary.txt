@@ -4,9 +4,18 @@ VT340 Phase 4 7FF2 firmware semantics
 Conclusion
 ----------
 
-Shared byte 7FF2 is a result-state byte, not a CPU1-to-CPU2 request mailbox.
-CPU1 writes 10 as a pending sentinel before it waits for CPU2 to publish a
-checkpoint zero and, later, a final nonzero result. CPU2 never reads 7FF2.
+Shared byte 7FF2 begins as ordinary shared RAM and is destructively tested by
+both processors. The final CPU1 clear pass leaves 00. It is then reused as a
+result-state byte, not a CPU1-to-CPU2 request mailbox. CPU1 writes 10 as a
+stale-zero guard before it waits for CPU2 to publish a new checkpoint zero
+and, later, a final nonzero result. CPU2 never reads 7FF2 during the protocol.
+
+The normal fast-path `10 -> 00 -> 80` ordering is proved by the complete
+reader/writer set, not inferred from the earlier timing experiment. CPU1's
+first bounded loop prefers zero; its second bounded loop prefers nonzero. The
+first loop can also time out and pass a retained nonzero result to the second
+stage. CPU2 has one normal checkpoint-zero writer, one success writer, and
+three terminal error writers.
 
 Firmware cross-reference
 ------------------------
@@ -16,7 +25,7 @@ CPU1:
   3A08  MOV  DPTR,#7FF2
   3A0B  MOV  A,#10
   3A0D  MOVX @DPTR,A       install pending sentinel
-  3A0E  LCALL 3AC9         send four-byte report
+  3A0E  LCALL 3AC9         send four-byte LK201 command block
   3A11  LCALL 3B8E         DAT9 pulse/response exchange
   3A18  MOVX A,@DPTR       wait until CPU2 publishes zero
   3A31  MOVX A,@DPTR       then wait until CPU2 publishes nonzero
@@ -31,28 +40,42 @@ CPU2 writers:
   1B1D-1B24  write $74+B   computed test error and stop
   1639-163E  write 80      successful final result
 
-There is no CPU2 read of 7FF2. Therefore 10 cannot notify CPU2 or request
-work, and 00 cannot acknowledge consumption of that request. CPU2 is already
-executing the test sequence under DAT9/startup control.
+Generic destructive-test accesses, observed dynamically before this protocol:
 
-Observed failing lifecycle
---------------------------
+  CPU2 BADB/BADC        write/read AA, then 55
+  CPU2 BAF0/BAF6/BAF7   verify 55, write/read 00
+  CPU1 3A89/3A8A        write/read AA, then 55
+  CPU1 3A83/3A89/3A8A   verify 55, write/read 00
+
+There is no CPU2 protocol-phase read of 7FF2. Therefore 10 cannot notify CPU2
+or request work, and 00 cannot acknowledge consumption of that request. The
+purpose of 10 is to ensure that CPU1 cannot accept the stale zero left by the
+RAM clear. CPU2 is already executing the test sequence under DAT9/startup
+control.
+
+Observed slow-path lifecycle
+----------------------------
 
   8.228779  CPU2 136D writes checkpoint 00
   8.295773  CPU1 3A0D writes pending sentinel 10, overwriting that zero
   8.295773-13.194725 CPU1 3A18 repeatedly reads 10
  13.194725  CPU2 163E writes final success 80
-  after 13.194725 CPU1 3A18 repeatedly reads 80
+ 13.194725-119.955290 CPU1 3A18 repeatedly reads 80
+119.955290  CPU1 3A21 exits the bounded checkpoint wait with A=80
+119.995537  CPU1 3A31 reads the retained terminal result 80
+119.995547  CPU1 reaches native success path 4551
 
-CPU1 cannot reach its final-result loop at 3A31 until it observes zero at
-3A18. The exact failure is thus: CPU2 publishes its sole checkpoint zero
-before CPU1 installs the pending sentinel; CPU1 overwrites the checkpoint and
-waits forever for a second zero that CPU2 never writes.
+CPU1 normally reaches its final-result loop after observing zero at 3A18, but
+the three nested counters also provide a checkpoint-timeout fallback. CPU2
+publishes its sole checkpoint zero before CPU1 installs the stale-zero guard,
+so CPU1 overwrites that checkpoint and spends about 111.646 seconds in the
+first wait. It then carries the authentic 80 into the second-stage check and
+continues successfully. This is a long startup delay, not permanent deadlock.
 
 Effect on prior experiments
 ---------------------------
 
 The report-delay and table-duration experiments remain valid. They establish
-that native execution succeeds when the order is pending 10 -> checkpoint 00
--> final 80. They do not establish request/acknowledgement behavior, because
-the firmware cross-reference rules out that interpretation.
+that native execution takes the fast path when the order is pending 10 ->
+checkpoint 00 -> final 80. They do not establish request/acknowledgement
+behavior, because the firmware cross-reference rules out that interpretation.
