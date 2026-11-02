@@ -32,6 +32,8 @@
 
 #include "emu.h"
 
+#include "lk201.h"
+
 #include "cpu/mcs51/i8051.h"
 #include "cpu/mcs51/i8052.h"
 #include "machine/mc68681.h"
@@ -63,11 +65,13 @@ public:
 		driver_device(mconfig, type, tag),
 		m_cpu1(*this, "cpu1"),
 		m_cpu2(*this, "cpu2"),
+		m_keyboard(*this, "keyboard"),
 		m_duart(*this, "duart"),
 		m_acia(*this, "acia"),
 		m_screen(*this, "screen"),
 		m_cpu2banks_rom(*this, "cpu2banks"),
 		m_chargen_rom(*this, "chargen"),
+		m_eeprom_rom(*this, "eeprom"),
 		m_shared_ram(*this, "shared_ram", 0x10000, ENDIANNESS_LITTLE),
 		m_bitmap_ram(*this, "bitmap_ram", 0x10000, ENDIANNESS_LITTLE),
 		m_bitmap_planes(*this, "bitmap_planes", 4 * BITMAP_PLANE_SIZE, ENDIANNESS_LITTLE)
@@ -80,17 +84,18 @@ public:
 private:
 	required_device<mcs51_cpu_device> m_cpu1;
 	required_device<i8031_device> m_cpu2;
+	required_device<lk201_device> m_keyboard;
 	required_device<scn2681_device> m_duart;
 	required_device<scn2641_device> m_acia;
 	required_device<screen_device> m_screen;
 	required_region_ptr<u8> m_cpu2banks_rom;
 	required_region_ptr<u8> m_chargen_rom;
+	required_region_ptr<u8> m_eeprom_rom;
 	memory_share_creator<u8> m_shared_ram;
 	memory_share_creator<u8> m_bitmap_ram;
 	memory_share_creator<u8> m_bitmap_planes;
 	emu_timer *m_cpu2_hsync_timer = nullptr;
 	emu_timer *m_cpu2_vsync_timer = nullptr;
-	emu_timer *m_keyboard_timer = nullptr;
 
 	u8 m_cpu1_p3 = 0xff;
 	u8 m_cpu2_p3 = 0xff;
@@ -103,7 +108,6 @@ private:
 	bool m_cpu1_brd_strobe = false;
 	bool m_cpu2_t1_pulse = false;
 	bool m_keyboard_rxd = true;
-	u8 m_keyboard_phase = 0;
 	u8 m_cpu1_t1_pulses = 0;
 	bool m_adder_ready = false;
 	bool m_bitmap_test_pending = false;
@@ -115,6 +119,9 @@ private:
 	std::array<u16, 0x40> m_adder_regs{};
 	u16 m_adder_status = 0;
 	std::array<u16, 0x20> m_viper_regs{};
+	bool m_pbt_read_active = false;
+	u32 m_pbt_read_index = 0;
+	u32 m_pbt_read_count = 0;
 	std::array<u8, 16> m_dc7051_low{};
 	std::array<u8, 16> m_dc7051_high{};
 	std::array<u8, 16> m_palette_rg{};
@@ -140,6 +147,7 @@ private:
 	u8 cpu2_xdata_r(offs_t offset);
 	void cpu2_xdata_w(offs_t offset, u8 data);
 	void cpu1_p3_w(u8 data);
+	void keyboard_rxd_w(int state);
 	void cpu2_p3_w(u8 data);
 	u8 cpu1_p1_r();
 	void cpu1_p1_w(u8 data);
@@ -155,7 +163,6 @@ private:
 	virtual void machine_reset() override ATTR_COLD;
 	TIMER_CALLBACK_MEMBER(cpu2_hsync_tick);
 	TIMER_CALLBACK_MEMBER(cpu2_vsync_tick);
-	TIMER_CALLBACK_MEMBER(keyboard_tick);
 	void trace_exit();
 };
 
@@ -244,10 +251,22 @@ u8 vt340_state::cpu1_xdata_r(offs_t offset)
 {
 	if ((m_cpu1_trace_events++ < 256) || ((((offset & 0xfff0) == 0x7ff0) || (offset >= 0xf000)) && (m_cpu1_io_trace_events++ < 512)))
 		LOGMASKED(LOG_XDATA, "%s CPU1 XDATA R %04X (PC=%04X)\n", machine().describe_context(), offset, m_cpu1->pc());
-	if ((offset & 0xfff0) == 0xf040)
-		return m_duart->read(offset & 0x0f);
-	if ((offset & 0xfffc) == 0xf058)
+	// E80's A0-A8 inputs are driven directly by CPU1's multiplexed external
+	// address bus.  E10 shifts P1.3 (NVRDS L) into the active-low NVRCS latch
+	// under P1.7 (NVRCLK H); every firmware access performs that sequence at
+	// 4156 immediately before MOVX.  The live port latch is required here
+	// because MCS-51 bit instructions do not pass through the port callback.
+	// While selected, E80 owns the bus even at addresses which overlap the
+	// ordinary serial-device decode.
+	if (!BIT(m_cpu1->state_int(MCS51_P1), 3) && ((offset & 0xfe00) == 0xf000))
+		return m_eeprom_rom[offset & 0x01ff];
+	// E78 decodes the CPU1 I/O page into two 64-byte serial apertures.  E81
+	// (SCN2641) occupies F000-F03F and E61 (SCN2681) occupies F040-F07F;
+	// their register-select inputs use the low two and low four address bits.
+	if ((offset & 0xffc0) == 0xf000)
 		return m_acia->read(offset & 0x03);
+	if ((offset & 0xffc0) == 0xf040)
+		return m_duart->read(offset & 0x0f);
 	// The board-read strobe reaches T0.  Its low pulse ends within the MOVX
 	// bus cycle, but the POST loop at 393D samples the occurrence on its next
 	// poll; retain that one observation here.
@@ -265,14 +284,14 @@ void vt340_state::cpu1_xdata_w(offs_t offset, u8 data)
 {
 	if ((m_cpu1_trace_events++ < 256) || ((((offset & 0xfff0) == 0x7ff0) || (offset >= 0xf000)) && (m_cpu1_io_trace_events++ < 512)))
 		LOGMASKED(LOG_XDATA, "%s CPU1 XDATA W %04X=%02X (PC=%04X)\n", machine().describe_context(), offset, data, m_cpu1->pc());
-	if ((offset & 0xfff0) == 0xf040)
-	{
-		m_duart->write(offset & 0x0f, data);
-		return;
-	}
-	if ((offset & 0xfffc) == 0xf058)
+	if ((offset & 0xffc0) == 0xf000)
 	{
 		m_acia->write(offset & 0x03, data);
+		return;
+	}
+	if ((offset & 0xffc0) == 0xf040)
+	{
+		m_duart->write(offset & 0x0f, data);
 		return;
 	}
 	m_shared_ram[offset] = data;
@@ -333,6 +352,24 @@ u8 vt340_state::cpu2_xdata_r(offs_t offset)
 	// identities and bit assignments match DEC's Dragon chipset specification.
 	if ((offset & 0xf0c0) == 0xf000)
 	{
+		// Register 7 is the six-word I/D FIFO, not a readable copy of the
+		// last word written to it.  A source-1 bitmap-to-processor transfer
+		// from E49 streams the selected character-ROM rectangle through this
+		// port.  The VT340 uses that path to load its localized startup text.
+		if (((offset & 0x3f) == 0x07) && m_pbt_read_active)
+		{
+			u16 const width = m_adder_regs[0x26] & 0x1fff;
+			u32 const bytes_per_row = (width + 7) / 8;
+			u32 const row = m_pbt_read_index / bytes_per_row;
+			u32 const column = m_pbt_read_index % bytes_per_row;
+			u16 const source_x = (m_adder_regs[0x22] + column * 8) & 0x00ff;
+			u16 const source_y = (m_adder_regs[0x23] + row) & 0x03ff;
+			u8 const data = m_chargen_rom[(source_y << 5) | (source_x >> 3)];
+			if (++m_pbt_read_index >= m_pbt_read_count)
+				m_pbt_read_active = false;
+			return data;
+		}
+
 		// Register 07 is the data/command port.  The RAM diagnostic writes an
 		// equal-byte test word, issues several 00Cx commands through the same
 		// port, then reads the retained test data after a read command.
@@ -349,12 +386,6 @@ u8 vt340_state::cpu2_xdata_r(offs_t offset)
 		// a zero in the corresponding position.
 		if (((offset & 0x3f) == 0x03) && m_bitmap_post_done)
 			data = u8(m_adder_status);
-		// Register 3 is a control/status register: the write latch and read
-		// status are not identical.  A DC323 frame request presents bit 0 low
-		// to the INT0 dispatcher; returning the previous FD acknowledge value
-		// here makes the level-triggered 8031 enter the handler twice per frame.
-		if (((offset & 0x3f) == 0x03) && (pc == 0x0047))
-			data &= ~0x01;
 		// POST verifies that every decoded register can round-trip its test
 		// pattern.  The ready outputs are external status inputs, not stored
 		// register bits.  The firmware's confirmed F003 polling routines wait
@@ -483,6 +514,19 @@ void vt340_state::cpu2_xdata_w(offs_t offset, u8 data)
 			// the corresponding Viper register.  All four Vipers see this bus.
 			if ((value & 0xffe0) == 0x0180)
 				m_viper_regs[value & 0x1f] = m_adder_regs[0x07];
+			// Function 3 with source 1 enabled and destination disabled is a
+			// bitmap-to-processor transfer.  E49 is selected by source Y bit 12;
+			// in the board's eight-bit mode one FIFO read returns eight pixels,
+			// which are the corresponding byte in the character ROM.
+			if (((value >> 8) & 3) == 3 && BIT(value, 11) && !BIT(value, 10) &&
+				BIT(m_adder_regs[0x23], 12))
+			{
+				u32 const width = m_adder_regs[0x26] & 0x1fff;
+				u32 const height = m_adder_regs[0x29] & 0x1fff;
+				m_pbt_read_index = 0;
+				m_pbt_read_count = ((width + 7) / 8) * height;
+				m_pbt_read_active = m_pbt_read_count != 0;
+			}
 			execute_rasterop(value);
 		}
 		return;
@@ -497,6 +541,10 @@ void vt340_state::cpu1_p3_w(u8 data)
 	if (data != m_cpu1_p3)
 		LOGMASKED(LOG_PORTS, "%s CPU1 P3 %02X -> %02X (PC=%04X)\n", machine().describe_context(), m_cpu1_p3, data, m_cpu1->pc());
 	m_cpu1_p3 = data;
+	// CPU1 P3.1/TXD is the terminal-to-keyboard half of the LK201 serial
+	// connection.  Feed the live port level to the keyboard so the ROM's
+	// native 4800-baud command stream is observed by the real device firmware.
+	m_keyboard->rx_w(BIT(data, 1));
 	// Retain a narrow T1 pulse only while CPU2 is actually in its 170E-1711
 	// rendezvous.  Earlier CPU1 diagnostic pulses are not queued by the real
 	// pin and must not satisfy a later handshake.
@@ -510,6 +558,11 @@ void vt340_state::cpu1_p3_w(u8 data)
 		m_cpu1->spin_until_trigger(CPU_T1_HANDSHAKE_TRIGGER);
 	if (BIT(old, 5) != BIT(data, 5))
 		m_cpu1->abort_timeslice();
+}
+
+void vt340_state::keyboard_rxd_w(int state)
+{
+	m_keyboard_rxd = bool(state);
 }
 
 u8 vt340_state::cpu1_p3_r()
@@ -755,7 +808,6 @@ void vt340_state::machine_start()
 	std::fill_n(&m_bitmap_planes[0], 4 * BITMAP_PLANE_SIZE, 0);
 	m_cpu2_hsync_timer = timer_alloc(FUNC(vt340_state::cpu2_hsync_tick), this);
 	m_cpu2_vsync_timer = timer_alloc(FUNC(vt340_state::cpu2_vsync_tick), this);
-	m_keyboard_timer = timer_alloc(FUNC(vt340_state::keyboard_tick), this);
 
 	machine().add_notifier(MACHINE_NOTIFY_EXIT, machine_notify_delegate(&vt340_state::trace_exit, this));
 
@@ -770,7 +822,6 @@ void vt340_state::machine_start()
 	save_item(NAME(m_cpu1_brd_strobe));
 	save_item(NAME(m_cpu2_t1_pulse));
 	save_item(NAME(m_keyboard_rxd));
-	save_item(NAME(m_keyboard_phase));
 	save_item(NAME(m_cpu1_t1_pulses));
 	save_item(NAME(m_adder_ready));
 	save_item(NAME(m_bitmap_test_pending));
@@ -782,6 +833,9 @@ void vt340_state::machine_start()
 	save_item(NAME(m_adder_regs));
 	save_item(NAME(m_adder_status));
 	save_item(NAME(m_viper_regs));
+	save_item(NAME(m_pbt_read_active));
+	save_item(NAME(m_pbt_read_index));
+	save_item(NAME(m_pbt_read_count));
 	save_item(NAME(m_dc7051_low));
 	save_item(NAME(m_dc7051_high));
 	save_item(NAME(m_palette_rg));
@@ -824,34 +878,6 @@ TIMER_CALLBACK_MEMBER(vt340_state::cpu2_vsync_tick)
 		m_cpu2->set_input_line(MCS51_INT0_LINE, ASSERT_LINE);
 }
 
-TIMER_CALLBACK_MEMBER(vt340_state::keyboard_tick)
-{
-	// An LK201 completes its power-up test within 70 ms and reports firmware
-	// ID, hardware ID, error, and held-key code at 4800 baud, 8N1.  Model the
-	// documented successful 01 00 00 00 response until the full keyboard device
-	// can be connected to CPU1's internal UART.
-	static constexpr u8 response[4] = { 0x01, 0x00, 0x00, 0x00 };
-	if ((m_keyboard_phase == 0) &&
-		(!BIT(m_cpu1->space(MCS51_SFR_SPACE).read_byte(0x98), 4) ||
-		 (m_cpu1->space(MCS51_SFR_SPACE).read_byte(0x99) != 0xfd)))
-	{
-		m_keyboard_timer->adjust(attotime::from_msec(1));
-		return;
-	}
-	if (m_keyboard_phase >= 40)
-	{
-		m_keyboard_rxd = true;
-		m_keyboard_timer->adjust(attotime::never);
-		return;
-	}
-
-	u8 const bit = m_keyboard_phase % 10;
-	u8 const data = response[m_keyboard_phase / 10];
-	m_keyboard_rxd = (bit == 0) ? false : (bit == 9) ? true : BIT(data, bit - 1);
-	m_keyboard_phase++;
-	m_keyboard_timer->adjust(attotime::from_hz(4'800));
-}
-
 void vt340_state::machine_reset()
 {
 	m_cpu1_p3 = 0xff;
@@ -865,7 +891,6 @@ void vt340_state::machine_reset()
 	m_cpu1_brd_strobe = false;
 	m_cpu2_t1_pulse = false;
 	m_keyboard_rxd = true;
-	m_keyboard_phase = 0;
 	m_cpu1_t1_pulses = 0;
 	m_adder_ready = false;
 	m_bitmap_test_pending = false;
@@ -877,6 +902,9 @@ void vt340_state::machine_reset()
 	m_adder_regs.fill(0);
 	m_adder_status = 0;
 	m_viper_regs.fill(0);
+	m_pbt_read_active = false;
+	m_pbt_read_index = 0;
+	m_pbt_read_count = 0;
 	m_dc7051_low.fill(0);
 	m_dc7051_high.fill(0);
 	m_palette_rg.fill(0);
@@ -900,13 +928,15 @@ void vt340_state::machine_reset()
 	m_duart->rx_a_w(1);
 	m_duart->rx_b_w(1);
 	m_acia->rxd_w(1);
-	m_acia->cts_w(1);
-	m_acia->dcd_w(1);
+	// E81's active-low CTS and DCD inputs are tied to ground on schematic
+	// sheet 8P0.  Local loopback ignores both pins, but normal mode must see
+	// the permanently asserted levels implemented by the board.
+	m_acia->cts_w(0);
+	m_acia->dcd_w(0);
 	m_cpu2->set_input_line(MCS51_T0_LINE, ASSERT_LINE);
 	m_cpu2_hsync_timer->adjust(attotime::from_hz(63'000), 0, attotime::from_hz(63'000));
 	m_cpu2->set_input_line(MCS51_INT0_LINE, CLEAR_LINE);
 	m_cpu2_vsync_timer->adjust(attotime::never);
-	m_keyboard_timer->adjust(attotime::from_msec(70));
 	LOGMASKED(LOG_PORTS, "VT340 reset: CPU1 E1/E2, CPU2 E3/E4 selected\n");
 }
 
@@ -920,6 +950,9 @@ void vt340_state::vt340(machine_config &config)
 	m_cpu1->port_out_cb<1>().set(FUNC(vt340_state::cpu1_p1_w));
 	m_cpu1->port_in_cb<3>().set(FUNC(vt340_state::cpu1_p3_r));
 	m_cpu1->port_out_cb<3>().set(FUNC(vt340_state::cpu1_p3_w));
+
+	LK201(config, m_keyboard);
+	m_keyboard->tx_handler().set(FUNC(vt340_state::keyboard_rxd_w));
 
 	// E61 is the SCN2681 DUART.  Its active-low interrupt output drives the
 	// processor-1 INT0 input.  The 3.6864 MHz clock is the standard crystal
@@ -979,7 +1012,7 @@ ROM_START(vt340)
 	ROM_LOAD("vt340e49.bin", 0x0000, 0x8000, CRC(38379339) SHA1(394e8511581abc796c8c612149eff280146b0ac8))
 
 	ROM_REGION(0x0200, "eeprom", ROMREGION_ERASEFF)
-	ROM_LOAD("e80.bin", 0x0000, 0x0200, NO_DUMP) // Xicor X2804AP-45 (512 x 8 EEPROM)
+	ROM_LOAD("e80.bin", 0x0000, 0x0200, CRC(d1fd44bb) SHA1(ffbdeeffb55374211a371a77ed633b780cd0f526)) // Xicor X2804AP-45 (512 x 8 EEPROM)
 ROM_END
 
 } // anonymous namespace

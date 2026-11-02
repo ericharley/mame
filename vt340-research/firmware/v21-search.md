@@ -52,7 +52,7 @@ cartridge remains an external next step, not an emulator workaround.
 
 If V2.1 becomes available, compare these locations first:
 
-1. CPU1 `3ac9/3b64` report pacing and `3a08-3a3a` result-state routine.
+1. CPU1 `3ac9/3b64` LK201 command pacing and `3a08-3a3a` result-state routine.
 2. CPU2's six `1701` rendezvous calls through `1322`.
 3. CPU2 `1325-136d`, especially the table sequence preceding checkpoint zero.
 4. The relative order of CPU1 pending `7ff2=10`, CPU2 checkpoint `00`, and

@@ -25,9 +25,10 @@ and polls for completion; CPU2 ROM clears it in its initialization/service
 path.  The DC323 E70 also drives CPU2's active-low INT0 input as
 `P10 INTRREQ L`.  The ROM now clears its ROM, bitmap, DC7051-register, and
 vertical-period POST checks and completes the final DAT9 status/report phase.
-DC323 register 3 has distinct write-control and read-status semantics: during
-a frame request its status bit 0 reads low even though the preceding `fffd`
-acknowledge left bit 0 high in the write latch.  Returning the latch verbatim
-caused two level-triggered interrupt entries per frame and eventual stack
-overflow.  With status readback separated, every request receives one
-acknowledge and CPU2 remains in its interrupt-enabled E4 operational loop.
+DC323 register 3 is a read-status/write-zero-to-clear register during normal
+operation. Pause Complete in bit 0 selects firmware acknowledgement `fe`;
+Scroll Service in bit 1 selects `fd`. If both are pending at a frame boundary,
+the level-triggered handler runs once for each condition and then releases
+INT0. An older PC-qualified bit-0 inversion incorrectly forced both entries
+down the `fd` path, left bit 0 pending indefinitely, and starved CPU2's packet
+dispatcher. Removing it lets CPU2 drain all startup ring packets natively.

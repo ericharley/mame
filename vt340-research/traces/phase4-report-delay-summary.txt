@@ -4,7 +4,7 @@ VT340 Phase 4 controlled report-delay experiment
 Purpose
 -------
 
-Test whether CPU1's four-byte report interval after response 5 is the timing
+Test whether CPU1's four-byte LK201 command interval after response 5 is the timing
 boundary that prevents the native sentinel/checkpoint order. This is a
 debugger-only dependency experiment, not proposed hardware behavior.
 
@@ -38,7 +38,7 @@ Observed emulation-time path
 ----------------------------
 
     8.222098  CPU1 accepts response 5
-    8.222281  shortened four-byte report completes
+    8.222281  shortened four-byte keyboard command block completes
     8.222291  CPU1 emits pulse 6
     8.222432  CPU1 accepts response 6 from a native CPU2 table transition
     8.222455  CPU1 writes the authentic pending sentinel 7FF2=10

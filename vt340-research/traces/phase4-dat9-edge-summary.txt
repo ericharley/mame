@@ -46,7 +46,7 @@ time (s)     source  writer PC  CPU1 PC  transition / meaning
 
 CPU1 routine 3BA0-3BCE polls the live P3.5 level: it first waits for low at
 3BAB, then waits for high at 3BBC. It does not use Timer 1 edge capture. After
-accepting response 5, CPU1 executes the four-byte 3AC9/3B64 report delay and
+accepting response 5, CPU1 executes the four-byte 3AC9/3B64 LK201 command delay and
 is at 3B6E/3B70 (or its timer interrupt) for every intervening CPU2 transition.
 The final low is released 6.886 ms before CPU1 emits pulse 6, so no edge is
 pending for the next level-polling call.

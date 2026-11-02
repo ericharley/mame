@@ -14,7 +14,7 @@ Method
 `phase4-table-duration-experiment.lua` intercepts CPU2 at 133D, after its
 first authentic 17CF table group, and returns it to 133A for a selected number
 of extra executions.  It does not change table contents, either CPU's clock,
-the CPU1 report loop, DAT9 polling, or mailbox values.  After the configured
+the CPU1 LK201 command loop, DAT9 polling, or mailbox values.  After the configured
 repetitions, CPU2 executes its original second group and continues normally.
 
 Set `VT340_EXTRA_TABLE_GROUPS` to select the repetition count.  One group is

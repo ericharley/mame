@@ -88,8 +88,10 @@ request-specific retained pulse without changing the startup event sequence.
 - E61 is modeled with MAME's SCN2681 DUART and drives CPU1 INT0.
 - E81 is modeled with MAME's SCN2641 interface and drives CPU1 INT1.
 - Disconnected receive inputs idle at the serial marking level.
-- The keyboard uses CPU1's internal UART. The current provisional model sends
-  an LK201 successful power-on response (`01 00 00 00`) after 70 ms.
+- The keyboard uses CPU1's internal UART and MAME's ROM-driven `lk201_device`.
+  CPU1 P3.1/TXD drives the keyboard receive input and the keyboard transmitter
+  drives CPU1 P3.0/RXD. This replaces the former timer-generated power-on
+  response.
 - Reserved CPU1 SFR `c2` reads as `ff`, matching the value required by the
   firmware's formatter path.
 
@@ -102,10 +104,11 @@ CPU2's XDATA handler separates shared RAM from the decoded video apertures:
 - DC7051 low/high timing-register apertures.
 - Diagnostic bitmap and graphics POST behavior.
 
-E80 is a CPU1-owned Xicor X2804 EEPROM. Its 512-byte `23-001N2` image has been
-recovered, but the E10-latched bus interface is not yet modeled; the ROM
-declaration preserves that dependency without exposing the earlier, incorrect
-CPU2 `e600-e7ff` overlay.
+E80 is a CPU1-owned Xicor X2804 EEPROM. Its recovered 512-byte `23-001N2`
+image is read through CPU1's E10-selected `f000-f1ff` aperture. The image
+passes the ROM's native checksums and clears `NVR Error - 1`. EEPROM program
+timing and persistence remain unmodeled because the proven startup path is
+read-only.
 
 The raster path retains DC323 origins, extents, scale, mode, masks, source
 selection, and Viper logic functions. It supports the proven E49-to-bitmap
@@ -196,28 +199,44 @@ Tracked Lua scripts and disassemblies make the important paths reproducible.
 5. CPU1 emits its next DAT9 pulse approximately 6.898 ms later, but does not
    install pending sentinel `7ff2=10` until approximately 8.295773 s.
 6. CPU1 waits for a checkpoint that CPU2 has already issued. CPU2 later
-   writes the authentic `7ff2=80` result and enters operational E4 firmware,
-   but CPU1 cannot consume the result through the missed state transition.
+   writes the authentic `7ff2=80` result and enters operational E4 firmware.
+7. CPU1's bounded checkpoint loop expires at approximately 119.955290 s,
+   immediately consumes the retained `80` in its terminal-result stage, and
+   enters native startup routine `4551` at approximately 119.995547 s.
+8. After removal of the incorrect PC-qualified DC323 bit-0 inversion, CPU2
+   drains all startup packets. CPU1 completes both `7289` passes and submits
+   command 32 at 121.688120 s.
+9. CPU2 executes handler `db98` and reaches its completion-event wait at
+   `dc02` at 122.047438 s with producer and consumer both `66` and `60bb=01`.
+10. During command 32, CPU2 issues documented PBT command `0bc4` and reads
+    1,024 bytes of localized startup text from E49 into `cc00-cfff`. With the
+    register-7 FIFO modeled, the firmware replaces `Wait` with four specific
+    POST errors selected by CPU1's result byte. E80 and SCN2681 corrections
+    have reduced that byte from `63` to `40`.
 
 The older command-32/ring experiment remains valid Phase 2 control-flow
 evidence, but the corrected ROM baseline exposes this earlier Phase 4
-sentinel/checkpoint ordering as the first failing boundary. CPU2 never reads
-`7ff2`; `10` is not a request notification.
+sentinel/checkpoint ordering as the first fast-path timing mismatch. CPU2
+never reads `7ff2`; `10` is a stale-zero guard, not a request notification.
 
 ## Known provisional or incomplete behavior
 
 - CPU1 is back on the documented I8031 core; the previously observed later
   serial-service stack excursion above `7f` remains unresolved.
 - Short DAT9/T1 handshakes use narrowly scoped pulse retention.
-- The LK201 power-on reply is synthesized rather than produced by a keyboard
-  device.
+- The exact LK201 ROMs are connected through MAME's ROM-driven keyboard
+  device; keyboard timing does not change the checkpoint mismatch.
 - The 512-byte E80 `23-001N2` dump has been recovered, but its E10-latched
   CPU1 bus interface is not yet modeled.
-- Some graphics POST/status behavior remains PC-qualified.
+- Some graphics POST/ready behavior remains PC-qualified; the operational
+  DC323 interrupt status path is no longer PC-qualified.
 - Destination-only/source-2 operations, fill modes, scrolling, complete
   palette initialization, and sound are incomplete.
 - Shared-memory arbitration timing is not modeled.
-- The successful `VT340 OK` startup display is not reached.
+- The firmware now exits `Wait`; E80, both SCN2681 channels, and the SCN2641
+  printer diagnostic all pass, and CPU1 submits POST result `00`. The original
+  `VT340 OK` panel is visible; clearing the old `Wait` glyph and stabilizing
+  the panel remain display-state work rather than POST work.
 
 ## Repository guide
 

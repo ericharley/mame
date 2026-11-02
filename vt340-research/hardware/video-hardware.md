@@ -31,6 +31,14 @@ the status bit. CPU2 routine `1bd2` uses this contract to wait for and
 acknowledge eight Pause Complete events. Bits 2-5 report the previously
 documented raster/address/I-D completion conditions.
 
+The operational interrupt dispatcher uses the same contract. At `0047`, a
+set bit 0 selects the `fe` acknowledgement, clearing Pause Complete. A
+remaining bit 1 causes one level-triggered re-entry and the `fd`
+acknowledgement clears Scroll Service. The former PC-qualified inversion of
+bit 0 forced both entries down the `fd` path, left Pause Complete asserted,
+and starved CPU2's packet dispatcher. It has been removed; repeated cold boots
+now drain every startup ring packet through the original CPU2 firmware.
+
 The first observed text rasterops have been decoded from the E4 firmware and
 runtime register stream.  Later synchronized POST work showed that the
 resulting `Wait` display belongs to the delayed-status/failure path rather than
@@ -115,21 +123,23 @@ normal firmware at `4551`.  The `7e7e/7e7f` bytes have since been identified as
 command-ring producer/consumer indices.  A corrupt E4 dump byte at CPU address
 `92ff` has been reconstructed as `MOVX @DPTR,A`, restoring the firmware's
 native packet-length store and indirect dispatcher without a synthetic stack
-frame.  With CPU1's later serial-service stack also stable, the authentic path
-continues to display `Wait`.  The remaining blocker is now the missing firmware
-state transition, not POST restart or ring corruption.
+frame. With CPU1's later serial-service stack also stable and command-32's
+register-7 PBT implemented, the authentic path now replaces `Wait` with its
+persistent POST result. The remaining blocker is CPU1 result `63`, not POST
+restart, ring corruption, or hidden graphics output.
 
 A command-level trace now separates the missing banner from the raster
 engine.  Before entering the interrupt-enabled E4 loop, firmware performs a
 large series of `0ed0` E49 transfers beyond the programmed refresh limits
 (`XL=0340`, `YL=020a`).  These initialize off-screen backing storage, not the
-800x500 scanout.  The four proven `Wait` glyphs are the persistent visible
-result on the repaired native dispatcher path.  The accompanying destination-only commands use
-logic function `cc` (destination) or clear a line at Y=`020a`, so they do not
-contain a hidden `VT340 OK` image.  No normal-operation PBT command is issued.
-The banner is therefore absent upstream of the implemented raster path rather
-than being drawn and lost by an incorrect viewport or an ignored source-2/fill
-operation.
+800x500 scanout. The four proven `Wait` glyphs are the temporary visible
+result on the repaired native dispatcher path. The later command-32 handler
+issues PBT command `0bc4`, with source `(0000,12e4)` and extent `0100` by
+`0020`, to stream 1,024 bytes from E49 offsets `5c80-607f` through DC323
+register 7 into CPU2 storage `cc00-cfff`. That range is the localized startup
+string table and includes `VT340 OK`. Modeling register 7 as the documented
+I/D FIFO removes the former rows of character `4` and lets original firmware
+render its actual POST error screen. See `../traces/phase4-pbt-report.md`.
 
 The DC323 register trace also confirms zero final Y offset, zero pending/new/
 old indexes, zero scroll constants, and refresh limits `0340/020a`.  Scanout
