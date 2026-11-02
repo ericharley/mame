@@ -118,6 +118,7 @@ private:
 	bool m_adder_raster_test = false;
 	std::array<u16, 0x40> m_adder_regs{};
 	u16 m_adder_status = 0;
+	bool m_scroll_pending = false;
 	std::array<u16, 0x20> m_viper_regs{};
 	bool m_pbt_read_active = false;
 	u32 m_pbt_read_index = 0;
@@ -157,6 +158,7 @@ private:
 	void cpu2_p2_w(u8 data);
 	u8 cpu2_p3_r();
 	void execute_rasterop(u16 command);
+	void execute_scroll_erase();
 	u32 screen_update(screen_device &screen, bitmap_rgb32 &bitmap, rectangle const &cliprect);
 
 	virtual void machine_start() override ATTR_COLD;
@@ -508,6 +510,8 @@ void vt340_state::cpu2_xdata_w(offs_t offset, u8 data)
 			if (!(m_adder_status & m_adder_regs[0x02]))
 				m_cpu2->set_input_line(MCS51_INT0_LINE, CLEAR_LINE);
 		}
+		if (((offset & 0x3f) == 0x14) && m_bitmap_post_done)
+			m_scroll_pending = true;
 		if ((offset & 0x3f) == 0x08)
 		{
 			// I/D commands 0180-019f broadcast the retained I/D data word to
@@ -706,21 +710,22 @@ void vt340_state::execute_rasterop(u16 command)
 {
 	// Bits 8-9 select a rasterop, bits 10-12 enable destination/source 1/
 	// source 2, and I/D command C0/D0/E0/F0 selects Viper logic register
-	// 0/1/2/3.  This path covers normal source-1/destination operations from
-	// either bitmap memory or E49.  XCON=014D and sheet 28 reduce E49's address
+	// 0/1/2/3.  This path covers normal destination operations with either no
+	// memory source (the Viper source register supplies a constant), or source
+	// 1 from bitmap memory or E49.  XCON=014D and sheet 28 reduce E49's address
 	// to 32 bytes per scanline.
 	bool const rasterop = ((command >> 8) & 3) == 2;
 	bool const destination_enabled = BIT(command, 10);
 	bool const source1_enabled = BIT(command, 11);
 	bool const source2_enabled = BIT(command, 12);
 	bool const normal_mode = m_adder_regs[0x09] == 0x0080;
-	if (!rasterop || !destination_enabled || !source1_enabled || source2_enabled ||
+	if (!rasterop || !destination_enabled || source2_enabled ||
 		!normal_mode)
 		return;
 
 	u16 const source_x = m_adder_regs[0x22] & 0x3fff;
 	u16 const source_y = m_adder_regs[0x23] & 0x1fff;
-	bool const source_is_e49 = BIT(source_y, 12);
+	bool const source_is_e49 = source1_enabled && BIT(source_y, 12);
 	u16 const destination_x = m_adder_regs[0x24] & 0x3fff;
 	u16 const destination_y = m_adder_regs[0x25] & 0x3fff;
 	u16 const width = std::min<u16>(m_adder_regs[0x26] & 0x1fff, BITMAP_WIDTH);
@@ -755,7 +760,9 @@ void vt340_state::execute_rasterop(u16 command)
 			for (unsigned plane = 0; plane < 4; plane++)
 			{
 				bool source_bit;
-				if (source_is_e49)
+				if (!source1_enabled)
+					source_bit = BIT(m_viper_regs[0x0a], word_bit);
+				else if (source_is_e49)
 					source_bit = BIT(rom_source, rom_x & 7);
 				else if ((source_pixel_x < BITMAP_WIDTH) && (source_pixel_y < BITMAP_HEIGHT))
 					source_bit = m_bitmap_planes[plane * BITMAP_PLANE_SIZE +
@@ -768,6 +775,40 @@ void vt340_state::execute_rasterop(u16 command)
 				unsigned const logic_input = (destination_bit << 1) | source_bit;
 				m_bitmap_planes[plane * BITMAP_PLANE_SIZE + destination] = BIT(logic, logic_input);
 			}
+		}
+	}
+}
+
+void vt340_state::execute_scroll_erase()
+{
+	if (!m_scroll_pending)
+		return;
+	m_scroll_pending = false;
+
+	// Loading the Y scroll constant schedules one operation for the following
+	// frame.  Bit 13 selects erase mode: the complete device-coordinate scroll
+	// region is replaced with the Viper fill word, independent of the distance.
+	// The right and bottom bounds are exclusive and the Y offset translates
+	// device coordinates to bitmap-memory coordinates.
+	u16 const scroll = m_adder_regs[0x14];
+	if (!BIT(scroll, 13))
+		return;
+
+	u16 const x_min = std::min<u16>(m_adder_regs[0x0e] & 0x3ffc, BITMAP_WIDTH);
+	u16 const x_max = std::min<u16>(m_adder_regs[0x0f] & 0x3ffc, BITMAP_WIDTH);
+	u16 const y_min = std::min<u16>(m_adder_regs[0x10] & 0x1fff, BITMAP_HEIGHT);
+	u16 const y_max = std::min<u16>(m_adder_regs[0x11] & 0x1fff, BITMAP_HEIGHT);
+	u16 const y_offset = m_adder_regs[0x13] & 0x1fff;
+	u16 const fill = m_viper_regs[0x0b];
+
+	for (u16 device_y = y_min; device_y < y_max; device_y++)
+	{
+		u16 const bitmap_y = (device_y + y_offset) & (BITMAP_HEIGHT - 1);
+		for (u16 x = x_min; x < x_max; x++)
+		{
+			u32 const destination = bitmap_y * BITMAP_WIDTH + x;
+			for (unsigned plane = 0; plane < 4; plane++)
+				m_bitmap_planes[plane * BITMAP_PLANE_SIZE + destination] = BIT(fill, x & 15);
 		}
 	}
 }
@@ -832,6 +873,7 @@ void vt340_state::machine_start()
 	save_item(NAME(m_adder_raster_test));
 	save_item(NAME(m_adder_regs));
 	save_item(NAME(m_adder_status));
+	save_item(NAME(m_scroll_pending));
 	save_item(NAME(m_viper_regs));
 	save_item(NAME(m_pbt_read_active));
 	save_item(NAME(m_pbt_read_index));
@@ -870,6 +912,7 @@ TIMER_CALLBACK_MEMBER(vt340_state::cpu2_hsync_tick)
 
 TIMER_CALLBACK_MEMBER(vt340_state::cpu2_vsync_tick)
 {
+	execute_scroll_erase();
 	// Pause Complete and Scroll Service are generated at the vertical frame
 	// boundary.  Both are sticky DC323 status conditions; interrupt assertion
 	// additionally depends on the matching enable bit in register 2.
@@ -901,6 +944,7 @@ void vt340_state::machine_reset()
 	m_adder_raster_test = false;
 	m_adder_regs.fill(0);
 	m_adder_status = 0;
+	m_scroll_pending = false;
 	m_viper_regs.fill(0);
 	m_pbt_read_active = false;
 	m_pbt_read_index = 0;
