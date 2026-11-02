@@ -95,11 +95,18 @@
   takes the native carry branch to `dc18` and clears `60bb` at `dc1c`.
 - Current Phase 4 boundary: after full ROM reconstruction and correction of
   the MCS-51 SBUF latches, CPU2 writes the `7ff2=00` checkpoint before CPU1
-  installs pending sentinel `10`. CPU1 consequently overwrites the only zero
-  checkpoint and cannot
-  consume CPU2's later authentic result `80`. This is not a missing raster
-  primitive or dispatcher return path. CPU2 has no read of `7ff2`, so this is
-  not a request/acknowledgement mailbox.
+  installs stale-zero guard `10`. CPU1 consequently overwrites the only zero
+  checkpoint and loses the fast path. Its bounded wait expires at 119.955290 s
+  and it consumes CPU2's authentic `80`, entering startup routine `4551` at
+  119.995547 s. CPU1 then enqueues 23 startup packets and waits in `f2a7`,
+  while the former PC-qualified DC323 bit-0 inversion caused immediate INT0
+  re-entry and left the ring consumer at `00`. Removing that inversion lets
+  CPU2 acknowledge Pause Complete with `fe`, Scroll Service with `fd`, and
+  drain all 102 startup packets natively. CPU1 reaches command 32 and CPU2
+  reaches `dc02` with producer and consumer both `66`. The next boundary is
+  the later completion event needed to take `dc18` and clear `60bb`.
+  CPU2 has no read of `7ff2`, so that location is not a request/acknowledgement
+  mailbox. See `traces/phase4-post-timeout-report.md`.
 
 ## CPU2 ROM bank polarity for the dumped cartridge - resolved
 
@@ -109,7 +116,7 @@
 - Status: resolved by controlled firmware execution.  Alternate cartridge
   strap configurations remain untested.
 
-## E80 initial state
+## E80 initial state - startup read path resolved
 
 - Evidence: the schematic identifies E80 as an X2804AP-45. The archived DEC
   `23-001N2` image is independently catalogued as VT340 location E80 and is
@@ -119,6 +126,8 @@
 - Trace result: no CPU1 external access occurs while live P1.4/NVREN is low
   before the current 13.2-second mailbox boundary. E80 therefore does not
   directly explain the first acknowledgement inversion.
-- Needed: reconstruct E10-latched `NVRCS`, `NVRRD`, and write timing before
-  connecting the image to CPU1's data map. Re-test the later startup path.
-- Status: dump acquired; bus interface not yet modeled.
+- Late-startup finding: routines `3c27` and `3d5a` clock E10 at `4156` and
+  read E80 through `f000-f1ff` while P1.3/NVRDS is low. The recovered image
+  makes every native seeded checksum equal zero and clears POST result bit 0.
+- Remaining work: EEPROM program timing and persistence are not modeled.
+- Status: startup read path resolved; write behavior open.

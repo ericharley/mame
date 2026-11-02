@@ -52,7 +52,7 @@ emu.register_periodic(function()
 	elseif (event == "delay_inner_1" or event == "delay_inner_2") and shorten_report then
 		-- Diagnostic only: preserve the firmware's calls, pushes, pops, and
 		-- A=3 outer loop, but make each of its two 256-iteration DJNZ loops
-		-- execute once for the four-byte report immediately after response 5.
+		-- execute once for the four-byte LK201 command block after response 5.
 		cpu1.state["R0"].value = 1
 		shortened = shortened + 1
 	elseif event == "report_done" and shorten_report then

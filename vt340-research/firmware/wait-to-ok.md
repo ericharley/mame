@@ -315,12 +315,22 @@ first physically sequenced boot now records:
 | 8.228872 s | CPU2 publishes checkpoint zero before CPU1's sentinel write |
 | 8.295870 s | CPU1 installs pending sentinel `7ff2=10` |
 | 13.194725 s | CPU2 writes result `7ff2=80` |
+| 119.955290 s | CPU1's bounded checkpoint wait expires with `A=80` |
+| 119.995547 s | CPU1 accepts the result and enters startup routine `4551` |
 
-The current post-audit blocker is ordering: CPU2 publishes its checkpoint
-before CPU1 writes the sentinel, then writes the result without a second zero transition.
-CPU1's `3a18-3a21` loop waits specifically for zero and therefore ignores the
-later `80`. At 30 s CPU1 remains in `3a18`. The physical DAT9/mailbox ordering
-is the next Phase 4 trace boundary. Full reconstruction evidence and the five
+The first unmodified long run beyond this boundary shows that `4551` is not
+itself the final success path. CPU1 reaches the first `7289` initialization,
+enqueues 23 packets (`7e7e=17`), and waits for CPU2 to drain them. CPU2 remains
+in immediate DC323 external-interrupt re-entry, leaves `7e7f=00`, and submits
+no further graphics command through 301 seconds. The framebuffer consequently
+remains `Wait`. See `traces/phase4-post-timeout-report.md`.
+
+The post-audit timing mismatch is ordering: CPU2 publishes its checkpoint
+before CPU1 writes the stale-zero guard, then writes the result without a
+second zero transition. CPU1's `3a18-3a21` loop prefers zero and therefore
+ignores the later `80` until its three nested counters expire. The retained
+result is then accepted through the native terminal-result path. Full
+reconstruction evidence and the five
 unrecoverable-but-structurally-valid `00ff` classifications are in
 `firmware/rom-dump-reconstruction.md`.
 

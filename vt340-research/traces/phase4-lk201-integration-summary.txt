@@ -1,0 +1,51 @@
+VT340 Phase 4 full LK201 integration experiment
+================================================
+
+Question
+--------
+
+Does replacing the synthetic 01 00 00 00 keyboard power-on response with
+MAME's ROM-driven LK201 device change the CPU1/CPU2 synchronization boundary?
+
+Implementation
+--------------
+
+The VT240 driver already uses lk201_device. The VT340 now connects CPU1
+P3.1/TXD to lk201_device::rx_w and the keyboard transmit callback to CPU1
+P3.0/RXD. The timer-generated power-on response was removed.
+
+The local lk201.zip contains the two images declared by MAME:
+
+  23-001s9-00.bin       SHA1 a11ae004d2d6055d7279da3560c3e56610a19fdb
+  23-004m2.8051h.e1     SHA1 9744c561d76fe85afaccc7a2485ce2865236873a
+
+The archive is a local test dependency and is not stored in Git.
+
+Result
+------
+
+The four CPU1 SBUF writes after response 5 are LK201 command traffic:
+
+  8.222126  11
+  8.225591  8f
+  8.228750  13
+  8.232214  8c
+
+The synchronization boundary is unchanged from the synthetic-keyboard run:
+
+  8.220511  CPU2 enters configuration at 1325
+  8.222100  CPU1 accepts response 5
+  8.228779  CPU2 writes checkpoint 7ff2=00 at 136d
+  8.235679  CPU1 emits pulse 6
+
+The checkpoint still precedes pulse 6 by 6.900 ms. The full LK201 improves
+device fidelity but does not restore sentinel -> checkpoint -> result order.
+
+Regression
+----------
+
+  ROM boundary reconstruction audit: pass
+  smoke.sh: pass
+  phase3-checkpoint.sh: pass
+  phase2-closeout.sh: pass
+  verifyroms: best available; only e80.bin remains NO GOOD DUMP KNOWN
