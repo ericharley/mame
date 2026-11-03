@@ -89,30 +89,39 @@ string `Wait`.
 
 Four DC322 Vipers drive the bitmap planes.  Each displayed pixel is formed by
 four serial plane bits indexing a 16-entry RGB color map; each color-map entry
-has four bits each of red, green, and blue.  The current driver retains the
-four Viper logic-function registers loaded by commands `0184-0187`.  For the
-proven normal text path, function value `ca` selects the source (`F=S`), and
-the `0ec0` E49-to-destination rasterop writes four independent bitmap planes.
+has four bits each of red, green, and blue. Each Viper now retains its own
+register set. Schematic sheet 8 shows E16 decoding `f060-f07f` as `CNTLWR`; a
+74LS174 latches CPU2 write-data bits `BAD3-BAD0` as `V0CS-V3CS`; `BAD5`
+separately drives `OPADDS`. The driver uses that physical select mask for both
+Viper register loads and raster destination writes.
+
+For the proven normal text path, function value `ca` selects the source
+(`F=S`). The Viper Boolean result selects that plane's foreground or
+background word, and the corresponding word bit becomes the bitmap-plane
+output. The `0ec0` E49-to-destination rasterop therefore writes four
+independent bitmap planes rather than broadcasting one Boolean bit to all
+planes. A firmware-free regression generates and verifies every color index
+from 0 through 15.
+
 The same normal-mode engine now follows the command's Viper-function selector,
 mask registers, source complement control, and bitmap-to-bitmap source path.
 This produces the first genuine on-screen firmware text (`Wait`) at exact
-832-total/800-active by 526-total/500-active screen timing.  Until color-map
-programming is decoded, index zero is displayed black and nonzero plane data
-is displayed monochrome; no guessed RGB palette is stored.
+832-total/800-active by 526-total/500-active screen timing.
 
 Schematic sheet 17 identifies the color map as E51/E52 AS870 register files.
 The four serialized bitmap-plane bits select one of 16 entries; the outputs
-are four bits each of red, green, and blue.  PAL E16 decodes `f04x` as the E51
-write aperture and `f05x` as the E52 aperture, with the address low nibble
-selecting the entry.  E51's low data nibble is red (its high nibble is unused);
-E52's low nibble is green and high nibble is blue.  The driver now retains
-both apertures and displays an entry as genuine 12-bit RGB once firmware has
-written both halves after entering visible normal operation.  Earlier writes
-belong to graphics POST: its destructive `aa`, zero, and register-pattern
-sweeps leave diagnostic residue that is not a normal display palette.  Those
-values are retained for register behavior but deliberately do not color the
-screen.  Unprogrammed operational entries remain on the monochrome visibility
-fallback rather than receiving an invented color.
+are four bits each of red, green, and blue. PAL E16 decodes `f080-f09f` as the
+E51 aperture and `f0a0-f0bf` as E52; BA4 is not decoded and the low address
+nibble selects the entry. These ranges were previously misidentified as
+DC7051 timing registers. E51's low data nibble is red and its high nibble is
+unused. E52's high nibble drives green and its low nibble drives blue, as
+confirmed by both the board drawing and native SIXEL palette loads.
+
+The driver retains both apertures and displays every completely programmed
+entry as genuine 12-bit RGB. Entries without both halves retain a monochrome
+visibility fallback rather than an invented color. The native `VT340 OK`
+screen itself programs monochrome plane values, so its unchanged black-and-
+white appearance is not evidence that the four-plane path is inactive.
 
 The service guide establishes that a successful power-up is not a black idle
 screen: it displays `VT340 OK` in a rectangle together with the firmware
@@ -238,3 +247,46 @@ and captures before/after screenshots without modifying emulated state.
 Direct framebuffer hashes also show that the success panel and copyright
 bitmap persist unchanged from 130 through 300 seconds; intermittent blank
 snapshots are in the presentation path, not the bitmap raster engine.
+
+## SIXEL integration workload
+
+`tests/sixel-bill.sh` supplies the reproducible 16-color 330 by 440 Bill the
+Cat image to Comm 1 after leaving the POST screen through the native LK201
+path. The exact PNG, converter, and 93,198-byte SIXEL stream are retained in
+`fixtures` and `tools`. The test uses a raw pseudo-terminal with XON/XOFF, the
+same external path as a macOS/getty session.
+
+The DC323 now executes X-mode processor-to-bitmap transfers, including the
+six-word FIFO-facing data path used for each 1 by 6 SIXEL column. Processor
+words follow the selected Viper CSR's external-load setting (source, both
+masks, mask 2, or none), and the resulting destination cycle observes the
+selected logic function, masks, foreground/background words, bus width, and
+edge masks. The firmware-free device regression covers the native 1 by 6
+form, unaligned leading/trailing words, completion status, and CSR mask loads.
+
+The firmware color decision is also native. EEPROM configuration byte `5a`
+loads into shared state `4c00`; bit 4 clear selects monochrome output-map
+tables and bit 4 set selects color. The recovered EEPROM contains the valid
+saved value `28`, meaning Color Map: monochrome. With the complete VT340 model
+identity exposed, Global Set-Up contains the documented Color Map row. The
+LK201-only `color-setup-trace.lua` changes the working value from `28` to `38`
+without a RAM write, firmware patch, or palette injection.
+
+A raw PTY run using that native selection received all 93,198 SIXEL bytes with
+zero byte mismatches and balanced 901-pair XON/XOFF flow control. It programmed
+all 16 output-map entries and rendered the complete orange/yellow Bill image.
+Example entry 11 is E51=`ae`, E52=`81`, which decodes to RGB `ee8811`. The
+command path contains no synthetic SIXEL parser or framebuffer injection.
+
+`tests/sixel-bill-pty.sh` implements that end-to-end color acceptance path and
+`tests/sixel-bill.sh` is its conventional entry point. The bitbanger's shared
+bidirectional file transport is deliberately not used as the visual authority.
+Earlier PTY attempts intermittently left DCS mode, so repeated cold-boot runs
+remain worthwhile. The trace now compares every CPU-visible byte with the
+fixture and reports the first mismatch if transport corruption recurs.
+
+E51/E52 color-map writes become active whenever their decoded hardware
+aperture is written. The former requirement that CPU2 interrupts be enabled
+and that the DC323 had already drawn a visible glyph was a display-policy
+heuristic with no corresponding board gate; it could leave legitimate SIXEL
+palette entries on the monochrome fallback.

@@ -19,7 +19,9 @@
 - [x] Reconstruct CPU1 E1/E2 missing tail bytes from the ROM's own rotate/XOR checksums.
 - [x] Synchronize the bidirectional CPU2 P1.1 / CPU1 T1 power-on handshakes.
 - [x] Pass the DC323 bitmap AA, zero/readback, complement, and final clear sweeps.
-- [x] Retain the aliased DC7051 F080-F0BF timing-register apertures.
+- [x] Correct F080/F0A0 ownership from presumed DC7051 registers to the
+  schematic E51/E52 output maps; DC7051's CPU-visible programming remains
+  unidentified.
 - [x] Pass the DC7051 vertical-period check at the ROM's accepted `0cfb-0cfd` count.
 - [x] Identify the initial multiplexed DAT9 status/report phases and CPU1's
   `7ff2=10` / CPU2 `7ff2=80` POST report exchange.

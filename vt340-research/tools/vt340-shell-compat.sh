@@ -3,18 +3,17 @@
 #
 #   . /path/to/mame/vt340-research/tools/vt340-shell-compat.sh
 #
-# It deliberately advertises the conservative VT100 capability set.  Override
-# that for a controlled VT220 experiment with:
+# It advertises the VT340 capability set needed by graphics-aware software.
+# Override that for a deliberately conservative VT100 session with:
 #
-#   VT340_TERM=vt220 . /path/to/vt340-shell-compat.sh
+#   VT340_TERM=vt100 . /path/to/vt340-shell-compat.sh
 
 VT340_ROWS=${VT340_ROWS:-24}
 VT340_COLUMNS=${VT340_COLUMNS:-80}
 
-# TERM describes the behavior applications may use, not the model name printed
-# on the terminal.  VT100 avoids capabilities that the current VT340 graphics
-# implementation has not yet demonstrated reliably.
-TERM=${VT340_TERM:-vt100}
+# TERM describes the behavior applications may use, including ReGIS and SIXEL
+# capabilities that are specific to this terminal family.
+TERM=${VT340_TERM:-vt340}
 export TERM
 
 # Keep command output within the terminal's presently reliable character set.
@@ -44,10 +43,11 @@ if [ -t 0 ]; then
 	export VT340_SAVED_STTY
 
 	# The VT340 Comm 1 defaults are 19200 baud, 8 data bits, no parity, one stop
-	# bit, and no flow control.  A PTY does not model the baud clock, but matching
-	# the remaining line discipline prevents software flow-control characters or
-	# high-bit stripping from changing the byte stream.
-	stty sane 19200 cs8 -parenb -cstopb -istrip -ixon -ixoff \
+	# bit, with XON/XOFF output pacing. A PTY does not model the baud clock, but
+	# IXON lets the terminal pause a sustained SIXEL stream before its UART/parser
+	# queues overflow. IXOFF remains disabled because the host shell does not need
+	# the kernel to generate flow-control bytes on the terminal's behalf.
+	stty sane 19200 cs8 -parenb -cstopb -istrip ixon -ixoff \
 		icrnl -inlcr -igncr opost onlcr \
 		echo echoe echok icanon isig iexten \
 		rows "$VT340_ROWS" columns "$VT340_COLUMNS"
@@ -85,5 +85,5 @@ vt340_restore_tty()
 	fi
 }
 
-printf 'VT340 shell compatibility enabled: TERM=%s, %sx%s, ASCII locale, no flow control.\n' \
+printf 'VT340 shell compatibility enabled: TERM=%s, %sx%s, ASCII locale, XON/XOFF output pacing.\n' \
 	"$TERM" "$VT340_COLUMNS" "$VT340_ROWS"

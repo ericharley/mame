@@ -37,11 +37,15 @@ public:
 		REG_NEW_Y_INDEX = 0x18,
 		REG_OLD_X_INDEX = 0x19,
 		REG_OLD_Y_INDEX = 0x1a,
+		REG_SOURCE_FAST_DX = 0x20,
+		REG_SOURCE_SLOW_DY = 0x21,
 		REG_SOURCE_X = 0x22,
 		REG_SOURCE_Y = 0x23,
 		REG_DESTINATION_X = 0x24,
 		REG_DESTINATION_Y = 0x25,
 		REG_WIDTH = 0x26,
+		REG_DESTINATION_FAST_DY = 0x27,
+		REG_DESTINATION_SLOW_DX = 0x28,
 		REG_HEIGHT = 0x29
 	};
 
@@ -72,6 +76,7 @@ public:
 	u8 read(offs_t offset);
 	void write(offs_t offset, u16 data);
 	void operational_w(int state);
+	void viper_select_w(u8 data);
 	void vsync_w(int state);
 
 	// Board compatibility and video-backend accessors.  These expose state,
@@ -81,6 +86,8 @@ public:
 	u16 interrupt_enable_r() const { return m_registers[REG_INTERRUPT_ENABLE]; }
 	bool video_operational() const { return m_video_operational; }
 	bool scroll_pending() const { return m_scroll_pending; }
+	u8 viper_select_r() const { return m_viper_select; }
+	u16 viper_register_r(unsigned plane, unsigned reg) const { return m_viper_registers[plane][reg & 0x1f]; }
 	u8 pixel_r(unsigned plane, unsigned x, unsigned y) const;
 	void bitmap_clear(u8 data = 0);
 
@@ -98,7 +105,10 @@ private:
 		VIPER_REG_SOURCE = 0x0a,
 		VIPER_REG_FILL = 0x0b,
 		VIPER_REG_SCROLL_LEFT = 0x0c,
-		VIPER_REG_SCROLL_RIGHT = 0x0d
+		VIPER_REG_SCROLL_RIGHT = 0x0d,
+		VIPER_REG_BACKGROUND = 0x0e,
+		VIPER_REG_FOREGROUND = 0x0f,
+		VIPER_REG_CSR_BASE = 0x10
 	};
 
 	static constexpr u32 bitmap_plane_address(unsigned plane, unsigned x, unsigned y)
@@ -107,9 +117,12 @@ private:
 	}
 
 	u8 id_data_r();
+	void id_data_w(u16 data);
 	void command_w(u16 command);
 	void execute_rasterop(u16 command);
+	void execute_linear_pattern(u16 command);
 	void execute_scroll();
+	void write_viper_pixel(unsigned plane, unsigned x, unsigned y, u16 command, bool source_bit);
 	void update_interrupt(char const *event);
 
 	required_region_ptr<u8> m_chargen_rom;
@@ -117,13 +130,20 @@ private:
 	devcb_write_line m_irq_handler;
 
 	std::array<u16, 0x40> m_registers{};
-	std::array<u16, 0x20> m_viper_registers{};
+	std::array<std::array<u16, 0x20>, BITMAP_PLANES> m_viper_registers{};
+	u8 m_viper_select = 0;
 	u16 m_status = 0;
 	bool m_operational = false;
 	bool m_scroll_pending = false;
 	bool m_pbt_read_active = false;
 	u32 m_pbt_read_index = 0;
 	u32 m_pbt_read_count = 0;
+	bool m_pbt_write_active = false;
+	u16 m_pbt_write_command = 0;
+	u16 m_pbt_write_bus_width = 0;
+	u16 m_pbt_write_words_per_row = 0;
+	u32 m_pbt_write_index = 0;
+	u32 m_pbt_write_count = 0;
 	bool m_video_operational = false;
 	bool m_irq_state = false;
 	u32 m_log_events = 0;

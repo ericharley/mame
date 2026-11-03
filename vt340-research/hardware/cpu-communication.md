@@ -49,9 +49,15 @@ expose the MOVX read-strobe phase, or an equivalent cycle-level bus callback;
 replacing it with another driver-side timing or sample-count heuristic would
 reduce fidelity.
 
-CPU1 P1.6 is the schematic `P1 CPMRESET H` output, not a configuration input.
-The CPU1 firmware drives it and later snapshots its state into shared `e795`;
-the driver correctly returns the live 8031 port latch for that read.
+CPU1 P1.7 and P1.6 are the schematic `P1 NVRCLK H` and `P1 CPMRESET H` nets.
+Firmware samples their resolved pin levels during startup. Firmware-generated
+Set-Up screens establish the three decoded results: `e795=01` identifies a
+VT330; `e795=02` prints VT340 but omits the Color Map and Color Set-Up
+controls; and `e795=00` exposes the complete VT340 color interface documented
+in the user guide.  The VT340 machine configuration therefore resolves P1.7
+low continuously, rather than substituting a value at the sampling PC.  The
+specific off-sheet source of that resolved level remains to be identified;
+this inference is the remaining uncertainty in the model-selection wiring.
 
 The first confirmed software mailbox is shared RAM `7ff1`.  CPU1 writes `ff`
 and polls for completion; CPU2 ROM clears it in its initialization/service

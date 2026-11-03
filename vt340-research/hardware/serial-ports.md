@@ -55,21 +55,20 @@ connected through a byte-stream bridge such as `socat`.  PTY bridging carries
 characters but does not propagate host modem-control ioctls, so use software
 or no flow control for that limited configuration.
 
-Once logged into a macOS shell, source the conservative session profile:
+Once logged into a macOS shell, source the session profile:
 
 ```sh
 . vt340-research/tools/vt340-shell-compat.sh
 ```
 
-It advertises `TERM=vt100`, configures an 80-column by 24-row 8N1 tty with no
-software flow control, selects the ASCII `C` locale, disables automatic color
-and pagers, and installs a simple prompt.  These settings reduce unrelated
-host escape sequences while testing the terminal.  The terminal itself may
-remain configured as a VT340.  Use `VT340_TERM=vt220` before the command only
-when deliberately testing the larger VT200 capability set:
+It advertises `TERM=vt340`, configures an 80-column by 24-row 8N1 tty with
+XON/XOFF output pacing, selects the ASCII `C` locale, disables automatic color
+and pagers, and installs a simple prompt. Output pacing is important for large
+SIXEL streams. Use `VT340_TERM=vt100` before the command when deliberately
+testing with the conservative text-only capability set:
 
 ```sh
-VT340_TERM=vt220 . vt340-research/tools/vt340-shell-compat.sh
+VT340_TERM=vt100 . vt340-research/tools/vt340-shell-compat.sh
 ```
 
 The profile saves the previous tty discipline; `vt340_restore_tty` restores

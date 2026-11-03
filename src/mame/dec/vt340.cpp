@@ -396,21 +396,16 @@ u8 vt340_state::cpu2_xdata_r(offs_t offset)
 		return data;
 	}
 
-	// E16 decodes two 16-entry output-map apertures.  E51 stores the red
-	// nibble (its upper nibble is unused), while E52 stores green in its low
-	// nibble and blue in its high nibble.
-	if ((offset & 0xfff0) == 0xf040)
-		return m_palette_rg[offset & 0x0f];
-	if ((offset & 0xfff0) == 0xf050)
-		return m_palette_gb[offset & 0x0f];
-
-	// E36 DC7051 timing-generator registers use two byte-wide apertures.
-	// Address bit 4 is not decoded: F080/F090 select the low-nibble half and
-	// F0A0/F0B0 select the full high-byte half of the same 16 registers.
+	// E16 decodes the two 16-entry output-map apertures.  BA4 is not decoded,
+	// so F080/F090 address the red map and F0A0/F0B0 address the green/blue
+	// map.  Firmware's output-map loader at 743c writes exactly these two
+	// tables.  E51 stores red in its low nibble (its upper nibble is unused).
+	// On E52, DA3-DA0 drive green and DB3-DB0 drive blue; these correspond to
+	// the stored high and low nibbles respectively.
 	if ((offset & 0xffe0) == 0xf080)
-		return m_dc7051->low_r(offset & 0x0f);
+		return m_palette_rg[offset & 0x0f];
 	if ((offset & 0xffe0) == 0xf0a0)
-		return m_dc7051->high_r(offset & 0x0f);
+		return m_palette_gb[offset & 0x0f];
 
 	// The E15 PAL decodes the first 64 DC323 Adder registers in the F000 I/O
 	// page.  BA11-BA8 are not decoded, so the block is mirrored.  Register
@@ -493,6 +488,13 @@ void vt340_state::cpu2_xdata_w(offs_t offset, u8 data)
 		return;
 	}
 
+	// E16 decodes F060-F07F as CNTLWR.  At that point in the multiplexed
+	// 8031 bus cycle the write data appears on BAD.  Schematic sheet 8 wires
+	// BAD3 through BAD0 to V0CS through V3CS respectively (BAD5 separately
+	// drives OPADDS).
+	if ((offset & 0xffe0) == 0xf060)
+		m_dc323->viper_select_w(bitswap<4>(data, 0, 1, 2, 3));
+
 	// F0E0 selects a timing-generator signal onto P1.0 for the firmware's
 	// measured horizontal/vertical timing diagnostics.
 	if (m_board_status && (offset == 0xf0e0))
@@ -519,31 +521,18 @@ void vt340_state::cpu2_xdata_w(offs_t offset, u8 data)
 		update_dat9_input();
 		return;
 	}
-	if ((offset & 0xfff0) == 0xf040)
-	{
-		m_palette_rg[offset & 0x0f] = data;
-		if (m_dc323->video_operational() && m_cpu2->state_int(MCS51_IE))
-			m_palette_rg_valid |= 1U << (offset & 0x0f);
-		LOGMASKED(LOG_XDATA, "%s E51 palette[%X]=%02X (PC=%04X)\n", machine().describe_context(), offset & 0x0f, data, m_cpu2->pc());
-		return;
-	}
-	if ((offset & 0xfff0) == 0xf050)
-	{
-		m_palette_gb[offset & 0x0f] = data;
-		if (m_dc323->video_operational() && m_cpu2->state_int(MCS51_IE))
-			m_palette_gb_valid |= 1U << (offset & 0x0f);
-		LOGMASKED(LOG_XDATA, "%s E52 palette[%X]=%02X (PC=%04X)\n", machine().describe_context(), offset & 0x0f, data, m_cpu2->pc());
-		return;
-	}
-
 	if ((offset & 0xffe0) == 0xf080)
 	{
-		m_dc7051->low_w(offset & 0x0f, data);
+		m_palette_rg[offset & 0x0f] = data;
+		m_palette_rg_valid |= 1U << (offset & 0x0f);
+		LOGMASKED(LOG_XDATA, "%s E51 palette[%X]=%02X (PC=%04X)\n", machine().describe_context(), offset & 0x0f, data, m_cpu2->pc());
 		return;
 	}
 	if ((offset & 0xffe0) == 0xf0a0)
 	{
-		m_dc7051->high_w(offset & 0x0f, data);
+		m_palette_gb[offset & 0x0f] = data;
+		m_palette_gb_valid |= 1U << (offset & 0x0f);
+		LOGMASKED(LOG_XDATA, "%s E52 palette[%X]=%02X (PC=%04X)\n", machine().describe_context(), offset & 0x0f, data, m_cpu2->pc());
 		return;
 	}
 
@@ -653,7 +642,15 @@ u8 vt340_state::cpu1_p1_r()
 	// P1.4 is the NVREN output and P1.5 is MFGTEST/STATUS.  Both are driven by
 	// CPU1 firmware during startup; do not replace either live output latch
 	// with the separate graphics-diagnostic state tracked by the driver.
-	return m_cpu1_p1;
+	//
+	// CPU1 samples the resolved P1.7/P1.6 (NVRCLK/CPMRESET) pin levels during
+	// startup.  The full VT340 configuration resolves P1.7 low, producing model
+	// value 0; value 1 is the VT330 personality and value 2 is a reduced VT340
+	// personality without the Color Map/Color Set-Up controls.  This machine is
+	// the full VT340 color assembly, so expose that board-level identification
+	// level continuously.
+	// The exact off-sheet source of the resolved low level remains unknown.
+	return m_cpu1_p1 & ~0x80;
 }
 
 void vt340_state::cpu1_p1_w(u8 data)
@@ -793,8 +790,8 @@ u32 vt340_state::screen_update(screen_device &, bitmap_rgb32 &bitmap, rectangle 
 			if (BIT(m_palette_rg_valid & m_palette_gb_valid, color))
 			{
 				u8 const red = (m_palette_rg[color] & 0x0f) * 0x11;
-				u8 const green = (m_palette_gb[color] & 0x0f) * 0x11;
-				u8 const blue = (m_palette_gb[color] >> 4) * 0x11;
+				u8 const green = (m_palette_gb[color] >> 4) * 0x11;
+				u8 const blue = (m_palette_gb[color] & 0x0f) * 0x11;
 				bitmap.pix(y, x) = rgb_t(red, green, blue);
 			}
 			else
