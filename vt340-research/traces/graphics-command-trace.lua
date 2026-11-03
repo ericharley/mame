@@ -150,13 +150,18 @@ graphics_command_trace = xdata:install_write_tap(
 		local height = (regs[0x29] or 0) & 0x1fff
 		local function_selector = (value >> 4) & 3
 		local logic = viper[4 + function_selector] or 0
+		local normal_mode = (mode & 0x1f) == 0 and (mode & 0x80) ~= 0
+		local indexed = (mode & 0x60) ~= 0
+		local zero_indexes = ((regs[0x17] or 0) | (regs[0x18] or 0) |
+			(regs[0x19] or 0) | (regs[0x1a] or 0)) == 0
 		local supported = operation == 2 and destination_enabled and
-			not source2_enabled and mode == 0x0080
+			not source2_enabled and normal_mode and (not indexed or zero_indexes)
 		local reason = "executed"
 		if operation ~= 2 then reason = "non_rasterop"
 		elseif not destination_enabled then reason = "destination_disabled"
 		elseif source2_enabled then reason = "source2_unimplemented"
-		elseif mode ~= 0x0080 then reason = "non_normal_mode_unimplemented"
+		elseif not normal_mode then reason = "non_normal_mode_unimplemented"
+		elseif indexed and not zero_indexes then reason = "nonzero_index_unimplemented"
 		end
 
 		print(string.format(
