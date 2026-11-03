@@ -14,8 +14,9 @@ hardware tests, exchanges the CPU1/CPU2 startup handshakes, executes native
 graphics command packets, and displays the firmware-rendered `Wait` message.
 It does not yet reach the documented persistent `VT340 OK` display.
 
-The MAME source is `src/mame/dec/vt340.cpp`. Research notes, disassemblies,
-reproduction scripts, and tests live under `vt340-research/`.
+The board driver is `src/mame/dec/vt340.cpp`; the extracted Adder device is
+`src/devices/video/dc323.{h,cpp}`. Research notes, disassemblies, reproduction
+scripts, and tests live under `vt340-research/`.
 
 ## Architecture
 
@@ -31,8 +32,8 @@ flowchart LR
     CPU1 <-->|DAT9 / T1 handshake| CPU2
     E3[E3 + banked E4/E5 CPU2 ROM] --> CPU2
 
-    CPU2 --> DC7051[DC7051 timing state]
-    CPU2 --> DC323[DC323 register and command state]
+    CPU2 --> DC7051[Standalone DC7051 timing device]
+    CPU2 --> DC323[Standalone DC323 device]
     DC323 --> VIPER[Four Viper plane operations]
     E49[E49 character ROM] --> VIPER
     VIPER --> PLANES[Four 1024 x 2048 bitmap planes]
@@ -105,6 +106,19 @@ CPU2's XDATA handler separates shared RAM from the decoded video apertures:
 - E51/E52 16-entry red and green/blue palette apertures.
 - DC7051 low/high timing-register apertures.
 - Diagnostic bitmap and graphics POST behavior.
+
+The E15/P1 board wiring assembles each decoded Adder write and forwards it to
+the standalone `dc323_device`. The device owns the 64-word register file,
+status/IRQ state, command and transfer sequencing, retained Viper operation
+state, frame-synchronized scrolling, and bitmap planes. Firmware-address-
+specific POST mux/ready accommodations remain in the VT340 board driver and
+are not DC323 behavior. See `hardware/dc323-device.md`.
+
+The mirrored DC7051 low/high apertures now forward decoded register indices to
+`dc7051_device`. That device owns the preserved horizontal and frame timers;
+callbacks drive CPU2 T0 and the DC323 frame input. The external diagnostic
+multiplexer and fixed screen geometry remain board-owned. See
+`hardware/dc7051-device.md`.
 
 E80 is a CPU1-owned Xicor X2804 EEPROM. Its recovered 512-byte `23-001N2`
 image supplies the first-run default for MAME's persistent X2804 device,
@@ -250,7 +264,9 @@ never reads `7ff2`; `10` is a stale-zero guard, not a request notification.
 
 | Location | Purpose |
 |---|---|
-| `src/mame/dec/vt340.cpp` | MAME driver and ROM declarations |
+| `src/mame/dec/vt340.cpp` | VT340 board wiring, compatibility adapter, and ROM declarations |
+| `src/devices/video/dc323.{h,cpp}` | Standalone DC323 register, command, IRQ, transfer, and graphics device |
+| `src/devices/video/dc7051.{h,cpp}` | Standalone DC7051 raw registers and compatibility timing device |
 | `vt340-research/firmware/` | Disassembly findings and firmware control flow |
 | `vt340-research/hardware/` | Hardware maps, video model, and open questions |
 | `vt340-research/traces/` | Reproduction scripts and concise trace summaries |
