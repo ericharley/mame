@@ -166,10 +166,11 @@ INT0 or timer-0 service in the interval.
 
 Schematic sheets 1, 2, and 10 confirm that CPU1 P3.5/T1, CPU2 P1.1, and
 DC323 DAT09 share one uninterrupted `P2 DAT9/TSTATUS H` net. CPU2's table-data
-transitions are therefore physically visible to CPU1. Existing PC-qualified
-DC323 status substitutions remain a fidelity debt, but do not create response
-6 or reverse the mailbox order. No fix was made. The complete path, decoded
-tables, branch report, ownership model, and cross-CPU timeline are in
+transitions are therefore physically visible to CPU1. The driver now resolves
+that net from both processor latches and explicit board/DC323 startup phases;
+the former `126f-1700` PC-qualified status values are removed. This fidelity
+cleanup does not create response 6 or reverse the mailbox order. The complete
+path, decoded tables, branch report, ownership model, and cross-CPU timeline are in
 `traces/phase4-precheckpoint-dat9-report.md`; the next evidence-led branch is
 to trace the CPU1 conditions that enter the response-5 `3ac9/3b64` LK201
 command block.

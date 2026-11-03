@@ -130,6 +130,19 @@ enum dc323_post_mode : u8
 	DC323_POST_RELEASE_PENDING
 };
 
+enum dat9_bus_phase : u8
+{
+	DAT9_WAIT_BRD_READ,
+	DAT9_BRD_READ_LOW,
+	DAT9_WAIT_STARTUP_PULSE,
+	DAT9_STARTUP_RESPONSE_LOW,
+	DAT9_WAIT_DC323_RESET,
+	DAT9_WAIT_DC323_STATUS,
+	DAT9_DC323_STATUS_HIGH,
+	DAT9_DC323_STATUS_LOW,
+	DAT9_RESOLVED_PORTS
+};
+
 bool should_log_xdata(offs_t offset, u16 &trace_events, u16 &io_trace_events)
 {
 	bool const io_access = ((offset & 0xfff0) == 0x7ff0) || (offset >= 0xf000);
@@ -207,6 +220,7 @@ private:
 	u8 m_cpu1_p1 = 0xff;
 	u8 m_cpu2_p1 = 0xff;
 	u8 m_cpu2_p2 = 0xff;
+	u8 m_dat9_bus_phase = DAT9_WAIT_BRD_READ;
 	bool m_board_status = false;
 	u8 m_video_test_select = 0;
 	bool m_cpu2_hsync_low = true;
@@ -264,6 +278,8 @@ private:
 	void cpu1_p1_w(u8 data);
 	u8 cpu2_p1_r();
 	void cpu2_p1_w(u8 data);
+	bool dat9_device_low() const;
+	void update_dat9_input();
 	u8 cpu2_p2_r();
 	void cpu2_p2_w(u8 data);
 	u8 cpu2_p3_r();
@@ -514,6 +530,14 @@ u8 vt340_state::cpu2_xdata_r(offs_t offset)
 		return data;
 	}
 
+	// P2 BRD L is also presented on the multiplexed DAT9/TSTATUS net.  Retain
+	// the low level from the bus cycle until CPU2 samples its port immediately
+	// afterwards; subsequent ownership is advanced by the resolved bus model.
+	if (m_dat9_bus_phase == DAT9_WAIT_BRD_READ)
+	{
+		m_dat9_bus_phase = DAT9_BRD_READ_LOW;
+		update_dat9_input();
+	}
 	return m_shared_ram[offset];
 }
 
@@ -610,6 +634,17 @@ void vt340_state::cpu2_xdata_w(offs_t offset, u8 data)
 	if (!m_bitmap_post_done && (offset == 0xf072) && (data == 0xff))
 	{
 		m_dc323_post_mode = DC323_POST_ARMED;
+		if (m_dat9_bus_phase == DAT9_WAIT_DC323_RESET)
+			m_dat9_bus_phase = DAT9_WAIT_DC323_STATUS;
+		return;
+	}
+	// The second board-control initialization terminates DC323 reset.  DAT9 is
+	// released high for one status sample, then the DC323 supplies the low
+	// completion phase before leaving the shared net to the processor ports.
+	if ((m_dat9_bus_phase == DAT9_WAIT_DC323_STATUS) && (offset == 0xf060) && (data == 0x00))
+	{
+		m_dat9_bus_phase = DAT9_DC323_STATUS_HIGH;
+		update_dat9_input();
 		return;
 	}
 	if ((offset & 0xfff0) == 0xf040)
@@ -744,6 +779,7 @@ void vt340_state::cpu1_p3_w(u8 data)
 	if (data != m_cpu1_p3)
 		LOGMASKED(LOG_PORTS, "%s CPU1 P3 %02X -> %02X (PC=%04X)\n", machine().describe_context(), m_cpu1_p3, data, m_cpu1->pc());
 	m_cpu1_p3 = data;
+	update_dat9_input();
 	// CPU1 P3.1/TXD is the terminal-to-keyboard half of the LK201 serial
 	// connection.  Feed the live port level to the keyboard so the ROM's
 	// native 4800-baud command stream is observed by the real device firmware.
@@ -792,6 +828,8 @@ u8 vt340_state::cpu1_p3_r()
 	data = m_keyboard_rxd ? (data | 0x01) : (data & ~0x01);
 	if (!BIT(m_cpu2_p1, 1))
 		data &= ~0x20;
+	if (dat9_device_low())
+		data &= ~0x20;
 	if ((m_cpu1->pc() == 0x3925) && m_cpu2_t1_pulse)
 	{
 		// Preserve a CPU2 1701 handshake pulse until CPU1 samples it.  The real
@@ -835,27 +873,37 @@ u8 vt340_state::cpu2_p1_r()
 	u8 data = m_cpu2_p1;
 	if (!BIT(m_cpu1_p3, 5))
 		data &= ~0x02;
+	if (dat9_device_low())
+		data &= ~0x02;
 
-	// The same multiplexed status bit is selected from the DC323 during its
-	// reset check.  These are the ROM's four explicit low/high phase polls;
-	// outside them DAT9 is the interprocessor handshake above.
+	// A port sample completes retained bus-turnaround phases.  The returned
+	// value is from the phase that owned DAT9 for this sample; ownership changes
+	// take effect on the resolved net after the read.
 	u16 const pc = m_cpu2->pc();
 	if ((pc == 0x1711) && m_cpu1_t1_pulses)
 	{
 		data &= ~0x02;
 		m_cpu1_t1_pulses--;
 	}
-	// The core exposes the PC after fetching each three-byte bit branch.
-	if ((pc == 0x126f) || (pc == 0x129a) || (pc == 0x1700))
-		data &= ~0x02;
-	else if (pc == 0x1297)
-		data |= 0x02;
-
-	// The final DC323 reset-check phase enables the following graphics timing
-	// diagnostics.  CPU2 then rendezvous with CPU1 on DAT9/T1 at 1701-1710 and
-	// 3919-392E; this flag does not itself drive the interprocessor net.
-	if (pc == 0x129a)
+	switch (m_dat9_bus_phase)
+	{
+	case DAT9_BRD_READ_LOW:
+		m_dat9_bus_phase = DAT9_WAIT_STARTUP_PULSE;
+		break;
+	case DAT9_STARTUP_RESPONSE_LOW:
+		m_dat9_bus_phase = DAT9_WAIT_DC323_RESET;
+		break;
+	case DAT9_DC323_STATUS_HIGH:
+		m_dat9_bus_phase = DAT9_DC323_STATUS_LOW;
+		break;
+	case DAT9_DC323_STATUS_LOW:
+		m_dat9_bus_phase = DAT9_RESOLVED_PORTS;
 		m_board_status = true;
+		break;
+	default:
+		break;
+	}
+	update_dat9_input();
 	if (m_video_test_select == 0x70)
 	{
 		// The DC7051 test mux presents a narrow vertical pulse.  Express it in
@@ -874,14 +922,29 @@ void vt340_state::cpu2_p1_w(u8 data)
 	if (data != m_cpu2_p1)
 		LOGMASKED(LOG_PORTS, "%s CPU2 P1 %02X -> %02X (PC=%04X)\n", machine().describe_context(), m_cpu2_p1, data, m_cpu2->pc());
 	m_cpu2_p1 = data;
+	if ((m_dat9_bus_phase == DAT9_WAIT_STARTUP_PULSE) && !BIT(old, 1) && BIT(data, 1))
+		m_dat9_bus_phase = DAT9_STARTUP_RESPONSE_LOW;
 	if (BIT(old, 1) && !BIT(data, 1) && (m_cpu2->pc() == 0x1703))
 		m_cpu2_t1_pulse = true;
 	// P1.1 is the board's P2 DAT9/STATUS H net and is wired directly to
 	// processor 1's external T1 pin.  MAME input-line ASSERT means that the
 	// active-low external pin is being pulled low.
-	m_cpu1->set_input_line(MCS51_T1_LINE, BIT(data, 1) ? CLEAR_LINE : ASSERT_LINE);
+	update_dat9_input();
 	if (BIT(old, 1) != BIT(data, 1))
 		m_cpu2->abort_timeslice();
+}
+
+bool vt340_state::dat9_device_low() const
+{
+	return (m_dat9_bus_phase == DAT9_BRD_READ_LOW) ||
+		(m_dat9_bus_phase == DAT9_STARTUP_RESPONSE_LOW) ||
+		(m_dat9_bus_phase == DAT9_DC323_STATUS_LOW);
+}
+
+void vt340_state::update_dat9_input()
+{
+	bool const high = BIT(m_cpu1_p3, 5) && BIT(m_cpu2_p1, 1) && !dat9_device_low();
+	m_cpu1->set_input_line(MCS51_T1_LINE, high ? CLEAR_LINE : ASSERT_LINE);
 }
 
 u8 vt340_state::cpu2_p2_r()
@@ -1136,6 +1199,7 @@ void vt340_state::machine_start()
 	save_item(NAME(m_cpu1_p1));
 	save_item(NAME(m_cpu2_p1));
 	save_item(NAME(m_cpu2_p2));
+	save_item(NAME(m_dat9_bus_phase));
 	save_item(NAME(m_board_status));
 	save_item(NAME(m_video_test_select));
 	save_item(NAME(m_cpu2_hsync_low));
@@ -1205,6 +1269,7 @@ void vt340_state::machine_reset()
 	m_cpu1_p1 = 0xff;
 	m_cpu2_p1 = 0xff;
 	m_cpu2_p2 = 0xff;
+	m_dat9_bus_phase = DAT9_WAIT_BRD_READ;
 	m_board_status = true;
 	m_video_test_select = 0;
 	m_cpu2_hsync_low = true;
@@ -1240,7 +1305,7 @@ void vt340_state::machine_reset()
 	// Processor 1 T0 is tied to the active-low P1 BRD bus-read strobe.  The
 	// startup bus test samples it while performing its probe read.
 	m_cpu1->set_input_line(MCS51_T0_LINE, CLEAR_LINE);
-	m_cpu1->set_input_line(MCS51_T1_LINE, ASSERT_LINE);
+	update_dat9_input();
 	m_cpu2->set_input_line(INPUT_LINE_RESET, ASSERT_LINE);
 	// Unconnected serial inputs idle in the marking state.  Leaving these
 	// device pins at their zero-initialized level presents a continuous break
