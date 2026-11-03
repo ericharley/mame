@@ -28,8 +28,14 @@ runs its second verification/copy pass, and POST result changes from `63` to
 `62`. The original firmware no longer renders `VT340 NVR Error - 1`.
 
 This is a hardware-derived correction. It does not force the result byte or
-inject display commands. EEPROM program timing and persistence have not yet
-been implemented because the proven startup path only reads E80.
+inject display commands.
+
+The later write path is now implemented with MAME's X2804 device. Firmware
+routine `3da9` performs the native compare-before-write operation and its
+programming delay; changed bytes are saved by the standard MAME NVRAM
+interface. A two-run regression changes Global On-Line/Local, invokes Save
+Current Settings, and confirms the saved value is restored on a cold boot.
+See `tests/nvram-persistence.sh`.
 
 ## Next observed boundary: Comm 1
 

@@ -116,7 +116,7 @@
 - Status: resolved by controlled firmware execution.  Alternate cartridge
   strap configurations remain untested.
 
-## E80 initial state - startup read path resolved
+## E80 initial state and persistence - resolved
 
 - Evidence: the schematic identifies E80 as an X2804AP-45. The archived DEC
   `23-001N2` image is independently catalogued as VT340 location E80 and is
@@ -129,5 +129,11 @@
 - Late-startup finding: routines `3c27` and `3d5a` clock E10 at `4156` and
   read E80 through `f000-f1ff` while P1.3/NVRDS is low. The recovered image
   makes every native seeded checksum equal zero and clears POST result bit 0.
-- Remaining work: EEPROM program timing and persistence are not modeled.
-- Status: startup read path resolved; write behavior open.
+- Write-path finding: firmware routine `3da9` selects E80, compares the old
+  byte, writes only changed data, and executes its native programming delay.
+  MAME's X2804 device now receives those writes and persists its 512-byte
+  contents through the standard NVRAM interface.
+- Regression result: changing Global On-Line/Local to `local`, invoking Save
+  Current Settings, and cold booting with the same NVRAM directory restores
+  both the current and saved value as `local`.
+- Status: resolved; see `tests/nvram-persistence.sh`.

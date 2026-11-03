@@ -6,7 +6,7 @@ From the MAME checkout root:
 PATH="/opt/homebrew/bin:$PATH" make -j4 REGENIE=1 USE_LIBSDL=1 \
   SUBTARGET=vt340 \
   SOURCES=src/mame/dec/vt340.cpp,src/mame/dec/lk201.cpp \
-  MACHINES='68681,SCN_PCI'
+  MACHINES='68681,SCN_PCI,EEPROMDEV'
 ./vt340 -listfull vt340
 ./vt340 -verifyroms vt340 -rompath roms
 ./vt340 vt340 -rompath roms -video none -sound none -seconds_to_run 1
@@ -16,6 +16,11 @@ The full LK201 device requires `roms/lk201.zip`. The expected files and SHA-1
 values are `23-001s9-00.bin` (`a11ae004d2d6055d7279da3560c3e56610a19fdb`)
 and `23-004m2.8051h.e1` (`9744c561d76fe85afaccc7a2485ce2865236873a`).
 ROM archives remain local and ignored by Git.
+
+E80 is backed by MAME's X2804 device. Its recovered ROM image supplies the
+factory default on the first run, and later firmware writes are stored in the
+configured NVRAM directory. Use the Set-Up Directory's **Save Current
+Settings** action before exiting when settings have been changed.
 
 `REGENIE=1` is needed for the first targeted build after adding the driver to
 `src/mame/mame.lst`; it may be omitted for incremental builds.  The tested
