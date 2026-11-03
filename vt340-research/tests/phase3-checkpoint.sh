@@ -10,6 +10,11 @@ if rg -n '0xba(db|dc|f0|f6|f7)' src/mame/dec/vt340.cpp; then
 	exit 1
 fi
 
+if rg -n '0x(126f|1297|129a|1700)' src/mame/dec/vt340.cpp; then
+	echo "PC-qualified DAT9 startup/status substitution found in production driver" >&2
+	exit 1
+fi
+
 vt340-research/tests/smoke.sh "$binary"
 
 "$binary" vt340 -rompath roms -video none -sound none -nothrottle \

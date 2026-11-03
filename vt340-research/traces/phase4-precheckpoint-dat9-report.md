@@ -2,7 +2,15 @@
 
 ## Result
 
-**Outcome D — no qualifying mechanism found.**
+**Outcome D — no qualifying mailbox-ordering mechanism found.**
+
+The separate fidelity cleanup proposed by this report is now complete.  DAT9
+is resolved from CPU1 P3.5, CPU2 P1.1, and explicit board/DC323 ownership
+phases.  Bus-read retention, startup turnaround, and DC323 reset completion
+replace the former PC-qualified values at `126f`, `1297`, `129a`, and `1700`.
+The Phase 3, ring-drain, Set-Up, serial, and raster-command regressions remain
+unchanged, confirming the report's original conclusion that this cleanup is
+not a mailbox-ordering fix.
 
 CPU2's executed path from `1325` through the `136d` checkpoint is deterministic
 under the observed `e795=00` configuration.  The checkpoint write begins 8,268
@@ -20,12 +28,10 @@ of selecting a longer successful path.
 
 The schematic also establishes that CPU2 P1.1, CPU1 P3.5/T1, and DC323 DAT9
 are directly connected on `P2 DAT9/TSTATUS H`.  CPU2 graphics-table writes can
-therefore create legitimate transitions visible to CPU1.  The current MAME
-model has PC-qualified DC323 status substitutions that should eventually be
-replaced with bus-cycle ownership, but those substitutions do not generate the
-response-6 edge and cannot reverse the mailbox ordering.
-
-No production correction was made.
+therefore create legitimate transitions visible to CPU1.  The resolved bus
+model preserves those transitions; the former status substitutions did not
+generate the response-6 edge and their removal does not reverse the mailbox
+ordering.
 
 ## Method
 
@@ -220,19 +226,13 @@ A PC-independent board model should maintain explicit DAT8–15 ownership:
 4. The same resolved level must feed CPU1 P3.5 reads, CPU1's T1 input line,
    and CPU2 P1.1 reads.
 
-Current discrepancies are bounded but real:
+The remaining bounded accommodations are:
 
-- `cpu2_p1_r()` substitutes DC323/status phases at firmware PCs `126f`,
-  `1297`, `129a`, and `1700` instead of deriving them from a selected bus read.
-- The dedicated CPU1 T1 input line follows CPU2's P1.1 latch but does not
-  separately include a DC323 read driver.  Direct CPU1 P3.5 polling obtains
-  the peer latch through `cpu1_p3_r()`, which is the path used here.
 - Narrow-pulse retention at CPU1 `3925` and CPU2 `1711` is a scheduling
   compatibility accommodation rather than an electrical storage element.
 
-These discrepancies affect reset/status reads and possible counter use.  They
-do not isolate table writes: during both `17cf` groups CPU2 is the legitimate
-bus driver, and its P1.1 changes must reach CPU1 on the real board.
+During both `17cf` groups CPU2 is the legitimate bus driver, and its P1.1
+changes reach CPU1 in both the physical and emulated resolved-net models.
 
 ## Cross-CPU DAT9 timeline
 
@@ -258,11 +258,12 @@ low ends 6.886 ms before pulse 6, so no electrical or emulated edge remains to
 be consumed.  CPU1 accepts the 8.295622 transition because it is actively
 level-polling when CPU2 legitimately drives DAT9 low as graphics data.
 
-No synthetic transition in the driver creates response 6.  The scheduler
-trigger responds to a real P1.1 falling edge; it does not change the net.
-The PC-qualified status substitutions occur outside this response.  Existing
-pulse retention can preserve a rendezvous pulse at a sampling boundary, but
-does not manufacture any of the table-data transitions listed above.
+No synthetic transition in the driver creates response 6.  A real P1.1 edge
+updates CPU1's T1 input and yields the active timeslice; neither action changes
+the resolved level.  The explicit startup/status phases finish before this
+response.  Existing pulse retention can preserve a rendezvous pulse at a
+sampling boundary, but does not manufacture any of the table-data transitions
+listed above.
 
 ## Configuration and timing dependencies
 
@@ -299,9 +300,8 @@ does not manufacture any of the table-data transitions listed above.
 - The first causal divergence remains the native timing order: CPU2 finishes
   a deterministic 8.270 ms pre-checkpoint path while CPU1 intentionally spends
   13.579 ms after response 5 pacing the LK201 command sequence.
-- The existing emulator's PC-qualified DC323 status model is not a faithful
-  general electrical model.  Replacing it with explicit bus ownership is a
-  valid fidelity task, but present evidence says it will not fix this ordering.
+- Explicit DAT9 bus ownership is a fidelity correction, not a fix for the
+  independently observed mailbox ordering.
 
 ### Resolved by the CPU1 follow-up
 
@@ -319,7 +319,6 @@ The CPU1 follow-up is documented in
 `phase4-cpu1-entry-and-7ff2-report.md`.  Both executed CPU paths are now
 bounded, the `7ff2` fast path and timeout fallback are understood, and no
 timing or mailbox workaround is justified.  Further synchronization changes
-require new external hardware or documentation evidence.  A separate fidelity
-cleanup may still replace PC-qualified DC323 status with explicit bus
-ownership, but it should not be presented as a startup-timing fix.
+require new external hardware or documentation evidence.  The completed DAT9
+ownership cleanup does not change that investigation boundary.
 
