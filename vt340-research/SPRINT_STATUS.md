@@ -438,6 +438,10 @@ vt340-research/tests/phase2-closeout.sh ./vt340
   A previously observed later serial-service stack excursion above `7f`
   remains a risk after the startup blocker is resolved.
 - DAT9/T1 pulses are retained at known rendezvous to cross scheduler slices.
+- CPU1's `3940/3941` P1-BRD/T0 observation remains PC-qualified. A controlled
+  cleanup found that generic port retention is consumed too early, while a
+  dedicated T0 pulse incorrectly clocks the counter. Safe removal requires a
+  cycle-level MOVX read-strobe callback from the MCS-51 core.
 - The LK201 is the ROM-driven MAME device; terminal key mapping remains
   outside the current startup scope.
 - E80 uses MAME's X2804 device with the recovered image as its first-run
