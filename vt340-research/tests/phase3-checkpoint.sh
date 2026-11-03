@@ -5,6 +5,11 @@ binary=${1:-./vt340}
 log=$(mktemp -t vt340-phase3-checkpoint.XXXXXX)
 trap 'rm -f "$log"' EXIT HUP INT TERM
 
+if rg -n '0xba(db|dc|f0|f6|f7)' src/mame/dec/vt340.cpp; then
+	echo "PC-qualified DC323 bitmap POST loop found in production driver" >&2
+	exit 1
+fi
+
 vt340-research/tests/smoke.sh "$binary"
 
 "$binary" vt340 -rompath roms -video none -sound none -nothrottle \

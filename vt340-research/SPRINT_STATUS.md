@@ -2,7 +2,7 @@
 
 - **Status:** native POST result clear; firmware-generated `VT340 OK` visible
 - **Checkpoint:** `acd91b61` (`mame: add VT340 ROM-level emulation checkpoint`)
-- **Updated:** 2026-11-02
+- **Updated:** 2026-11-03
 
 ## Sprint objective
 
@@ -46,6 +46,14 @@ separate, preventing CPU1's POST transmit byte from falsely echoing into its
 receive test. See `PHASE3_CLOSEOUT.md` for the complete evidence and exact
 Phase 4 handoff.
 
+The DC323 destructive bitmap POST is now an explicit device state machine.
+Control value `F072=ff`, boundary values at `efff/ffff`, and the physical P3.5
+complement transition advance its AA, 55, verify/clear, and release modes.
+This removes the former `badb-baf7` memory-loop PC checks plus the `1804`
+arming and `1329` release checks without changing the native POST result.
+Phase 3, ring-drain, Set-Up, serial-connector, and raster-command regressions
+all pass with the new model.
+
 Phase 4 has now ruled out scheduler quantum, perfect-quantum selection, a
 stale retained pulse, immediate DC323 ready latency, and CPU1 timer-0 service
 as sufficient causes. The deterministic first failure remains CPU2's `136d`
@@ -72,14 +80,15 @@ the schematic shows that CPU1's clock can be gated by MC/R, that behavior
 would delay CPU1 and worsen this particular ordering, so it is not itself the
 candidate fix.
 
-A controlled build also removed the remaining CPU1 `spin_until_trigger`
-handoff at the CPU2 `170e` rendezvous. It produced an identical handshake and
-mailbox timeline, so the intervention was restored and ruled out as the
-source of the inversion. CPU1 currently accepts response 6 from a CPU2 table
-transition that is program-ordered after `136d`; consequently uniform CPU2
-slowdown cannot put the sentinel before that write. The next audit must test
-shared-RAM write visibility/commit semantics or identify an earlier DAT9 edge
-that real CPU1 hardware would consume.
+The remaining CPU1 `spin_until_trigger` handoff at the CPU2 `170e` rendezvous
+has been removed permanently. The earlier controlled experiment produced an
+identical handshake and mailbox timeline without it, and the production
+cleanup also removes the now-unused scheduler trigger calls. CPU1 currently
+accepts response 6 from a CPU2 table transition that is program-ordered after
+`136d`; consequently uniform CPU2 slowdown cannot put the sentinel before
+that write. The next audit must test shared-RAM write visibility/commit
+semantics or identify an earlier DAT9 edge that real CPU1 hardware would
+consume.
 
 The complete DAT9 transition audit now rules out that earlier-edge branch.
 CPU1 polls the live P3.5 level at `3bab/3bbc`; it does not use Timer 1 edge
