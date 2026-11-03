@@ -30,6 +30,8 @@ Start here:
   investigation and its acceptance criteria.
 - `UPSTREAM_MAME_WORK.md` separates reusable serial-device and CPU-core
   corrections from VT340-specific work and defines focused upstream tasks.
+- `hardware/serial-ports.md` documents Comm 1/Comm 2 wiring, macOS PTY use,
+  and the conservative host-shell compatibility profile.
 - `BUILDING.md` contains the targeted build and debugger procedure.
 
 Raw debugger `.tr` streams, diagnostic `.log` files, and framebuffer `.png`
