@@ -4,13 +4,12 @@
 
     Digital Equipment Corporation VT340
 
-    First-stage, ROM-level hardware reconstruction.  This driver deliberately
-    contains only circuitry established by the terminal-control-module
-    schematic and ROM-cartridge wiring.  In particular, it does not emulate
-    terminal protocols or video in software.
+    ROM-level hardware reconstruction.  The original firmware drives the
+    emulated processors, serial devices and Dragon graphics hardware; the
+    driver does not replace terminal protocols or synthesize display text.
 
     Terminal control module (54-16965-01):
-      E57  Intel 8031, processor 1 (see upper-IDATA compatibility note)
+      E57  Intel 8031, processor 1 (see reserved-SFR compatibility note)
       E24  Intel 8031, processor 2
       Y2   12 MHz oscillator feeding CPUACLK/CPUBCLK
 
@@ -18,11 +17,13 @@
       CPU 1: E1 at 0000-7fff, E2 at 8000-ffff
       CPU 2: E3 at 0000-7fff, E4/E5 banked at 8000-ffff
 
-    The published cartridge dumps are displaced by one byte: byte 1 is the
-    byte at EPROM address 0.  Rotating each image while loading restores the
-    reset vectors and every cross-ROM entry point.  This is consistent with
-    the original Arduino reader sampling immediately after changing its
-    address outputs, without an EPROM access-time delay.
+    The published cartridge dumps lag the requested address by one byte:
+    byte 1 contains EPROM address 0, while raw page-boundary bytes preserve
+    otherwise lost xxFF locations.  Loading reconstructs that address stream,
+    repairs one independently corrupt descriptor byte, and derives the
+    uncaptured checksum bytes.  The lag is consistent with the original
+    Arduino reader sampling immediately after changing its address outputs,
+    without an EPROM access-time delay.
 
     The processor-2 INT1/P3.3 latch is ROMBANK1 L.  Controlled execution of
     the five-27256 cartridge establishes its effective mapping: E4 is selected
@@ -54,7 +55,6 @@ namespace {
 
 constexpr int MCS51_SFR_SPACE = 4;
 constexpr int MCS51_IDATA_SPACE = 5;
-constexpr int CPU_T1_HANDSHAKE_TRIGGER = 340;
 constexpr unsigned SCREEN_WIDTH = 800;
 constexpr unsigned SCREEN_HEIGHT = 500;
 constexpr unsigned BITMAP_WIDTH = 1024;
@@ -117,6 +117,17 @@ enum : unsigned
 	VIPER_REG_FILL = 0x0b,
 	VIPER_REG_SCROLL_LEFT = 0x0c,
 	VIPER_REG_SCROLL_RIGHT = 0x0d
+};
+
+enum dc323_post_mode : u8
+{
+	DC323_POST_INACTIVE,
+	DC323_POST_ARMED,
+	DC323_POST_PATTERN_AA,
+	DC323_POST_EXPECT_PATTERN_55,
+	DC323_POST_PATTERN_55,
+	DC323_POST_VERIFY_CLEAR,
+	DC323_POST_RELEASE_PENDING
 };
 
 bool should_log_xdata(offs_t offset, u16 &trace_events, u16 &io_trace_events)
@@ -206,8 +217,7 @@ private:
 
 	// Graphics POST compatibility state
 	bool m_adder_ready = false;
-	bool m_bitmap_test_pending = false;
-	bool m_bitmap_test_active = false;
+	u8 m_dc323_post_mode = DC323_POST_INACTIVE;
 	bool m_bitmap_post_done = false;
 	u32 m_bitmap_test_reads = 0;
 	u8 m_adder_test_data = 0;
@@ -260,6 +270,8 @@ private:
 	u8 dc323_id_data_r();
 	void dc323_command_w(u16 command);
 	void update_dc323_interrupt();
+	bool dc323_post_bitmap_selected() const;
+	void release_dc323_post();
 	void execute_rasterop(u16 command);
 	void execute_scroll();
 	u32 screen_update(screen_device &, bitmap_rgb32 &bitmap, rectangle const &cliprect);
@@ -420,32 +432,31 @@ u8 vt340_state::cpu2_xdata_r(offs_t offset)
 	if (should_log_xdata(offset, m_cpu2_trace_events, m_cpu2_io_trace_events))
 		LOGMASKED(LOG_XDATA, "%s CPU2 XDATA R %04X (PC=%04X)\n", machine().describe_context(), offset, m_cpu2->pc());
 
-	// Once the graphics data path is initialized, its POST sweep addresses
-	// bitmap memory through the DC323 rather than processor RAM.  The sweep
-	// covers the complete 16-bit address space and ends when the address wraps.
-	// After all bitmap sweeps and two success handshakes, 1325 is the first
-	// normal decoded read on the shared-memory configuration path.
-	if (m_bitmap_test_active && (m_cpu2->pc() == 0x1329))
-	{
-		m_bitmap_test_active = false;
-		m_bitmap_post_done = true;
-	}
+	// The first external access after the three bitmap sweeps returns the bus
+	// to normal decoding.  The intervening DAT9 handshakes do not use XDATA.
+	if (m_dc323_post_mode == DC323_POST_RELEASE_PENDING)
+		release_dc323_post();
+
+	// DC323 POST selects bitmap memory for the two 0000-EFFF pattern sweeps
+	// and the final 0000-FFFF verify/clear pass.  Firmware performs
+	// write/read AA, write/read 55, then verify-55/write-zero/read-zero.  Track
+	// phase completion from the value at the last decoded address rather than
+	// from the program counter of the generic memory-test routine.
 	u16 const pc = m_cpu2->pc();
-	if (m_bitmap_test_active && ((pc == 0xbadc) || (pc == 0xbaf0) || (pc == 0xbaf7)))
+	if (dc323_post_bitmap_selected())
 	{
 		u8 const data = m_bitmap_ram[offset];
 		++m_bitmap_test_reads;
+		if (offset == 0xefff)
+		{
+			if ((m_dc323_post_mode == DC323_POST_PATTERN_AA) && (data == 0xaa))
+				m_dc323_post_mode = DC323_POST_EXPECT_PATTERN_55;
+			else if ((m_dc323_post_mode == DC323_POST_PATTERN_55) && (data == 0x55))
+				m_dc323_post_mode = DC323_POST_VERIFY_CLEAR;
+		}
+		else if ((offset == 0xffff) && (m_dc323_post_mode == DC323_POST_VERIFY_CLEAR) && (data == 0x00))
+			m_dc323_post_mode = DC323_POST_RELEASE_PENDING;
 		return data;
-	}
-
-	// With LASTH/REN low, the graphics PAL places its retained POST pattern
-	// on the F-page diagnostic aperture.  The exact PAL equations remain to
-	// be recovered, but this is distinct from the shared E93/E94 RAM below.
-	if ((offset >= 0xf000) && (m_cpu2->pc() == 0xbaf0))
-	{
-		if (offset == 0xffff)
-			m_board_status = true;
-		return 0x55;
 	}
 
 	// E16 decodes two 16-entry output-map apertures.  E51 stores the red
@@ -469,9 +480,9 @@ u8 vt340_state::cpu2_xdata_r(offs_t offset)
 	// identities and bit assignments match DEC's Dragon chipset specification.
 	if ((offset & 0xf0c0) == 0xf000)
 	{
-		// Register 07 is the data/command port.  The RAM diagnostic writes an
-		// equal-byte test word, issues several 00Cx commands through the same
-		// port, then reads the retained test data after a read command.
+		// Register 07 is the I/D data port.  During graphics POST the firmware
+		// writes equal-byte test words here, issues 00Cx commands through the
+		// command register, and then reads the retained diagnostic value.
 		unsigned const reg = offset & 0x3f;
 		if ((reg == DC323_REG_ID_DATA) && (m_cpu2->pc() == 0x1bd1))
 		{
@@ -503,13 +514,19 @@ u8 vt340_state::cpu2_xdata_r(offs_t offset)
 		return data;
 	}
 
-	// CPU1's board STATUS input remains low while CPU2 owns shared RAM for
-	// its destructive power-on test.  The final verification pass ends at
-	// FFFF; releasing STATUS here lets CPU1 begin without corrupting POST.
-	if ((offset == 0xffff) && (m_cpu2->pc() == 0xbaf0))
-		m_board_status = true;
-
 	return m_shared_ram[offset];
+}
+
+bool vt340_state::dc323_post_bitmap_selected() const
+{
+	return (m_dc323_post_mode >= DC323_POST_PATTERN_AA) &&
+		(m_dc323_post_mode <= DC323_POST_VERIFY_CLEAR);
+}
+
+void vt340_state::release_dc323_post()
+{
+	m_dc323_post_mode = DC323_POST_INACTIVE;
+	m_bitmap_post_done = true;
 }
 
 u8 vt340_state::dc323_id_data_r()
@@ -553,26 +570,30 @@ void vt340_state::cpu2_xdata_w(offs_t offset, u8 data)
 {
 	if (should_log_xdata(offset, m_cpu2_trace_events, m_cpu2_io_trace_events))
 		LOGMASKED(LOG_XDATA, "%s CPU2 XDATA W %04X=%02X (PC=%04X)\n", machine().describe_context(), offset, data, m_cpu2->pc());
-	// The DC323 initialization leaves P1 carrying graphics data before the
-	// firmware clears and verifies bitmap memory through the generic POST
-	// loop.  Earlier RAM tests run with P1 at its reset value.
-	if (!m_bitmap_test_active && m_bitmap_test_pending && (m_cpu2->pc() == 0xbadb))
+	if (m_dc323_post_mode == DC323_POST_RELEASE_PENDING)
+		release_dc323_post();
+
+	// F072 arms the DC323 bitmap diagnostic.  The following write of AA to
+	// address zero begins the first explicit test phase.
+	if ((m_dc323_post_mode == DC323_POST_ARMED) && (offset == 0x0000) && (data == 0xaa))
 	{
-		m_bitmap_test_active = true;
-		m_bitmap_test_pending = false;
+		m_dc323_post_mode = DC323_POST_PATTERN_AA;
 		m_bitmap_test_reads = 0;
 		m_video_operational = false;
 		m_palette_rg_valid = 0;
 		m_palette_gb_valid = 0;
 	}
-	// The second POST sweep reaches EFFF with pattern 55 after the timing
-	// generator's reset interval, even while bitmap decode owns the aperture.
-	if ((offset == 0xefff) && (data == 0x55))
-		m_adder_ready = true;
-	u16 const pc = m_cpu2->pc();
-	if (m_bitmap_test_active && ((pc == 0xbadb) || (pc == 0xbaf6)))
+	if ((m_dc323_post_mode == DC323_POST_EXPECT_PATTERN_55) &&
+		(offset == 0x0000) && (data == 0x55))
+		m_dc323_post_mode = DC323_POST_PATTERN_55;
+	if (dc323_post_bitmap_selected())
 	{
 		m_bitmap_ram[offset] = data;
+		// The second sweep reaches the last decoded bitmap address with 55 after
+		// the timing generator's reset interval.
+		if ((m_dc323_post_mode == DC323_POST_PATTERN_55) &&
+			(offset == 0xefff) && (data == 0x55))
+			m_adder_ready = true;
 		return;
 	}
 
@@ -586,9 +607,9 @@ void vt340_state::cpu2_xdata_w(offs_t offset, u8 data)
 
 	// Graphics initialization finishes its F072 control sequence with FF just
 	// before exercising the separately addressed bitmap store.
-	if (!m_bitmap_post_done && (offset == 0xf072) && (m_cpu2->pc() == 0x1804) && (data == 0xff))
+	if (!m_bitmap_post_done && (offset == 0xf072) && (data == 0xff))
 	{
-		m_bitmap_test_pending = true;
+		m_dc323_post_mode = DC323_POST_ARMED;
 		return;
 	}
 	if ((offset & 0xfff0) == 0xf040)
@@ -677,8 +698,9 @@ void vt340_state::dc323_command_w(u16 command)
 		m_pbt_read_active = false;
 	}
 
-	// I/D commands 0180-019f broadcast the retained I/D data word to the
-	// corresponding Viper register.  All four Vipers see this bus.
+	// I/D commands 0180-019f load a Viper register from the retained I/D data
+	// word.  The currently modeled paths use a common broadcast value; separate
+	// per-Viper chip-select/register state is not represented yet.
 	if ((command & 0xffe0) == 0x0180)
 		m_viper_regs[command & 0x1f] = m_adder_regs[DC323_REG_ID_DATA];
 
@@ -735,8 +757,6 @@ void vt340_state::cpu1_p3_w(u8 data)
 		if (peer_waiting && !m_cpu1_t1_pulses)
 			m_cpu1_t1_pulses = 1;
 	}
-	if (BIT(old, 5) && !BIT(data, 5) && (m_cpu2->pc() == 0x170e))
-		m_cpu1->spin_until_trigger(CPU_T1_HANDSHAKE_TRIGGER);
 	if (BIT(old, 5) != BIT(data, 5))
 		m_cpu1->abort_timeslice();
 }
@@ -791,8 +811,8 @@ u8 vt340_state::cpu1_p3_r()
 u8 vt340_state::cpu1_p1_r()
 {
 	// P1.4 is the NVREN output and P1.5 is MFGTEST/STATUS.  Both are driven by
-	// CPU1 firmware during startup; do not replace either output latch with the
-	// separate board-status state used by the shared-memory POST arbitration.
+	// CPU1 firmware during startup; do not replace either live output latch
+	// with the separate graphics-diagnostic state tracked by the driver.
 	return m_cpu1_p1;
 }
 
@@ -831,13 +851,11 @@ u8 vt340_state::cpu2_p1_r()
 	else if (pc == 0x1297)
 		data |= 0x02;
 
-	// The final DC323 status transition is the point at which processor 2 is
-	// ready for processor 1 to leave its board-status wait and rendezvous on
-	// DAT9/T1 at 1701-1710 and 3919-392E.
+	// The final DC323 reset-check phase enables the following graphics timing
+	// diagnostics.  CPU2 then rendezvous with CPU1 on DAT9/T1 at 1701-1710 and
+	// 3919-392E; this flag does not itself drive the interprocessor net.
 	if (pc == 0x129a)
 		m_board_status = true;
-	if ((pc == 0x1711) && !BIT(data, 1))
-		machine().scheduler().trigger(CPU_T1_HANDSHAKE_TRIGGER);
 	if (m_video_test_select == 0x70)
 	{
 		// The DC7051 test mux presents a narrow vertical pulse.  Express it in
@@ -862,8 +880,6 @@ void vt340_state::cpu2_p1_w(u8 data)
 	// processor 1's external T1 pin.  MAME input-line ASSERT means that the
 	// active-low external pin is being pulled low.
 	m_cpu1->set_input_line(MCS51_T1_LINE, BIT(data, 1) ? CLEAR_LINE : ASSERT_LINE);
-	if (BIT(old, 1) && !BIT(data, 1))
-		machine().scheduler().trigger(CPU_T1_HANDSHAKE_TRIGGER);
 	if (BIT(old, 1) != BIT(data, 1))
 		m_cpu2->abort_timeslice();
 }
@@ -895,7 +911,7 @@ void vt340_state::cpu2_p3_w(u8 data)
 	// Bitmap POST first verifies AA directly, then programs the graphics test
 	// path and writes/readbacks zero with T1 high.  Returning T1 low exposes
 	// the complemented 55 result that the final pass verifies and clears.
-	if (m_bitmap_test_active && BIT(old, 5) && !BIT(data, 5))
+	if (dc323_post_bitmap_selected() && BIT(old, 5) && !BIT(data, 5))
 		std::fill_n(&m_bitmap_ram[0], BITMAP_POST_SIZE, 0x55);
 }
 
@@ -905,8 +921,10 @@ void vt340_state::execute_rasterop(u16 command)
 	// source 2, and I/D command C0/D0/E0/F0 selects Viper logic register
 	// 0/1/2/3.  This path covers normal destination operations with either no
 	// memory source (the Viper source register supplies a constant), or source
-	// 1 from bitmap memory or E49.  XCON=014D and sheet 28 reduce E49's address
-	// to 32 bytes per scanline.
+	// 1 from bitmap memory or E49.  Source 2 and non-zero index translation are
+	// not yet implemented; the firmware's indexed text-scroll redraws use zero
+	// pending/new/old indexes and therefore share the unindexed addresses.
+	// XCON=014D and schematic sheet 28 reduce E49 to 32 bytes per scanline.
 	bool const rasterop = ((command >> 8) & 3) == 2;
 	bool const destination_enabled = BIT(command, 10);
 	bool const source1_enabled = BIT(command, 11);
@@ -984,9 +1002,11 @@ void vt340_state::execute_scroll()
 
 	// Loading the Y scroll constant schedules one operation for the following
 	// frame.  Bits 0-11 hold the unsigned distance, bit 12 selects downward
-	// motion, and bit 13 selects erase mode.  The right and bottom bounds are
-	// exclusive and the Y offset translates device coordinates to bitmap-memory
-	// coordinates.  Pixels exposed by a normal scroll use the Viper fill word.
+	// motion, and bit 13 selects erase mode.  Y bounds are exclusive and the
+	// Y offset translates device coordinates to bitmap-memory coordinates.
+	// For normal scrolling, the Adder X bounds identify edge words and the
+	// Viper boundary masks select pixels within them; exposed pixels use the
+	// Viper fill word.  Erase mode clears the literal Adder region.
 	u16 const scroll = m_adder_regs[DC323_REG_SCROLL_Y];
 	u16 const x_min = std::min<u16>(m_adder_regs[DC323_REG_SCROLL_X_MIN] & 0x3ffc, BITMAP_WIDTH);
 	u16 const x_max = std::min<u16>(m_adder_regs[DC323_REG_SCROLL_X_MAX] & 0x3ffc, BITMAP_WIDTH);
@@ -1075,10 +1095,10 @@ void vt340_state::execute_scroll()
 
 u32 vt340_state::screen_update(screen_device &, bitmap_rgb32 &bitmap, rectangle const &cliprect)
 {
-	// Four serial bitmap planes form a 16-entry color-map index.  Until the
-	// color-map programming path is decoded, expose index 0 as black and any
-	// asserted plane as monochrome so genuine firmware-written pixels remain
-	// visible without inventing RGB values.
+	// Four serial bitmap planes form a 16-entry E51/E52 color-map index.  Use
+	// genuine 12-bit RGB after firmware has programmed both halves of an entry.
+	// Entries not programmed after graphics POST retain a monochrome fallback
+	// so firmware-written pixels remain visible without inventing RGB values.
 	for (int y = cliprect.top(); y <= cliprect.bottom(); y++)
 		for (int x = cliprect.left(); x <= cliprect.right(); x++)
 		{
@@ -1124,8 +1144,7 @@ void vt340_state::machine_start()
 	save_item(NAME(m_keyboard_rxd));
 	save_item(NAME(m_cpu1_t1_pulses));
 	save_item(NAME(m_adder_ready));
-	save_item(NAME(m_bitmap_test_pending));
-	save_item(NAME(m_bitmap_test_active));
+	save_item(NAME(m_dc323_post_mode));
 	save_item(NAME(m_bitmap_post_done));
 	save_item(NAME(m_bitmap_test_reads));
 	save_item(NAME(m_adder_test_data));
@@ -1159,7 +1178,7 @@ void vt340_state::trace_exit()
 		m_cpu2->pc(), m_cpu2->state_int(MCS51_IE), m_cpu2->state_int(MCS51_TCON),
 		m_cpu2->state_int(MCS51_ACC), m_cpu2->state_int(MCS51_B),
 		m_cpu2->state_int(MCS51_R2), m_cpu2->state_int(MCS51_R3),
-		BIT(m_cpu2->state_int(MCS51_P3), 3) ? "E4" : "E5", m_bitmap_test_active,
+		BIT(m_cpu2->state_int(MCS51_P3), 3) ? "E4" : "E5", dc323_post_bitmap_selected(),
 		m_bitmap_test_reads, m_video_test_select, m_cpu1_t1_pulses);
 }
 
@@ -1194,8 +1213,7 @@ void vt340_state::machine_reset()
 	m_keyboard_rxd = true;
 	m_cpu1_t1_pulses = 0;
 	m_adder_ready = false;
-	m_bitmap_test_pending = false;
-	m_bitmap_test_active = false;
+	m_dc323_post_mode = DC323_POST_INACTIVE;
 	m_bitmap_post_done = false;
 	m_bitmap_test_reads = 0;
 	m_adder_test_data = 0;

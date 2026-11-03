@@ -179,14 +179,15 @@ at 119.955290 s and reaches native success at 119.995547 s using the retained
 `80`. The cross-reference and timeline are recorded in
 `traces/phase4-mailbox-semantics-summary.txt`.
 
-### Remaining rendezvous suspension is not the cause
+### Rendezvous suspension was redundant and has been removed
 
-The driver still suspends CPU1 at a falling P3.5 edge while CPU2 is polling
-at `170e`, then resumes it when CPU2 consumes the edge. A controlled build
-removed that `spin_until_trigger` call without changing the retained-pulse
-logic. The complete handshake trace was unchanged: response 5 remained at
-8.222098 s, `136d` at 8.228776 s, pulse 6 at 8.235677 s, and response 6 at
-8.295750 s. The intervention was restored after the experiment.
+The driver formerly suspended CPU1 at a falling P3.5 edge while CPU2 was
+polling at `170e`, then resumed it when CPU2 consumed the edge. A controlled
+build removed that `spin_until_trigger` call without changing the retained-
+pulse logic. The complete handshake trace was unchanged: response 5 remained
+at 8.222098 s, `136d` at 8.228776 s, pulse 6 at 8.235677 s, and response 6 at
+8.295750 s. The production driver now omits the suspension and its otherwise
+unused scheduler trigger calls.
 
 This also exposes a stronger constraint on the next hypothesis. CPU1 cannot
 write pending `10` until it accepts response 6, but the CPU2 table transition
