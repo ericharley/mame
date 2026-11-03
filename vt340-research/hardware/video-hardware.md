@@ -147,6 +147,22 @@ from bitmap origin zero remains correct for this boot path.
 
 ## Completion status and operational PBT
 
+The destructive DC323 bitmap diagnostic is represented as an explicit device
+mode sequence rather than by recognizing the firmware routines that execute
+it.  The `F072=ff` test-control write arms bitmap selection; the first
+`0000=aa` write begins the AA phase.  Successful reads of `aa` and `55` at
+`efff` advance to the following pattern and final verify/clear phases.  P3.5
+falling supplies the documented complemented `55` test result.  The final
+zero read at `ffff` makes the next external access return to normal address
+decoding and enables operational DC323 status behavior.
+
+This state sequence replaces the former checks for firmware PCs
+`badb/badc/baf0/baf6/baf7`, the `1804` arming check, and the `1329` release
+check.  A cold-boot regression rejects reintroduction of the five generic
+memory-loop PCs.  The asymmetric boundaries are intentional: the AA and 55
+write/read loops cover `0000-efff`, while the final diagnostic aperture
+continues through `f000-ffff` before it is cleared.
+
 DC323 status bits 2, 3, and 4 report Rasterop Initialization Complete,
 Rasterop Complete, and Address Output Complete.  Loading a rasterop or
 processor/bitmap transfer clears these conditions.  Since the current raster
