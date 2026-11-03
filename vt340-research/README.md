@@ -28,6 +28,8 @@ Start here:
   audit.
 - `PHASE4_PLAN.md` defines the active DAT9/mailbox synchronization
   investigation and its acceptance criteria.
+- `UPSTREAM_MAME_WORK.md` separates reusable serial-device and CPU-core
+  corrections from VT340-specific work and defines focused upstream tasks.
 - `BUILDING.md` contains the targeted build and debugger procedure.
 
 Raw debugger `.tr` streams, diagnostic `.log` files, and framebuffer `.png`

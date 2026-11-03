@@ -27,6 +27,28 @@ same resolved value feeds CPU2 P1.1 reads, CPU1 P3.5 reads, and CPU1's external
 T1 input.  This replaces the former PC-qualified values at `126f`, `1297`,
 `129a`, and `1700`.
 
+## CPU1 board-read strobe cleanup experiment
+
+CPU1 T0 is connected to active-low `P1 BRD`.  Firmware routine `3939-3947`
+checks that signal around two startup MOVX probes.  MAME's MCS-51 core exposes
+the external-memory operation atomically and does not provide the driver with
+the internal read-strobe phase.
+
+A controlled cleanup attempted three PC-independent replacements for the
+remaining `3940/3941` retention hook: consuming BRD on the next P3 callback,
+driving the dedicated T0 input for a bounded pulse, and exposing a timed P3
+sampling window.  The first is consumed by internal port observations before
+the firmware sample.  The dedicated input also creates a timer/counter edge,
+which is not equivalent to observing the MOVX strobe.  The timed callback
+order differs between the two probes.  Each replacement failed the Phase 3
+cold-boot checkpoint, while restoring the original hook passed immediately.
+
+The hook therefore remains as an explicitly documented core-interface
+compatibility accommodation.  Removing it safely requires the MCS-51 core to
+expose the MOVX read-strobe phase, or an equivalent cycle-level bus callback;
+replacing it with another driver-side timing or sample-count heuristic would
+reduce fidelity.
+
 CPU1 P1.6 is the schematic `P1 CPMRESET H` output, not a configuration input.
 The CPU1 firmware drives it and later snapshots its state into shared `e795`;
 the driver correctly returns the live 8031 port latch for that read.

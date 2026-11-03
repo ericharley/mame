@@ -400,9 +400,10 @@ u8 vt340_state::cpu1_xdata_r(offs_t offset)
 		return m_printer_uart->read(offset & 0x03);
 	if ((offset & 0xffc0) == 0xf040)
 		return m_duart->read(offset & 0x0f);
-	// The board-read strobe reaches T0.  Its low pulse ends within the MOVX
-	// bus cycle, but the POST loop at 393D samples the occurrence on its next
-	// poll; retain that one observation here.
+	// P1 BRD L reaches T0 during MOVX.  The core exposes neither that internal
+	// bus phase nor a read-strobe callback, while POST samples its occurrence
+	// in the 393D loop.  Retain one observation until the matching pin sample;
+	// a general T0 pulse also clocks the counter and is not equivalent.
 	if (m_cpu1->pc() == 0x3941)
 		m_cpu1_brd_strobe = true;
 	return m_shared_ram[offset];
