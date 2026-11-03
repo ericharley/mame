@@ -31,11 +31,14 @@ Start here:
 - `UPSTREAM_MAME_WORK.md` separates reusable serial-device and CPU-core
   corrections from VT340-specific work and defines focused upstream tasks.
 - `hardware/serial-ports.md` documents Comm 1/Comm 2 wiring, macOS PTY use,
-  and the conservative host-shell compatibility profile.
+  and the host-shell compatibility profile.
 - `hardware/dc323-device.md` documents the extracted Adder interface,
   ownership boundary, diagnostics, and unresolved hardware questions.
 - `hardware/dc7051-device.md` documents the extracted timing-generator
-  interface, raw register map, signal routing, and retained approximations.
+  interface, corrected register-ownership boundary, signal routing, and
+  retained approximations.
+- `traces/sixel-color-report.md` documents the native Color Map decision,
+  corrected E51/E52 decode, and full PTY-driven color SIXEL result.
 - `traces/dc323-extraction-report.md` records before/after equivalence and
   firmware-free device-test results.
 - `traces/dc7051-extraction-report.md` records timing measurements,

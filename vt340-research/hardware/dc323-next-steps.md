@@ -139,22 +139,20 @@ Determine how scan direction, origins, command mode, and index registers
 control traversal. Add an overlap matrix covering left, right, up, and down
 copies before replacing the retained behavior.
 
-### Four Vipers are represented by one register set
+### Per-plane Viper state is modeled; device extraction remains optional
 
-One retained Viper register array currently supplies logic functions, masks,
-source, fill, bus width, and scroll edges for all four planes. The physical
-VT340 uses four DC322 Vipers.
+Schematic sheet 8 resolves selection: E16 decodes `f060-f07f` as `CNTLWR`,
+and a 74LS174 latches CPU2 write-data bits `BAD3-BAD0` as `V0CS-V3CS`;
+`BAD5` drives the separate `OPADDS` net. The
+board driver now forwards that mask to four independent retained Viper
+register sets. Selected planes accept direct register loads and raster writes;
+the Boolean result selects each plane's foreground/background word. The
+firmware-free regression verifies all 16 resulting color indices.
 
-Trace every Viper register load and determine:
-
-- whether writes are broadcast or individually chip-selected;
-- which command fields select chips or planes;
-- whether logic, mask, source, and fill values can differ by plane; and
-- whether status or pipeline behavior belongs to the Adder or Vipers.
-
-Only then decide whether to instantiate four DC322 subdevices. A later
-extraction should leave the DC323 responsible for coordinate generation and
-command sequencing while each Viper owns its plane datapath.
+The remaining architectural question is whether to instantiate four DC322
+subdevices. Do that only after timing, pipeline, scroll-select, and status
+ownership are understood; the present per-plane state is sufficient for
+functional color work without prematurely inventing a DC322 interface.
 
 ### Raster coverage is intentionally incomplete
 
@@ -179,8 +177,8 @@ Known unimplemented areas include:
 - nonzero indexed-coordinate translation;
 - scaling;
 - linear-pattern and other non-normal modes;
-- processor-to-bitmap transfers; and
-- complete chip/plane selection.
+- exact six-entry I/D FIFO occupancy and asynchronous transfer timing; and
+- Z-mode processor/bitmap transfers.
 
 ### Save-state output restoration needs coverage
 
@@ -250,12 +248,13 @@ Reconstruct scan direction and indexed-coordinate rules. Replace the legacy
 overlap behavior only after the directional test matrix and native graphics
 regressions agree with the documented model.
 
-### Stage 7: separate Viper datapaths
+### Stage 7: optionally extract the resolved Viper datapaths
 
-After chip-selection behavior is known, introduce a standalone DC322 model or
-equivalent per-plane state. Preserve the existing bitmap share and display
-backend during the extraction so structural work can be distinguished from
-new graphics behavior.
+Per-plane state and chip selection are now implemented inside DC323. Introduce
+a standalone DC322 model only when additional documented behavior makes the
+boundary useful. Preserve the existing bitmap share and display backend during
+any extraction so structural work can be distinguished from new graphics
+behavior.
 
 ### Stage 8: implement additional raster modes by evidence
 
@@ -281,8 +280,10 @@ Every behavioral change must preserve or explicitly explain:
 
 The firmware-free suite should expand to cover PBT interrupt edges, all status
 acknowledgement combinations, operational-state transitions, E49 multirow
-transfers, widths not divisible by eight, Boolean-function selection,
-overlapping copies, per-plane behavior, and save/load continuation.
+transfers, additional bus widths, Boolean-function selection, overlapping
+copies, per-plane behavior, and save/load continuation. X-mode PTB coverage
+already includes the native 1 by 6 form, widths spanning multiple unaligned
+bus words, edge preservation, CSR source/mask routing, and final-word status.
 
 ## Guardrails
 

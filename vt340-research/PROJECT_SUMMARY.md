@@ -103,8 +103,7 @@ request-specific retained pulse without changing the startup event sequence.
 CPU2's XDATA handler separates shared RAM from the decoded video apertures:
 
 - DC323 Adder registers in the mirrored `f?00-f?3f` window.
-- E51/E52 16-entry red and green/blue palette apertures.
-- DC7051 low/high timing-register apertures.
+- E51/E52 16-entry output maps at `f080/f0a0`, including their BA4 aliases.
 - Diagnostic bitmap and graphics POST behavior.
 
 The E15/P1 board wiring assembles each decoded Adder write and forwards it to
@@ -114,11 +113,12 @@ state, frame-synchronized scrolling, and bitmap planes. Firmware-address-
 specific POST mux/ready accommodations remain in the VT340 board driver and
 are not DC323 behavior. See `hardware/dc323-device.md`.
 
-The mirrored DC7051 low/high apertures now forward decoded register indices to
-`dc7051_device`. That device owns the preserved horizontal and frame timers;
-callbacks drive CPU2 T0 and the DC323 frame input. The external diagnostic
-multiplexer and fixed screen geometry remain board-owned. See
-`hardware/dc7051-device.md`.
+The standalone `dc7051_device` owns the preserved horizontal and frame timing
+approximations; callbacks drive CPU2 T0 and the DC323 frame input. The former
+`f080/f0a0` register assignment was disproven by the output-map schematic and
+native palette-loader trace, so no CPU-visible DC7051 register aperture is
+currently claimed. The external diagnostic multiplexer and fixed screen
+geometry remain board-owned. See `hardware/dc7051-device.md`.
 
 E80 is a CPU1-owned Xicor X2804 EEPROM. Its recovered 512-byte `23-001N2`
 image supplies the first-run default for MAME's persistent X2804 device,
@@ -137,11 +137,23 @@ bitmap storage. This releases normal foreground processing after status-line
 drawing and allows F3 to enter the original firmware's complete Set-Up
 directory.
 
+The board CNTLWR latch maps CPU2 `BAD3-BAD0` to `V0CS-V3CS` in reverse plane
+order; `BAD5` is the separate `OPADDS` output. Preserving that exact wiring is
+required for firmware-selected SIXEL colors. An earlier `BAD5-BAD2` decode
+forced two plane bits and reduced the 16 requested indices to `3,7,11,15`.
+
 Four 1024 x 2048 one-bit planes form a four-bit color index. The screen uses
 the measured 32.3174 MHz timing: 1026 total by 526 lines, with an 800 x 500
 visible area. Firmware-programmed complete palette entries display as 12-bit
 RGB; entries not yet initialized after graphics POST use a monochrome
 visibility fallback.
+
+PAL E16 maps the E51 red output map at `f080/f090` and E52 green/blue at
+`f0a0/f0b0`; BA4 is not decoded. E51's low nibble supplies red, while E52's
+high and low nibbles supply green and blue. The recovered EEPROM validly saves
+Color Map: monochrome, so native Global Set-Up must select color (and may save
+it) before color SIXEL output is expected. The standard Bill regression does
+this through LK201 keys and streams the fixture over the macOS-style PTY path.
 
 ### State and lifecycle
 

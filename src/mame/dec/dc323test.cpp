@@ -94,6 +94,7 @@ void dc323_test_state::expect_pixel(unsigned x, unsigned y, bool value, char con
 TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 {
 	// Register storage and operational status/IRQ acknowledgement.
+	require(m_dc323->viper_select_r() == 0, "Viper selects reset clear");
 	reg_w(0x30, 0xa55a);
 	require(m_dc323->register_r(0x30) == 0xa55a, "16-bit register retention");
 	require(m_dc323->read(0x30) == 0x5a, "low data-bus readback");
@@ -104,6 +105,9 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	require(m_irq, "enabled frame status asserts IRQ");
 	reg_w(dc323_device::REG_STATUS, 0x0000);
 	require(m_dc323->status_r() == 0 && !m_irq, "status acknowledgement clears IRQ");
+	m_dc323->viper_select_w(0x0f);
+	viper_w(0x0e, 0x0000);
+	viper_w(0x0f, 0xffff);
 
 	// Constant fill affects all planes and preserves pixels beyond the region.
 	m_dc323->bitmap_clear();
@@ -114,6 +118,107 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 			expect_pixel(x, y, true, "constant fill region");
 	expect_pixel(3, 3, false, "constant fill left clipping");
 	expect_pixel(8, 3, false, "constant fill right clipping");
+
+	// Each Viper retains independent color registers.  The logic-unit result
+	// selects foreground/background per plane, producing a four-bit color
+	// index rather than broadcasting one Boolean result to every plane.
+	m_dc323->bitmap_clear();
+	viper_w(0x04, 0x00ca);
+	viper_w(0x08, 0xffff);
+	viper_w(0x09, 0xffff);
+	viper_w(0x0a, 0xffff);
+	reg_w(dc323_device::REG_X_CONTROL, 0x0080);
+	reg_w(dc323_device::REG_DESTINATION_Y, 0);
+	reg_w(dc323_device::REG_WIDTH, 1);
+	reg_w(dc323_device::REG_HEIGHT, 1);
+	for (unsigned color = 0; color < 16; color++)
+	{
+		for (unsigned plane = 0; plane < dc323_device::BITMAP_PLANES; plane++)
+		{
+			m_dc323->viper_select_w(1U << plane);
+			viper_w(0x0e, 0x0000);
+			viper_w(0x0f, BIT(color, plane) ? 0xffff : 0x0000);
+		}
+		m_dc323->viper_select_w(0x0f);
+		reg_w(dc323_device::REG_DESTINATION_X, color);
+		reg_w(dc323_device::REG_COMMAND, 0x06c0);
+		for (unsigned plane = 0; plane < dc323_device::BITMAP_PLANES; plane++)
+			require(bool(m_dc323->pixel_r(plane, color, 0)) == bool(BIT(color, plane)),
+				"per-plane foreground produces color index");
+	}
+	require(m_dc323->viper_register_r(0, 0x0f) == 0xffff &&
+		m_dc323->viper_register_r(1, 0x0f) == 0xffff &&
+		m_dc323->viper_register_r(2, 0x0f) == 0xffff &&
+		m_dc323->viper_register_r(3, 0x0f) == 0xffff,
+		"independent foreground registers retain final color");
+	m_dc323->bitmap_clear();
+
+	// X-mode processor-to-bitmap transfers consume one I/D FIFO word per
+	// destination bus word and scanline.  The sixel firmware uses the 1x6 form
+	// to stage one sixel column in off-screen bitmap memory.
+	viper_w(0x01, 0x0004); // 8-bit bitmap bus
+	viper_w(0x05, 0x00ca); // function 1 copies the processor source bit
+	viper_w(0x11, 0x0001); // CSR 1 loads processor data into the source register
+	viper_w(0x08, 0xffff);
+	viper_w(0x09, 0xffff);
+	viper_w(0x0e, 0x0000);
+	viper_w(0x0f, 0xffff);
+	reg_w(dc323_device::REG_STATUS, 0x0000);
+	reg_w(dc323_device::REG_DESTINATION_X, 8);
+	reg_w(dc323_device::REG_DESTINATION_Y, 10);
+	reg_w(dc323_device::REG_WIDTH, 1);
+	reg_w(dc323_device::REG_HEIGHT, 6);
+	reg_w(dc323_device::REG_COMMAND, 0x07d1);
+	require((m_dc323->status_r() & dc323_device::STATUS_ID_DATA_TRANSMIT_READY) != 0,
+		"PTB start accepts processor data");
+	require((m_dc323->status_r() & dc323_device::STATUS_ADDRESS_COMPLETE) == 0,
+		"PTB address completion waits for FIFO data");
+	for (unsigned row = 0; row < 6; row++)
+	{
+		reg_w(dc323_device::REG_ID_DATA, BIT(row, 0) ? 0x0000 : 0x0001);
+		if (row != 5)
+			require((m_dc323->status_r() & dc323_device::STATUS_ADDRESS_COMPLETE) == 0,
+				"PTB remains active before final word");
+	}
+	require((m_dc323->status_r() & dc323_device::STATUS_ADDRESS_COMPLETE) != 0,
+		"PTB final word completes address output");
+	for (unsigned row = 0; row < 6; row++)
+		expect_pixel(8, 10 + row, !BIT(row, 0), "PTB 1x6 source data");
+
+	// An unaligned rectangle consumes the leading and trailing bus words but
+	// masks pixels outside the requested destination extent.
+	m_dc323->bitmap_clear();
+	reg_w(dc323_device::REG_DESTINATION_X, 3);
+	reg_w(dc323_device::REG_DESTINATION_Y, 20);
+	reg_w(dc323_device::REG_WIDTH, 7);
+	reg_w(dc323_device::REG_HEIGHT, 1);
+	reg_w(dc323_device::REG_COMMAND, 0x07d1);
+	reg_w(dc323_device::REG_ID_DATA, 0x00a8);
+	require((m_dc323->status_r() & dc323_device::STATUS_ADDRESS_COMPLETE) == 0,
+		"unaligned PTB requires trailing word");
+	reg_w(dc323_device::REG_ID_DATA, 0x0002);
+	for (unsigned x = 3; x < 10; x++)
+		expect_pixel(x, 20, BIT(x, 0), "unaligned PTB word alignment");
+	expect_pixel(2, 20, false, "unaligned PTB preserves leading pixel");
+	expect_pixel(10, 20, false, "unaligned PTB preserves trailing pixel");
+
+	// The selected CSR controls the processor word's Viper destination.  A
+	// mask load affects write enables while retaining the source register.
+	m_dc323->bitmap_clear();
+	viper_w(0x11, 0x0002); // CSR 1 loads mask 1 and mask 2
+	viper_w(0x0a, 0xffff);
+	reg_w(dc323_device::REG_DESTINATION_X, 0);
+	reg_w(dc323_device::REG_DESTINATION_Y, 30);
+	reg_w(dc323_device::REG_WIDTH, 4);
+	reg_w(dc323_device::REG_HEIGHT, 1);
+	reg_w(dc323_device::REG_COMMAND, 0x07d1);
+	reg_w(dc323_device::REG_ID_DATA, 0x0005);
+	require(m_dc323->viper_register_r(0, 0x08) == 0x0005 &&
+		m_dc323->viper_register_r(0, 0x09) == 0x0005,
+		"PTB CSR loads both Viper masks");
+	for (unsigned x = 0; x < 4; x++)
+		expect_pixel(x, 30, BIT(0x0005, x), "PTB mask data routing");
+	viper_w(0x11, 0x0001);
 
 	// Raster masks and bitmap clipping retain the established orientation.
 	m_dc323->bitmap_clear();

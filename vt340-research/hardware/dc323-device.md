@@ -29,6 +29,7 @@ The runtime interface is:
 | `read(offset)` | Read one of the 64 decoded DC323 registers or the active I/D transfer port |
 | `write(offset, data)` | Write a decoded register with the board-assembled 16-bit data value |
 | `operational_w(state)` | Release or hold the operational model around board graphics POST |
+| `viper_select_w(mask)` | Select which of the four plane datapaths accept Viper loads and raster destination writes |
 | `vsync_w(state)` | Supply the board's vertical-frame event; a high call services pending scroll and frame status |
 | `irq_handler()` | Electrical interrupt output, asserted when enabled sticky status is nonzero |
 | `pixel_r(plane, x, y)` | Narrow display-backend access to the retained four bitmap planes |
@@ -37,7 +38,9 @@ The runtime interface is:
 The device has no CPU reference, firmware address, terminal protocol, palette,
 serial port, or DC7051 timer.  The VT340 PAL continues to decode the CPU2
 external address and CPU2 P1 continues to supply the high byte of every
-16-bit write.
+16-bit write. The board also decodes `f060-f07f` as `CNTLWR`; its 74LS174
+latches `BAD3-BAD0` as `V0CS-V3CS` and forwards that mask to
+`viper_select_w`. `BAD5` on the same latch drives the separate `OPADDS` net.
 
 ## Register and command behavior preserved
 
@@ -49,7 +52,7 @@ special registers are:
 | `02` | Interrupt-enable mask; changes recompute IRQ |
 | `03` | Operational status read and write-zero-to-clear acknowledgement |
 | `07` | Retained I/D value and active bitmap/character-ROM transfer reads |
-| `08` | Command decode, Viper loads, transfer setup, and raster dispatch |
+| `08` | Command decode, selected-Viper loads, transfer setup, and raster dispatch |
 | `09` | Raster X-control mode and indexed-operation qualification |
 | `0e-14` | Scroll bounds, offset, and frame-pending Y command |
 | `17-1a` | Indexed-operation values used by the existing zero-index qualification |
@@ -60,6 +63,18 @@ Status bits remain sticky until acknowledged.  Raster command functions 2 and
 bitmap-to-processor transfer completes through register 7 reads.  Writing
 scroll register `14` records one pending operation; the next high `vsync_w`
 call executes it, sets Pause Complete and Scroll Service, and recomputes IRQ.
+
+X-mode processor-to-bitmap commands consume one I/D word per bitmap bus word
+and scanline. Each word is routed through the command-selected CSR external
+load field to the Viper source or mask registers before the destination
+read-modify-write cycle. Unaligned rectangles consume their leading and
+trailing bus words while edge masking preserves pixels outside the extent;
+Address Complete is asserted after the final expected word.
+
+Each of the four planes now retains its own Viper registers. A raster logic
+result selects that plane's foreground or background word; the selected bit
+from that word becomes the plane output. This is sufficient to form all 16
+four-plane color-map indices without inventing RGB values.
 
 The `bitmap_planes` memory share retains its root tag so existing debugger
 traces continue to inspect exactly the same 1024 by 2048 by four-plane layout.
@@ -98,8 +113,8 @@ control remains observable through the separate DUART/connector traces.
 
 - Exact asynchronous command completion timing and FIFO depth/flow.
 - Whether the retained synchronous raster completion ordering is correct.
-- Physical ownership split between Adder sequencing and each Viper's Boolean,
-  mask, fill, and scroll datapaths.
+- Whether the four retained per-plane Viper datapaths should become standalone
+  DC322 subdevices after their remaining timing and pipeline behavior is known.
 - Source-2 behavior and nonzero indexed coordinate translation.
 - Exact right-edge word and mask behavior when `SCROLL_X_MAX` is aligned.
 - Scroll request queuing or overwrite behavior when register `14` is loaded
