@@ -34,6 +34,7 @@
 
 #include "lk201.h"
 
+#include "bus/rs232/rs232.h"
 #include "cpu/mcs51/i8051.h"
 #include "cpu/mcs51/i8052.h"
 #include "machine/mc68681.h"
@@ -58,6 +59,28 @@ constexpr unsigned BITMAP_WIDTH = 1024;
 constexpr unsigned BITMAP_HEIGHT = 2048;
 constexpr unsigned BITMAP_PLANE_SIZE = BITMAP_WIDTH * BITMAP_HEIGHT;
 
+// Match the active communication setup produced by the recovered E80 image.
+// These defaults apply
+// to byte-stream endpoint devices; changing the terminal's Set-Up values also
+// requires changing the attached endpoint to the same framing.
+static DEVICE_INPUT_DEFAULTS_START(comm1_defaults)
+	DEVICE_INPUT_DEFAULTS("RS232_TXBAUD", 0xff, RS232_BAUD_19200)
+	DEVICE_INPUT_DEFAULTS("RS232_RXBAUD", 0xff, RS232_BAUD_19200)
+	DEVICE_INPUT_DEFAULTS("RS232_DATABITS", 0xff, RS232_DATABITS_8)
+	DEVICE_INPUT_DEFAULTS("RS232_PARITY", 0xff, RS232_PARITY_NONE)
+	DEVICE_INPUT_DEFAULTS("RS232_STOPBITS", 0xff, RS232_STOPBITS_1)
+	DEVICE_INPUT_DEFAULTS("FLOW_CONTROL", 0x07, 0x00)
+DEVICE_INPUT_DEFAULTS_END
+
+static DEVICE_INPUT_DEFAULTS_START(comm2_defaults)
+	DEVICE_INPUT_DEFAULTS("RS232_TXBAUD", 0xff, RS232_BAUD_9600)
+	DEVICE_INPUT_DEFAULTS("RS232_RXBAUD", 0xff, RS232_BAUD_9600)
+	DEVICE_INPUT_DEFAULTS("RS232_DATABITS", 0xff, RS232_DATABITS_8)
+	DEVICE_INPUT_DEFAULTS("RS232_PARITY", 0xff, RS232_PARITY_NONE)
+	DEVICE_INPUT_DEFAULTS("RS232_STOPBITS", 0xff, RS232_STOPBITS_1)
+	DEVICE_INPUT_DEFAULTS("FLOW_CONTROL", 0x07, 0x00)
+DEVICE_INPUT_DEFAULTS_END
+
 class vt340_state : public driver_device
 {
 public:
@@ -67,6 +90,8 @@ public:
 		m_cpu2(*this, "cpu2"),
 		m_keyboard(*this, "keyboard"),
 		m_duart(*this, "duart"),
+		m_comm1(*this, "comm1"),
+		m_comm2(*this, "comm2"),
 		m_acia(*this, "acia"),
 		m_screen(*this, "screen"),
 		m_cpu2banks_rom(*this, "cpu2banks"),
@@ -86,6 +111,8 @@ private:
 	required_device<i8031_device> m_cpu2;
 	required_device<lk201_device> m_keyboard;
 	required_device<scn2681_device> m_duart;
+	required_device<rs232_port_device> m_comm1;
+	required_device<rs232_port_device> m_comm2;
 	required_device<scn2641_device> m_acia;
 	required_device<screen_device> m_screen;
 	required_region_ptr<u8> m_cpu2banks_rom;
@@ -149,6 +176,7 @@ private:
 	void cpu2_xdata_w(offs_t offset, u8 data);
 	void cpu1_p3_w(u8 data);
 	void keyboard_rxd_w(int state);
+	u8 duart_input_r();
 	void cpu2_p3_w(u8 data);
 	u8 cpu1_p1_r();
 	void cpu1_p1_w(u8 data);
@@ -354,24 +382,6 @@ u8 vt340_state::cpu2_xdata_r(offs_t offset)
 	// identities and bit assignments match DEC's Dragon chipset specification.
 	if ((offset & 0xf0c0) == 0xf000)
 	{
-		// Register 7 is the six-word I/D FIFO, not a readable copy of the
-		// last word written to it.  A source-1 bitmap-to-processor transfer
-		// from E49 streams the selected character-ROM rectangle through this
-		// port.  The VT340 uses that path to load its localized startup text.
-		if (((offset & 0x3f) == 0x07) && m_pbt_read_active)
-		{
-			u16 const width = m_adder_regs[0x26] & 0x1fff;
-			u32 const bytes_per_row = (width + 7) / 8;
-			u32 const row = m_pbt_read_index / bytes_per_row;
-			u32 const column = m_pbt_read_index % bytes_per_row;
-			u16 const source_x = (m_adder_regs[0x22] + column * 8) & 0x00ff;
-			u16 const source_y = (m_adder_regs[0x23] + row) & 0x03ff;
-			u8 const data = m_chargen_rom[(source_y << 5) | (source_x >> 3)];
-			if (++m_pbt_read_index >= m_pbt_read_count)
-				m_pbt_read_active = false;
-			return data;
-		}
-
 		// Register 07 is the data/command port.  The RAM diagnostic writes an
 		// equal-byte test word, issues several 00Cx commands through the same
 		// port, then reads the retained test data after a read command.
@@ -380,6 +390,45 @@ u8 vt340_state::cpu2_xdata_r(offs_t offset)
 			if (m_adder_raster_test)
 				return BIT(m_adder_regs[0x22], 3) ? 0x55 : 0xaa;
 			return m_adder_test_data;
+		}
+
+		// Register 7 is the six-word I/D FIFO, not a readable copy of the
+		// last word written to it.  Source-1 bitmap-to-processor transfers
+		// stream either E49 character ROM data or off-screen bitmap storage
+		// through this port.
+		if (((offset & 0x3f) == 0x07) && m_pbt_read_active)
+		{
+			u16 const width = m_adder_regs[0x26] & 0x1fff;
+			u32 const bytes_per_row = (width + 7) / 8;
+			u32 const row = m_pbt_read_index / bytes_per_row;
+			u32 const column = m_pbt_read_index % bytes_per_row;
+			u16 const source_origin_x = m_adder_regs[0x22] & 0x3fff;
+			u16 const source_origin_y = m_adder_regs[0x23] & 0x1fff;
+			u16 const source_x = source_origin_x + column * 8;
+			u16 const source_y = source_origin_y + row;
+			u8 data = 0;
+			if (BIT(source_origin_y, 12))
+			{
+				u16 const rom_x = source_x & 0x00ff;
+				u16 const rom_y = source_y & 0x03ff;
+				data = m_chargen_rom[(rom_y << 5) | (rom_x >> 3)];
+			}
+			else if ((source_x < BITMAP_WIDTH) && (source_y < BITMAP_HEIGHT))
+			{
+				// The operational paths use identical data in all four Vipers.
+				// In eight-bit mode, bit zero is the leftmost source pixel.
+				for (unsigned bit = 0; bit < 8 && (source_x + bit) < BITMAP_WIDTH; bit++)
+					data |= (m_bitmap_planes[source_y * BITMAP_WIDTH + source_x + bit] & 1) << bit;
+			}
+			if (++m_pbt_read_index >= m_pbt_read_count)
+			{
+				m_pbt_read_active = false;
+				m_adder_status &= ~0x0020;
+				m_adder_status |= 0x0010;
+				if (m_adder_status & m_adder_regs[0x02])
+					m_cpu2->set_input_line(MCS51_INT0_LINE, ASSERT_LINE);
+			}
+			return data;
 		}
 
 		u8 data = u8(m_adder_regs[offset & 0x3f]);
@@ -514,24 +563,50 @@ void vt340_state::cpu2_xdata_w(offs_t offset, u8 data)
 			m_scroll_pending = true;
 		if ((offset & 0x3f) == 0x08)
 		{
+			unsigned const operation = (value >> 8) & 3;
+			// Loading a rasterop or processor/bitmap transfer clears the
+			// initialization, rasterop-complete and address-output-complete
+			// indications.  Rasterops execute synchronously in this driver, so
+			// all three conditions become true again before the register write
+			// returns.  Firmware uses initialization-complete while drawing the
+			// status line and will not resume foreground processing without it.
+			if (m_bitmap_post_done && ((operation == 2) || (operation == 3)))
+			{
+				m_adder_status &= ~0x003c;
+				m_adder_status |= 0x0040;
+				m_pbt_read_active = false;
+			}
 			// I/D commands 0180-019f broadcast the retained I/D data word to
 			// the corresponding Viper register.  All four Vipers see this bus.
 			if ((value & 0xffe0) == 0x0180)
 				m_viper_regs[value & 0x1f] = m_adder_regs[0x07];
 			// Function 3 with source 1 enabled and destination disabled is a
 			// bitmap-to-processor transfer.  E49 is selected by source Y bit 12;
-			// in the board's eight-bit mode one FIFO read returns eight pixels,
-			// which are the corresponding byte in the character ROM.
-			if (((value >> 8) & 3) == 3 && BIT(value, 11) && !BIT(value, 10) &&
-				BIT(m_adder_regs[0x23], 12))
+			// otherwise the source is bitmap memory.  In the board's eight-bit
+			// mode one FIFO read returns eight source pixels.
+			if (operation == 3 && BIT(value, 11) && !BIT(value, 10))
 			{
 				u32 const width = m_adder_regs[0x26] & 0x1fff;
 				u32 const height = m_adder_regs[0x29] & 0x1fff;
 				m_pbt_read_index = 0;
 				m_pbt_read_count = ((width + 7) / 8) * height;
 				m_pbt_read_active = m_pbt_read_count != 0;
+				if (m_bitmap_post_done)
+				{
+					m_adder_status |= 0x000c;
+					if (m_pbt_read_active)
+						m_adder_status |= 0x0020;
+					else
+						m_adder_status |= 0x0010;
+				}
 			}
 			execute_rasterop(value);
+			if (m_bitmap_post_done && (operation == 2))
+			{
+				m_adder_status |= 0x001c;
+				if (m_adder_status & m_adder_regs[0x02])
+					m_cpu2->set_input_line(MCS51_INT0_LINE, ASSERT_LINE);
+			}
 		}
 		return;
 	}
@@ -567,6 +642,22 @@ void vt340_state::cpu1_p3_w(u8 data)
 void vt340_state::keyboard_rxd_w(int state)
 {
 	m_keyboard_rxd = bool(state);
+}
+
+u8 vt340_state::duart_input_r()
+{
+	// E61 input pins, schematic sheet 5: Comm 1 supplies CTS, DSR, speed
+	// indication and carrier detect.  The 25-pin RS-232 and six-pin DEC-423
+	// connectors are alternate electrical interfaces for channel A, so the
+	// abstract Comm 1 endpoint supplies both DSR inputs.  Comm 2 supplies DSR
+	// only.  IP6 is TVSYNC and retains the previously established idle level.
+	return BIT(m_comm1->cts_r(), 0)
+		| (BIT(m_comm1->dsr_r(), 0) << 1)
+		| (BIT(m_comm1->si_r(), 0) << 2)
+		| (BIT(m_comm1->dcd_r(), 0) << 3)
+		| (BIT(m_comm1->dsr_r(), 0) << 4)
+		| (BIT(m_comm2->dsr_r(), 0) << 5)
+		| 0x40;
 }
 
 u8 vt340_state::cpu1_p3_r()
@@ -1003,7 +1094,29 @@ void vt340_state::vt340(machine_config &config)
 	// frequency used by the part's baud-rate generator.
 	SCN2681(config, m_duart, 3.6864_MHz_XTAL);
 	m_duart->irq_cb().set_inputline(m_cpu1, MCS51_INT0_LINE);
-	m_duart->inport_cb().set_constant(0xff);
+	m_duart->a_tx_cb().set(m_comm1, FUNC(rs232_port_device::write_txd));
+	m_duart->b_tx_cb().set(m_comm2, FUNC(rs232_port_device::write_txd));
+	m_duart->inport_cb().set(FUNC(vt340_state::duart_input_r));
+	m_duart->outport_cb().set(m_comm1, FUNC(rs232_port_device::write_rts)).bit(0);
+	m_duart->outport_cb().append(m_comm1, FUNC(rs232_port_device::write_dtr)).bit(1);
+	m_duart->outport_cb().append(m_comm1, FUNC(rs232_port_device::write_spds)).bit(2);
+	m_duart->outport_cb().append(m_comm2, FUNC(rs232_port_device::write_dtr)).bit(7);
+
+	RS232_PORT(config, m_comm1, default_rs232_devices, nullptr);
+	m_comm1->set_option_device_input_defaults("null_modem", DEVICE_INPUT_DEFAULTS_NAME(comm1_defaults));
+	m_comm1->set_option_device_input_defaults("pty", DEVICE_INPUT_DEFAULTS_NAME(comm1_defaults));
+	m_comm1->rxd_handler().set(m_duart, FUNC(scn2681_device::rx_a_w));
+	m_comm1->cts_handler().set(m_duart, FUNC(scn2681_device::ip0_w));
+	m_comm1->dsr_handler().set(m_duart, FUNC(scn2681_device::ip1_w));
+	m_comm1->dsr_handler().append(m_duart, FUNC(scn2681_device::ip4_w));
+	m_comm1->si_handler().set(m_duart, FUNC(scn2681_device::ip2_w));
+	m_comm1->dcd_handler().set(m_duart, FUNC(scn2681_device::ip3_w));
+
+	RS232_PORT(config, m_comm2, default_rs232_devices, nullptr);
+	m_comm2->set_option_device_input_defaults("null_modem", DEVICE_INPUT_DEFAULTS_NAME(comm2_defaults));
+	m_comm2->set_option_device_input_defaults("pty", DEVICE_INPUT_DEFAULTS_NAME(comm2_defaults));
+	m_comm2->rxd_handler().set(m_duart, FUNC(scn2681_device::rx_b_w));
+	m_comm2->dsr_handler().set(m_duart, FUNC(scn2681_device::ip5_w));
 
 	// E81 is the SCN2641 printer communications interface.  Its interrupt
 	// output is connected to processor-1 INT1; the keyboard instead uses the

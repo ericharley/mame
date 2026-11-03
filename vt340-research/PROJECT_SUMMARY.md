@@ -85,7 +85,9 @@ request-specific retained pulse without changing the startup event sequence.
 
 ### CPU1 peripherals
 
-- E61 is modeled with MAME's SCN2681 DUART and drives CPU1 INT0.
+- E61 is modeled with MAME's SCN2681 DUART and drives CPU1 INT0.  Channel A is
+  exposed as the Comm 1 RS-232/DEC-423 endpoint and channel B as Comm 2; both
+  accept standard MAME serial devices including a macOS pseudo-terminal.
 - E81 is modeled with MAME's SCN2641 interface and drives CPU1 INT1.
 - Disconnected receive inputs idle at the serial marking level.
 - The keyboard uses CPU1's internal UART and MAME's ROM-driven `lk201_device`.
@@ -114,7 +116,11 @@ The raster path retains DC323 origins, extents, scale, mode, masks, source
 selection, and Viper logic functions. It supports the proven E49-to-bitmap
 and bitmap-to-bitmap normal operations used during startup. E49 is decoded
 using the schematic address permutation and supplies the authentic DEC 10x20
-glyphs.
+glyphs. DC323 completion status now follows command lifecycle, and
+bitmap-to-processor FIFO reads can source either E49 or ordinary off-screen
+bitmap storage. This releases normal foreground processing after status-line
+drawing and allows F3 to enter the original firmware's complete Set-Up
+directory.
 
 Four 1024 x 2048 one-bit planes form a four-bit color index. The screen uses
 the measured 32.3174 MHz timing: 1026 total by 526 lines, with an 800 x 500

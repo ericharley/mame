@@ -145,6 +145,23 @@ The DC323 register trace also confirms zero final Y offset, zero pending/new/
 old indexes, zero scroll constants, and refresh limits `0340/020a`.  Scanout
 from bitmap origin zero remains correct for this boot path.
 
+## Completion status and operational PBT
+
+DC323 status bits 2, 3, and 4 report Rasterop Initialization Complete,
+Rasterop Complete, and Address Output Complete.  Loading a rasterop or
+processor/bitmap transfer clears these conditions.  Since the current raster
+engine completes a command synchronously, all three become asserted when a
+rasterop returns.  This lets the native status-line drawing loop finish rather
+than leaving CPU2 at `ef11` and CPU1 at the shared `4be5` barrier.
+
+Status bit 5 follows the documented I/D Data Receive Ready condition.  A
+bitmap-to-processor transfer supplies sequential eight-pixel bytes through
+register 7 from either E49 or ordinary bitmap memory.  The final FIFO read
+clears Data Receive Ready and asserts Address Output Complete.  The off-screen
+bitmap transfer used while entering Set-Up therefore follows the same device
+path as the earlier E49 startup-string transfer.  See
+`../traces/setup-screen-report.md`.
+
 ## Clear/erase command audit
 
 A complete 300-second command trace is documented in
