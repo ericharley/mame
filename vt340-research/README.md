@@ -32,6 +32,14 @@ Start here:
   corrections from VT340-specific work and defines focused upstream tasks.
 - `hardware/serial-ports.md` documents Comm 1/Comm 2 wiring, macOS PTY use,
   and the conservative host-shell compatibility profile.
+- `hardware/dc323-device.md` documents the extracted Adder interface,
+  ownership boundary, diagnostics, and unresolved hardware questions.
+- `hardware/dc7051-device.md` documents the extracted timing-generator
+  interface, raw register map, signal routing, and retained approximations.
+- `traces/dc323-extraction-report.md` records before/after equivalence and
+  firmware-free device-test results.
+- `traces/dc7051-extraction-report.md` records timing measurements,
+  firmware-free test results, and VT340 verification boundaries.
 - `BUILDING.md` contains the targeted build and debugger procedure.
 
 Raw debugger `.tr` streams, diagnostic `.log` files, and framebuffer `.png`

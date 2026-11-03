@@ -18260,6 +18260,12 @@ sprachmg
 @source:ddr/vcs80.cpp
 vcs80
 
+@source:dec/dc323test.cpp
+dc323test
+
+@source:dec/dc7051test.cpp
+dc7051test
+
 @source:dec/dct11em.cpp
 dct11em
 
