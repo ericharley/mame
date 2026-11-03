@@ -4,8 +4,10 @@
 
 The standalone DC7051 device is a successful structural extraction of the
 fixed VT340 timing behavior that previously lived in `vt340_state`. It gives
-the timing generator a clear ownership boundary, retains the firmware-visible
-register apertures, and provides a firmware-free regression baseline.
+the timing generator a clear ownership boundary and provides a firmware-free
+regression baseline. The extraction-era claim that `f080/f0a0` were its
+firmware-visible registers has since been disproven; those ranges are the
+E51/E52 output maps.
 
 It is not yet a hardware-accurate DC7051 implementation. The current device is
 a compatibility scheduler: its configured clock and register contents do not
@@ -17,14 +19,14 @@ that compatibility model toward a coherent timing generator.
 
 ### Established strengths
 
-- The device owns its raw register state, timers, callbacks, event counters,
+- The device owns its retained raw state, timers, callbacks, event counters,
   diagnostics, and save-state registration.
 - The VT340 driver retains board-level PAL decoding, the external video-test
   multiplexer, CPU wiring, and monitor integration.
 - The device has no dependency on CPU identities, firmware addresses, ROM
   contents, or VT340-specific diagnostic selector values.
 - Diagnostic logging is disabled by default and bounded when enabled.
-- The firmware-free test covers reset, register retention, inherited timing
+- The firmware-free test covers reset, retained storage, inherited timing
   rates, enable/disable behavior, and long-run timer stability.
 
 ### Remaining compatibility behavior
@@ -55,8 +57,9 @@ Other unresolved behavior includes:
   event and never a corresponding low state.
 - The diagnostic waveform is derived from absolute machine time rather than a
   device or raster phase.
-- Low and high register apertures retain data but do not affect timing. Their
-  field meanings, pairing, load boundaries, and latch behavior remain unknown.
+- Low and high raw arrays remain as unconnected extraction residue. They no
+  longer have a claimed CPU aperture and should either be removed or connected
+  only after an authentic DC7051 programming interface is identified.
 - Internal state is registered for save states, but output-line restoration
   and an actual save/load execution cycle are not covered by regression tests.
 
@@ -165,17 +168,19 @@ Once established, replace the 50-percent square wave with the physical pulse.
 Preserve a test of the edge count expected by CPU2, but do not treat the
 current 63,000-transition model as proof of the waveform.
 
-### Stage 6: reconstruct the register model
+### Stage 6: identify and reconstruct the register model
 
-Trace every firmware read and write to both DC7051 apertures. For each access,
-record emulation time, CPU2 execution context, index, value, prior value, and
-nearby accesses. Reconstruct candidate combined values without assuming that
-matching low/high indexes form a register until the evidence supports it.
+Return to the schematic and board decode before tracing firmware accesses.
+First identify whether the DC7051 has a CPU-visible programming interface at
+all, and its actual select/address wiring. Do not reuse `f080/f0a0`: those
+addresses are now proven E51/E52 output maps. If a programming path is found,
+record every access with emulation time, CPU2 execution context, address,
+value, prior value, and nearby accesses.
 
 The register report should classify each conclusion as confirmed, strongly
 inferred, tentative, or unknown and address:
 
-- low/high field widths and pairing;
+- field widths and register pairing;
 - counter preload or terminal-count values;
 - horizontal and vertical totals;
 - visible, blanking, and sync boundaries;

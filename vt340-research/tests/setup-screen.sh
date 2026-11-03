@@ -18,8 +18,8 @@ jq -e 'select(.event == "summary" and
 	.setup_key == true and
 	.initialization_ready == true and
 	.fifo_ready == true and
-	.visible_hash == "514C8F54" and
-	.lit_pixels == 43231 and
+	.visible_hash == "0CCD2BF5" and
+	.lit_pixels == 43594 and
 	.barrier_4be5 == "00")' "$json" >/dev/null
 
 echo "VT340 native Set-Up screen regression passed"

@@ -3,8 +3,8 @@
 ## Extraction scope
 
 `src/devices/video/dc7051.{h,cpp}` is a behavior-preserving extraction of the
-timing state formerly embedded in `vt340_state`. It owns the two raw register
-halves, horizontal-output timer, compatibility frame scheduler, diagnostic
+timing state formerly embedded in `vt340_state`. It owns retained raw storage,
+the horizontal-output timer, compatibility frame scheduler, diagnostic
 vertical waveform, output state, event counts, and save-state registration.
 
 This first device is not yet a decoded or counter-derived DC7051 model. Unknown
@@ -23,30 +23,19 @@ deferred until the register definitions and physical signal phases are known.
 
 ## Register interface and confidence
 
-The VT340 E15/PAL board decode remains in `vt340.cpp`. It reduces the CPU2
-address to one of two device calls:
+There is currently no confirmed CPU-visible DC7051 register aperture. The
+earlier extraction assigned `f080-f09f` and `f0a0-f0bf` to the device and kept
+two 16-entry raw arrays. Schematic sheet 17 and the native output-map loader
+now prove those ranges select E51 red and E52 green/blue output maps instead;
+BA4 supplies their aliases. `vt340.cpp` therefore no longer forwards these
+accesses to the DC7051.
 
-| CPU2 aperture | Device interface | Preserved storage | Confidence |
-| --- | --- | --- | --- |
-| `f080-f09f` | `low_r/low_w(index)` | low four bits in one of 16 bytes | Confirmed existing behavior; physical internal organization unresolved |
-| `f0a0-f0bf` | `high_r/high_w(index)` | all eight bits in one of 16 bytes | Confirmed existing behavior; physical internal organization unresolved |
-
-Address bit 4 aliases within each 32-byte board aperture, while the device sees
-only `index[3:0]`. All 16 low and 16 high reset values are zero in the preserved
-model. No functional meaning is assigned to any register field yet. Writes do
-not alter timing because the previous driver also retained them without
-decoding them.
-
-Evidence classifications:
-
-- The two apertures and aliases are established by current PAL/address-decode
-  work and native firmware accesses.
-- The low-nibble versus full-byte bus behavior is established by the existing
-  implementation and round-trip POST behavior.
-- The relationship between corresponding low/high locations and a wider
-  physical register is unresolved.
-- Timing-load boundaries, invalid configurations, and immediate versus latched
-  programming effects are unresolved.
+The low/high raw accessors remain inside the standalone device only as
+unconnected extraction-era storage until a separate cleanup decides whether
+to remove them. They are not evidence of DC7051 register organization and
+must not be used to infer timing fields. Timing-load boundaries, any actual
+programming interface, invalid configurations, and immediate versus latched
+effects all remain unresolved.
 
 ## Clock and signals
 
@@ -71,7 +60,7 @@ because their physical behavior has not yet been established in this model.
 The DC7051 owns register retention and timing scheduling. The VT340 driver
 continues to own:
 
-- PAL aperture decoding and mirroring;
+- PAL aperture decoding and output-map mirroring;
 - the F0E0 video-test selector;
 - routing the selected diagnostic output to CPU2 P1.0;
 - CPU2 and DC323 wiring;

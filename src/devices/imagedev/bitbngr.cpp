@@ -41,7 +41,7 @@ bitbanger_device::bitbanger_device(const machine_config &mconfig, const char *ta
 
 void bitbanger_device::output(uint8_t data)
 {
-	if (!loaded_through_softlist() && exists())
+	if (!loaded_through_softlist() && exists() && !device_image_interface::is_readonly())
 		fwrite(&data, 1);
 }
 
@@ -87,7 +87,10 @@ const software_list_loader &bitbanger_device::get_software_list_loader() const
 
 std::pair<std::error_condition, std::string> bitbanger_device::call_load()
 {
-	// we don't need to do anything special
+	// Image hashing and a previous output attempt may leave the shared stream
+	// position away from the beginning.  A newly loaded input stream starts at
+	// its first byte.
+	fseek(0, SEEK_SET);
 	return std::make_pair(std::error_condition(), std::string());
 }
 

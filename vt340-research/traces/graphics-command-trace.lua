@@ -9,7 +9,8 @@ local planes = manager.machine.memory.shares[":bitmap_planes"]
 assert(planes, "VT340 bitmap_planes memory share is unavailable")
 
 local regs = {}
-local viper = {}
+local viper = { {}, {}, {}, {} }
+local viper_select = 0
 local commands = 0
 local palette_writes = 0
 local region_trace_start = 115.0
@@ -108,11 +109,23 @@ graphics_command_trace = xdata:install_write_tap(
 		local now = manager.machine.time:as_double()
 		local pc = cpu2.state["PC"].value
 
-		if (offset & 0xfff0) == 0xf040 or (offset & 0xfff0) == 0xf050 then
+		if (offset & 0xffe0) == 0xf080 or (offset & 0xffe0) == 0xf0a0 then
 			palette_writes = palette_writes + 1
 			print(string.format(
 				'VT340_GFX_JSON {"event":"palette","time":%.9f,"pc":"%04X","bank":"%s","index":%d,"value":"%02X"}',
-				now, pc, ((offset & 0xfff0) == 0xf040) and "RG" or "GB", offset & 0x0f, data))
+				now, pc, ((offset & 0xffe0) == 0xf080) and "RG" or "GB", offset & 0x0f, data))
+			return
+		end
+
+		if offset >= 0xf060 and offset <= 0xf07f then
+			local select = (((data >> 5) & 1) << 0) |
+				(((data >> 4) & 1) << 1) |
+				(((data >> 3) & 1) << 2) |
+				(((data >> 2) & 1) << 3)
+			viper_select = select
+			print(string.format(
+				'VT340_GFX_JSON {"event":"viper_select","time":%.9f,"pc":"%04X","address":"%04X","data":"%02X","select":"%X"}',
+				now, pc, offset, data, select))
 			return
 		end
 
@@ -133,7 +146,12 @@ graphics_command_trace = xdata:install_write_tap(
 		if reg ~= 0x08 then return end
 
 		if (value & 0xffe0) == 0x0180 then
-			viper[value & 0x1f] = regs[0x07] or 0
+			local viper_reg = value & 0x1f
+			for plane = 0, 3 do
+				if ((viper_select >> plane) & 1) ~= 0 then
+					viper[plane + 1][viper_reg] = regs[0x07] or 0
+				end
+			end
 		end
 
 		commands = commands + 1
@@ -149,7 +167,7 @@ graphics_command_trace = xdata:install_write_tap(
 		local width = (regs[0x26] or 0) & 0x1fff
 		local height = (regs[0x29] or 0) & 0x1fff
 		local function_selector = (value >> 4) & 3
-		local logic = viper[4 + function_selector] or 0
+		local logic = viper[1][4 + function_selector] or 0
 		local normal_mode = (mode & 0x1f) == 0 and (mode & 0x80) ~= 0
 		local indexed = (mode & 0x60) ~= 0
 		local zero_indexes = ((regs[0x17] or 0) | (regs[0x18] or 0) |
@@ -165,18 +183,23 @@ graphics_command_trace = xdata:install_write_tap(
 		end
 
 		print(string.format(
-			'VT340_GFX_JSON {"event":"command","id":%d,"time":%.9f,"pc":"%04X","raw":"%04X","operation":%d,"destination":%s,"source1":%s,"source2":%s,"mode":"%04X","source":[%d,%d],"destination_origin":[%d,%d],"extent":[%d,%d],"bitmap_stride":1024,"e49_stride":32,"xcon":"%04X","function_selector":%d,"logic":"%02X","resolution_mode":"%04X","bus_width":"%04X","scroll_constant":"%04X","plane_address":"%04X","mask1":"%04X","mask2":"%04X","source_constant":"%04X","fill":"%04X","background":"%04X","foreground":"%04X","csr_select":%d,"csr":["%04X","%04X","%04X","%04X","%04X","%04X","%04X"],"y_offset":"%04X","y_scroll":"%04X","indexes":["%04X","%04X","%04X","%04X","%04X","%04X"],"supported":%s,"reason":"%s"}',
+			'VT340_GFX_JSON {"event":"command","id":%d,"time":%.9f,"pc":"%04X","raw":"%04X","operation":%d,"destination":%s,"source1":%s,"source2":%s,"mode":"%04X","source":[%d,%d],"destination_origin":[%d,%d],"extent":[%d,%d],"bitmap_stride":1024,"e49_stride":32,"xcon":"%04X","function_selector":%d,"viper_select":"%X","logic":"%02X","logic_planes":["%02X","%02X","%02X","%02X"],"resolution_mode":"%04X","bus_width":"%04X","scroll_constant":"%04X","plane_address":"%04X","mask1":"%04X","mask2":"%04X","source_constant":"%04X","fill":"%04X","background":"%04X","foreground":"%04X","background_planes":["%04X","%04X","%04X","%04X"],"foreground_planes":["%04X","%04X","%04X","%04X"],"csr_select":%d,"csr":["%04X","%04X","%04X","%04X","%04X","%04X","%04X"],"y_offset":"%04X","y_scroll":"%04X","indexes":["%04X","%04X","%04X","%04X","%04X","%04X"],"supported":%s,"reason":"%s"}',
 			commands, now, pc, value, operation,
 			destination_enabled and "true" or "false",
 			source1_enabled and "true" or "false",
 			source2_enabled and "true" or "false",
 			mode, source_x, source_y, destination_x, destination_y, width, height,
-			regs[0x35] or 0, function_selector, logic,
-			viper[0] or 0, viper[1] or 0, viper[2] or 0, viper[3] or 0,
-			viper[8] or 0, viper[9] or 0, viper[0x0a] or 0, viper[0x0b] or 0,
-			viper[0x0e] or 0, viper[0x0f] or 0, (value >> 2) & 1,
-			viper[0x10] or 0, viper[0x11] or 0, viper[0x12] or 0,
-			viper[0x13] or 0, viper[0x14] or 0, viper[0x15] or 0, viper[0x16] or 0,
+			regs[0x35] or 0, function_selector, viper_select, logic,
+			viper[1][4 + function_selector] or 0, viper[2][4 + function_selector] or 0,
+			viper[3][4 + function_selector] or 0, viper[4][4 + function_selector] or 0,
+			viper[1][0] or 0, viper[1][1] or 0, viper[1][2] or 0, viper[1][3] or 0,
+			viper[1][8] or 0, viper[1][9] or 0, viper[1][0x0a] or 0, viper[1][0x0b] or 0,
+			viper[1][0x0e] or 0, viper[1][0x0f] or 0,
+			viper[1][0x0e] or 0, viper[2][0x0e] or 0, viper[3][0x0e] or 0, viper[4][0x0e] or 0,
+			viper[1][0x0f] or 0, viper[2][0x0f] or 0, viper[3][0x0f] or 0, viper[4][0x0f] or 0,
+			(value >> 2) & 1,
+			viper[1][0x10] or 0, viper[1][0x11] or 0, viper[1][0x12] or 0,
+			viper[1][0x13] or 0, viper[1][0x14] or 0, viper[1][0x15] or 0, viper[1][0x16] or 0,
 			regs[0x13] or 0, regs[0x14] or 0,
 			regs[0x15] or 0, regs[0x16] or 0, regs[0x17] or 0,
 			regs[0x18] or 0, regs[0x19] or 0, regs[0x1a] or 0,

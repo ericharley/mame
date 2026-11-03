@@ -8,6 +8,7 @@ local cpu2 = manager.machine.devices[":cpu2"]
 local cpu1_sfr = cpu1.spaces["sfr"]
 local cpu1_xdata = cpu1.spaces["xdata"]
 local cpu2_xdata = cpu2.spaces["xdata"]
+local cpu2_idata = cpu2.spaces["idata"]
 local keyboard = manager.machine.natkeyboard
 local planes = manager.machine.memory.shares[":bitmap_planes"]
 local screen = manager.machine.screens[":screen"]
@@ -17,6 +18,40 @@ keyboard.in_use = true
 local setup_key_seen = false
 local initialization_ready_seen = false
 local fifo_ready_seen = false
+
+if os.getenv("VT340_TRACE_MODEL_SELECT") == "1" then
+	setup_model_p1_read_tap = cpu1_sfr:install_read_tap(
+		0x90, 0x90, "setup_model_p1_read_tap",
+		function(offset, data, mask)
+			local pc = cpu1.state["PC"].value
+			if pc >= 0x39d0 and pc <= 0x3a08 then
+				print(string.format(
+					'VT340_SETUP_JSON {"event":"model_p1_read","time":%.9f,"pc":"%04X","data":"%02X"}',
+					manager.machine.time:as_double(), pc, data))
+			end
+			if os.getenv("VT340_FORCE_MODEL_SELECT") == "1" and pc == 0x3a06 then
+				return data & ~0x40
+			end
+		end)
+	setup_model_p1_write_tap = cpu1_sfr:install_write_tap(
+		0x90, 0x90, "setup_model_p1_write_tap",
+		function(offset, data, mask)
+			local now = manager.machine.time:as_double()
+			if now <= 9 then
+				print(string.format(
+					'VT340_SETUP_JSON {"event":"model_p1_write","time":%.9f,"pc":"%04X","data":"%02X"}',
+					now, cpu1.state["PC"].value, data))
+			end
+		end)
+	setup_model_value_tap = cpu1_xdata:install_write_tap(
+		0xe795, 0xe795, "setup_model_value_tap",
+		function(offset, data, mask)
+			print(string.format(
+				'VT340_SETUP_JSON {"event":"model_select","time":%.9f,"pc":"%04X","p1":"%02X","value":"%02X"}',
+				manager.machine.time:as_double(), cpu1.state["PC"].value,
+				cpu1.state["P1"].value, data))
+		end)
+end
 
 setup_keyboard_tap = cpu1_sfr:install_read_tap(
 	0x99, 0x99, "setup_keyboard_tap",
@@ -79,6 +114,12 @@ emu.register_frame_done(function()
 		next_action = next_action + 1
 	end
 	if not captured and now >= 142 then
+		if os.getenv("VT340_TRACE_MODEL_FLAG") == "1" then
+			local model_state = cpu2_idata:read_u8(0x20)
+			print(string.format(
+				'VT340_SETUP_JSON {"event":"model_flag","time":%.9f,"iram20":"%02X","color":%s}',
+				now, model_state, (model_state & 0x20) ~= 0 and "true" or "false"))
+		end
 		local hash, lit = visible_state()
 		local path = "/tmp/vt340-setup-screen.png"
 		screen:snapshot(path)

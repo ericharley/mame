@@ -77,6 +77,8 @@ void pseudo_terminal_device::device_start()
 	m_timer_poll = timer_alloc(FUNC(pseudo_terminal_device::update_queue), this);
 
 	open();
+	if (is_open())
+		osd_printf_verbose("Pseudo terminal %s opened on %s\n", tag(), slave_name());
 }
 
 void pseudo_terminal_device::device_stop()
