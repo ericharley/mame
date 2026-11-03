@@ -36,7 +36,7 @@
 
 #include "bus/rs232/rs232.h"
 #include "cpu/mcs51/i8051.h"
-#include "cpu/mcs51/i8052.h"
+#include "machine/eeprompar.h"
 #include "machine/mc68681.h"
 #include "machine/scn_pci.h"
 
@@ -55,14 +55,73 @@ namespace {
 constexpr int MCS51_SFR_SPACE = 4;
 constexpr int MCS51_IDATA_SPACE = 5;
 constexpr int CPU_T1_HANDSHAKE_TRIGGER = 340;
+constexpr unsigned SCREEN_WIDTH = 800;
+constexpr unsigned SCREEN_HEIGHT = 500;
 constexpr unsigned BITMAP_WIDTH = 1024;
 constexpr unsigned BITMAP_HEIGHT = 2048;
+constexpr unsigned BITMAP_PLANES = 4;
 constexpr unsigned BITMAP_PLANE_SIZE = BITMAP_WIDTH * BITMAP_HEIGHT;
+constexpr unsigned BITMAP_POST_SIZE = 0x10000;
+
+constexpr u32 bitmap_plane_address(unsigned plane, unsigned x, unsigned y)
+{
+	return plane * BITMAP_PLANE_SIZE + y * BITMAP_WIDTH + x;
+}
+
+enum : unsigned
+{
+	DC323_REG_INTERRUPT_ENABLE = 0x02,
+	DC323_REG_STATUS = 0x03,
+	DC323_REG_ID_DATA = 0x07,
+	DC323_REG_COMMAND = 0x08,
+	DC323_REG_X_CONTROL = 0x09,
+	DC323_REG_SCROLL_X_MIN = 0x0e,
+	DC323_REG_SCROLL_X_MAX = 0x0f,
+	DC323_REG_SCROLL_Y_MIN = 0x10,
+	DC323_REG_SCROLL_Y_MAX = 0x11,
+	DC323_REG_SCROLL_Y_OFFSET = 0x13,
+	DC323_REG_SCROLL_Y = 0x14,
+	DC323_REG_SOURCE_X = 0x22,
+	DC323_REG_SOURCE_Y = 0x23,
+	DC323_REG_DESTINATION_X = 0x24,
+	DC323_REG_DESTINATION_Y = 0x25,
+	DC323_REG_WIDTH = 0x26,
+	DC323_REG_HEIGHT = 0x29
+};
+
+enum : u16
+{
+	DC323_STATUS_PAUSE_COMPLETE = 0x0001,
+	DC323_STATUS_SCROLL_SERVICE = 0x0002,
+	DC323_STATUS_RASTEROP_INITIALIZED = 0x0004,
+	DC323_STATUS_RASTEROP_COMPLETE = 0x0008,
+	DC323_STATUS_ADDRESS_COMPLETE = 0x0010,
+	DC323_STATUS_ID_DATA_READY = 0x0020,
+	DC323_STATUS_ID_DATA_TRANSMIT_READY = 0x0040,
+	DC323_STATUS_RASTEROP_MASK = DC323_STATUS_RASTEROP_INITIALIZED | DC323_STATUS_RASTEROP_COMPLETE |
+		DC323_STATUS_ADDRESS_COMPLETE,
+	DC323_STATUS_COMMAND_MASK = DC323_STATUS_RASTEROP_MASK | DC323_STATUS_ID_DATA_READY
+};
+
+enum : unsigned
+{
+	VIPER_REG_LOGIC_BASE = 0x04,
+	VIPER_REG_MASK_1 = 0x08,
+	VIPER_REG_MASK_2 = 0x09,
+	VIPER_REG_SOURCE = 0x0a,
+	VIPER_REG_FILL = 0x0b
+};
+
+bool should_log_xdata(offs_t offset, u16 &trace_events, u16 &io_trace_events)
+{
+	bool const io_access = ((offset & 0xfff0) == 0x7ff0) || (offset >= 0xf000);
+	return (trace_events++ < 256) || (io_access && (io_trace_events++ < 512));
+}
 
 // Match the active communication setup produced by the recovered E80 image.
-// These defaults apply
-// to byte-stream endpoint devices; changing the terminal's Set-Up values also
-// requires changing the attached endpoint to the same framing.
+// These defaults apply to byte-stream endpoint devices; changing the
+// terminal's Set-Up values also requires changing the attached endpoint to
+// the same framing.
 static DEVICE_INPUT_DEFAULTS_START(comm1_defaults)
 	DEVICE_INPUT_DEFAULTS("RS232_TXBAUD", 0xff, RS232_BAUD_19200)
 	DEVICE_INPUT_DEFAULTS("RS232_RXBAUD", 0xff, RS232_BAUD_19200)
@@ -92,14 +151,14 @@ public:
 		m_duart(*this, "duart"),
 		m_comm1(*this, "comm1"),
 		m_comm2(*this, "comm2"),
-		m_acia(*this, "acia"),
+		m_printer_uart(*this, "acia"),
+		m_eeprom(*this, "eeprom"),
 		m_screen(*this, "screen"),
 		m_cpu2banks_rom(*this, "cpu2banks"),
 		m_chargen_rom(*this, "chargen"),
-		m_eeprom_rom(*this, "eeprom"),
 		m_shared_ram(*this, "shared_ram", 0x10000, ENDIANNESS_LITTLE),
-		m_bitmap_ram(*this, "bitmap_ram", 0x10000, ENDIANNESS_LITTLE),
-		m_bitmap_planes(*this, "bitmap_planes", 4 * BITMAP_PLANE_SIZE, ENDIANNESS_LITTLE)
+		m_bitmap_ram(*this, "bitmap_ram", BITMAP_POST_SIZE, ENDIANNESS_LITTLE),
+		m_bitmap_planes(*this, "bitmap_planes", BITMAP_PLANES * BITMAP_PLANE_SIZE, ENDIANNESS_LITTLE)
 	{
 	}
 
@@ -113,29 +172,32 @@ private:
 	required_device<scn2681_device> m_duart;
 	required_device<rs232_port_device> m_comm1;
 	required_device<rs232_port_device> m_comm2;
-	required_device<scn2641_device> m_acia;
+	required_device<scn2641_device> m_printer_uart;
+	required_device<eeprom_parallel_2804_device> m_eeprom;
 	required_device<screen_device> m_screen;
 	required_region_ptr<u8> m_cpu2banks_rom;
 	required_region_ptr<u8> m_chargen_rom;
-	required_region_ptr<u8> m_eeprom_rom;
 	memory_share_creator<u8> m_shared_ram;
 	memory_share_creator<u8> m_bitmap_ram;
 	memory_share_creator<u8> m_bitmap_planes;
 	emu_timer *m_cpu2_hsync_timer = nullptr;
 	emu_timer *m_cpu2_vsync_timer = nullptr;
 
+	// Processor port latches and board-level handshake state
 	u8 m_cpu1_p3 = 0xff;
 	u8 m_cpu2_p3 = 0xff;
 	u8 m_cpu1_p1 = 0xff;
 	u8 m_cpu2_p1 = 0xff;
 	u8 m_cpu2_p2 = 0xff;
-	u8 m_cpu1_status = 0;
+	bool m_board_status = false;
 	u8 m_video_test_select = 0;
 	bool m_cpu2_hsync_low = true;
 	bool m_cpu1_brd_strobe = false;
 	bool m_cpu2_t1_pulse = false;
 	bool m_keyboard_rxd = true;
 	u8 m_cpu1_t1_pulses = 0;
+
+	// Graphics POST compatibility state
 	bool m_adder_ready = false;
 	bool m_bitmap_test_pending = false;
 	bool m_bitmap_test_active = false;
@@ -143,6 +205,8 @@ private:
 	u32 m_bitmap_test_reads = 0;
 	u8 m_adder_test_data = 0;
 	bool m_adder_raster_test = false;
+
+	// Operational DC323 Adder, Viper, timing and palette state
 	std::array<u16, 0x40> m_adder_regs{};
 	u16 m_adder_status = 0;
 	bool m_scroll_pending = false;
@@ -169,6 +233,7 @@ private:
 
 	u8 cpu1_xdata_r(offs_t offset);
 	void cpu1_xdata_w(offs_t offset, u8 data);
+	bool eeprom_selected(offs_t offset);
 	u8 cpu1_reserved_c2_r();
 	u8 cpu1_p3_r();
 	u8 cpu2_upper_r(offs_t offset);
@@ -185,9 +250,12 @@ private:
 	u8 cpu2_p2_r();
 	void cpu2_p2_w(u8 data);
 	u8 cpu2_p3_r();
+	u8 dc323_id_data_r();
+	void dc323_command_w(u16 command);
+	void update_dc323_interrupt();
 	void execute_rasterop(u16 command);
 	void execute_scroll_erase();
-	u32 screen_update(screen_device &screen, bitmap_rgb32 &bitmap, rectangle const &cliprect);
+	u32 screen_update(screen_device &, bitmap_rgb32 &bitmap, rectangle const &cliprect);
 
 	virtual void machine_start() override ATTR_COLD;
 	virtual void machine_reset() override ATTR_COLD;
@@ -279,7 +347,7 @@ void vt340_state::cpu2_data_map(address_map &map)
 
 u8 vt340_state::cpu1_xdata_r(offs_t offset)
 {
-	if ((m_cpu1_trace_events++ < 256) || ((((offset & 0xfff0) == 0x7ff0) || (offset >= 0xf000)) && (m_cpu1_io_trace_events++ < 512)))
+	if (should_log_xdata(offset, m_cpu1_trace_events, m_cpu1_io_trace_events))
 		LOGMASKED(LOG_XDATA, "%s CPU1 XDATA R %04X (PC=%04X)\n", machine().describe_context(), offset, m_cpu1->pc());
 	// E80's A0-A8 inputs are driven directly by CPU1's multiplexed external
 	// address bus.  E10 shifts P1.3 (NVRDS L) into the active-low NVRCS latch
@@ -288,13 +356,13 @@ u8 vt340_state::cpu1_xdata_r(offs_t offset)
 	// because MCS-51 bit instructions do not pass through the port callback.
 	// While selected, E80 owns the bus even at addresses which overlap the
 	// ordinary serial-device decode.
-	if (!BIT(m_cpu1->state_int(MCS51_P1), 3) && ((offset & 0xfe00) == 0xf000))
-		return m_eeprom_rom[offset & 0x01ff];
+	if (eeprom_selected(offset))
+		return m_eeprom->read(m_cpu1->space(AS_DATA), offset & 0x01ff);
 	// E78 decodes the CPU1 I/O page into two 64-byte serial apertures.  E81
 	// (SCN2641) occupies F000-F03F and E61 (SCN2681) occupies F040-F07F;
 	// their register-select inputs use the low two and low four address bits.
 	if ((offset & 0xffc0) == 0xf000)
-		return m_acia->read(offset & 0x03);
+		return m_printer_uart->read(offset & 0x03);
 	if ((offset & 0xffc0) == 0xf040)
 		return m_duart->read(offset & 0x0f);
 	// The board-read strobe reaches T0.  Its low pulse ends within the MOVX
@@ -312,11 +380,16 @@ u8 vt340_state::cpu1_reserved_c2_r()
 
 void vt340_state::cpu1_xdata_w(offs_t offset, u8 data)
 {
-	if ((m_cpu1_trace_events++ < 256) || ((((offset & 0xfff0) == 0x7ff0) || (offset >= 0xf000)) && (m_cpu1_io_trace_events++ < 512)))
+	if (should_log_xdata(offset, m_cpu1_trace_events, m_cpu1_io_trace_events))
 		LOGMASKED(LOG_XDATA, "%s CPU1 XDATA W %04X=%02X (PC=%04X)\n", machine().describe_context(), offset, data, m_cpu1->pc());
+	if (eeprom_selected(offset))
+	{
+		m_eeprom->write(offset & 0x01ff, data);
+		return;
+	}
 	if ((offset & 0xffc0) == 0xf000)
 	{
-		m_acia->write(offset & 0x03, data);
+		m_printer_uart->write(offset & 0x03, data);
 		return;
 	}
 	if ((offset & 0xffc0) == 0xf040)
@@ -325,12 +398,19 @@ void vt340_state::cpu1_xdata_w(offs_t offset, u8 data)
 		return;
 	}
 	m_shared_ram[offset] = data;
+}
 
+bool vt340_state::eeprom_selected(offs_t offset)
+{
+	// E10 latches active-low NVRCS from P1.3 (NVRDS L) under P1.7
+	// (NVRCLK H).  MCS-51 bit instructions bypass the port callback, so use
+	// the live port latch for both reads and writes.
+	return !BIT(m_cpu1->state_int(MCS51_P1), 3) && ((offset & 0xfe00) == 0xf000);
 }
 
 u8 vt340_state::cpu2_xdata_r(offs_t offset)
 {
-	if ((m_cpu2_trace_events++ < 256) || ((((offset & 0xfff0) == 0x7ff0) || (offset >= 0xf000)) && (m_cpu2_io_trace_events++ < 512)))
+	if (should_log_xdata(offset, m_cpu2_trace_events, m_cpu2_io_trace_events))
 		LOGMASKED(LOG_XDATA, "%s CPU2 XDATA R %04X (PC=%04X)\n", machine().describe_context(), offset, m_cpu2->pc());
 
 	// Once the graphics data path is initialized, its POST sweep addresses
@@ -357,7 +437,7 @@ u8 vt340_state::cpu2_xdata_r(offs_t offset)
 	if ((offset >= 0xf000) && (m_cpu2->pc() == 0xbaf0))
 	{
 		if (offset == 0xffff)
-			m_cpu1_status = 1;
+			m_board_status = true;
 		return 0x55;
 	}
 
@@ -385,10 +465,11 @@ u8 vt340_state::cpu2_xdata_r(offs_t offset)
 		// Register 07 is the data/command port.  The RAM diagnostic writes an
 		// equal-byte test word, issues several 00Cx commands through the same
 		// port, then reads the retained test data after a read command.
-		if (((offset & 0x3f) == 0x07) && (m_cpu2->pc() == 0x1bd1))
+		unsigned const reg = offset & 0x3f;
+		if ((reg == DC323_REG_ID_DATA) && (m_cpu2->pc() == 0x1bd1))
 		{
 			if (m_adder_raster_test)
-				return BIT(m_adder_regs[0x22], 3) ? 0x55 : 0xaa;
+				return BIT(m_adder_regs[DC323_REG_SOURCE_X], 3) ? 0x55 : 0xaa;
 			return m_adder_test_data;
 		}
 
@@ -396,54 +477,22 @@ u8 vt340_state::cpu2_xdata_r(offs_t offset)
 		// last word written to it.  Source-1 bitmap-to-processor transfers
 		// stream either E49 character ROM data or off-screen bitmap storage
 		// through this port.
-		if (((offset & 0x3f) == 0x07) && m_pbt_read_active)
-		{
-			u16 const width = m_adder_regs[0x26] & 0x1fff;
-			u32 const bytes_per_row = (width + 7) / 8;
-			u32 const row = m_pbt_read_index / bytes_per_row;
-			u32 const column = m_pbt_read_index % bytes_per_row;
-			u16 const source_origin_x = m_adder_regs[0x22] & 0x3fff;
-			u16 const source_origin_y = m_adder_regs[0x23] & 0x1fff;
-			u16 const source_x = source_origin_x + column * 8;
-			u16 const source_y = source_origin_y + row;
-			u8 data = 0;
-			if (BIT(source_origin_y, 12))
-			{
-				u16 const rom_x = source_x & 0x00ff;
-				u16 const rom_y = source_y & 0x03ff;
-				data = m_chargen_rom[(rom_y << 5) | (rom_x >> 3)];
-			}
-			else if ((source_x < BITMAP_WIDTH) && (source_y < BITMAP_HEIGHT))
-			{
-				// The operational paths use identical data in all four Vipers.
-				// In eight-bit mode, bit zero is the leftmost source pixel.
-				for (unsigned bit = 0; bit < 8 && (source_x + bit) < BITMAP_WIDTH; bit++)
-					data |= (m_bitmap_planes[source_y * BITMAP_WIDTH + source_x + bit] & 1) << bit;
-			}
-			if (++m_pbt_read_index >= m_pbt_read_count)
-			{
-				m_pbt_read_active = false;
-				m_adder_status &= ~0x0020;
-				m_adder_status |= 0x0010;
-				if (m_adder_status & m_adder_regs[0x02])
-					m_cpu2->set_input_line(MCS51_INT0_LINE, ASSERT_LINE);
-			}
-			return data;
-		}
+		if ((reg == DC323_REG_ID_DATA) && m_pbt_read_active)
+			return dc323_id_data_r();
 
-		u8 data = u8(m_adder_regs[offset & 0x3f]);
+		u8 data = u8(m_adder_regs[reg]);
 		// Register 3 is a read-status/write-clear register once graphics POST
 		// has released the DC323.  Status bits are sticky until firmware writes
 		// a zero in the corresponding position.
-		if (((offset & 0x3f) == 0x03) && m_bitmap_post_done)
+		if ((reg == DC323_REG_STATUS) && m_bitmap_post_done)
 			data = u8(m_adder_status);
 		// POST verifies that every decoded register can round-trip its test
 		// pattern.  The ready outputs are external status inputs, not stored
 		// register bits.  The firmware's confirmed F003 polling routines wait
 		// on ready outputs in bits 2, 4, and 5.
-		if (((offset & 0x3f) == 0x03) && m_adder_ready &&
+		if ((reg == DC323_REG_STATUS) && m_adder_ready &&
 			((pc == 0x2900) || (pc == 0xbba0) || (pc == 0xbbaa) || (pc == 0xbbb4)))
-			data |= 0x3c;
+			data |= DC323_STATUS_COMMAND_MASK;
 		return data;
 	}
 
@@ -451,14 +500,51 @@ u8 vt340_state::cpu2_xdata_r(offs_t offset)
 	// its destructive power-on test.  The final verification pass ends at
 	// FFFF; releasing STATUS here lets CPU1 begin without corrupting POST.
 	if ((offset == 0xffff) && (m_cpu2->pc() == 0xbaf0))
-		m_cpu1_status = 1;
+		m_board_status = true;
 
 	return m_shared_ram[offset];
 }
 
+u8 vt340_state::dc323_id_data_r()
+{
+	u16 const width = m_adder_regs[DC323_REG_WIDTH] & 0x1fff;
+	u32 const bytes_per_row = (width + 7) / 8;
+	u32 const row = m_pbt_read_index / bytes_per_row;
+	u32 const column = m_pbt_read_index % bytes_per_row;
+	u16 const source_origin_x = m_adder_regs[DC323_REG_SOURCE_X] & 0x3fff;
+	u16 const source_origin_y = m_adder_regs[DC323_REG_SOURCE_Y] & 0x1fff;
+	u16 const source_x = source_origin_x + column * 8;
+	u16 const source_y = source_origin_y + row;
+	u8 data = 0;
+
+	if (BIT(source_origin_y, 12))
+	{
+		u16 const rom_x = source_x & 0x00ff;
+		u16 const rom_y = source_y & 0x03ff;
+		data = m_chargen_rom[(rom_y << 5) | (rom_x >> 3)];
+	}
+	else if ((source_x < BITMAP_WIDTH) && (source_y < BITMAP_HEIGHT))
+	{
+		// The operational paths use identical data in all four Vipers.  In
+		// eight-bit mode, bit zero is the leftmost source pixel.
+		for (unsigned bit = 0; bit < 8 && (source_x + bit) < BITMAP_WIDTH; bit++)
+			data |= (m_bitmap_planes[bitmap_plane_address(0, source_x + bit, source_y)] & 1) << bit;
+	}
+
+	if (++m_pbt_read_index >= m_pbt_read_count)
+	{
+		m_pbt_read_active = false;
+		m_adder_status &= ~DC323_STATUS_ID_DATA_READY;
+		m_adder_status |= DC323_STATUS_ADDRESS_COMPLETE;
+		update_dc323_interrupt();
+	}
+
+	return data;
+}
+
 void vt340_state::cpu2_xdata_w(offs_t offset, u8 data)
 {
-	if ((m_cpu2_trace_events++ < 256) || ((((offset & 0xfff0) == 0x7ff0) || (offset >= 0xf000)) && (m_cpu2_io_trace_events++ < 512)))
+	if (should_log_xdata(offset, m_cpu2_trace_events, m_cpu2_io_trace_events))
 		LOGMASKED(LOG_XDATA, "%s CPU2 XDATA W %04X=%02X (PC=%04X)\n", machine().describe_context(), offset, data, m_cpu2->pc());
 	// The DC323 initialization leaves P1 carrying graphics data before the
 	// firmware clears and verifies bitmap memory through the generic POST
@@ -485,7 +571,7 @@ void vt340_state::cpu2_xdata_w(offs_t offset, u8 data)
 
 	// F0E0 selects a timing-generator signal onto P1.0 for the firmware's
 	// measured horizontal/vertical timing diagnostics.
-	if (m_cpu1_status && (offset == 0xf0e0))
+	if (m_board_status && (offset == 0xf0e0))
 	{
 		m_video_test_select = data;
 		return;
@@ -528,24 +614,25 @@ void vt340_state::cpu2_xdata_w(offs_t offset, u8 data)
 
 	if ((offset & 0xf0c0) == 0xf000)
 	{
+		unsigned const reg = offset & 0x3f;
 		u16 const value = (u16(m_cpu2_p1) << 8) | data;
-		LOGMASKED(LOG_XDATA, "%s DC323 W %02X=%04X (PC=%04X)\n", machine().describe_context(), offset & 0x3f, value, m_cpu2->pc());
-		m_adder_regs[offset & 0x3f] = value;
-		if (((offset & 0x3f) == 0x07) && (u8(value >> 8) == u8(value)))
+		LOGMASKED(LOG_XDATA, "%s DC323 W %02X=%04X (PC=%04X)\n", machine().describe_context(), reg, value, m_cpu2->pc());
+		m_adder_regs[reg] = value;
+		if ((reg == DC323_REG_ID_DATA) && (u8(value >> 8) == u8(value)))
 		{
 			m_adder_test_data = u8(value);
 			m_adder_raster_test = false;
 		}
 		// The 00CF setup command starts the following address/plane tests with
 		// erased bitmap data.  Subsequent 0BC0 reads return that FF value.
-		if (((offset & 0x3f) == 0x07) && (value == 0x00cf))
+		if ((reg == DC323_REG_ID_DATA) && (value == 0x00cf))
 		{
 			m_adder_test_data = 0xff;
 			m_adder_raster_test = false;
 		}
-		if (((offset & 0x3f) == 0x07) && (value == 0x00c6))
+		if ((reg == DC323_REG_ID_DATA) && (value == 0x00c6))
 			m_adder_raster_test = true;
-		if (((offset & 0x3f) == 0x02) && m_bitmap_post_done)
+		if ((reg == DC323_REG_INTERRUPT_ENABLE) && m_bitmap_post_done)
 		{
 			attotime const frame_period = attotime::from_ticks(526, 31'500);
 			m_cpu2_vsync_timer->adjust(value ? frame_period : attotime::never, 0,
@@ -553,65 +640,73 @@ void vt340_state::cpu2_xdata_w(offs_t offset, u8 data)
 			if (!(m_adder_status & value))
 				m_cpu2->set_input_line(MCS51_INT0_LINE, CLEAR_LINE);
 		}
-		if (((offset & 0x3f) == 0x03) && m_bitmap_post_done)
+		if ((reg == DC323_REG_STATUS) && m_bitmap_post_done)
 		{
 			m_adder_status &= value;
-			if (!(m_adder_status & m_adder_regs[0x02]))
-				m_cpu2->set_input_line(MCS51_INT0_LINE, CLEAR_LINE);
+			update_dc323_interrupt();
 		}
-		if (((offset & 0x3f) == 0x14) && m_bitmap_post_done)
+		if ((reg == DC323_REG_SCROLL_Y) && m_bitmap_post_done)
 			m_scroll_pending = true;
-		if ((offset & 0x3f) == 0x08)
-		{
-			unsigned const operation = (value >> 8) & 3;
-			// Loading a rasterop or processor/bitmap transfer clears the
-			// initialization, rasterop-complete and address-output-complete
-			// indications.  Rasterops execute synchronously in this driver, so
-			// all three conditions become true again before the register write
-			// returns.  Firmware uses initialization-complete while drawing the
-			// status line and will not resume foreground processing without it.
-			if (m_bitmap_post_done && ((operation == 2) || (operation == 3)))
-			{
-				m_adder_status &= ~0x003c;
-				m_adder_status |= 0x0040;
-				m_pbt_read_active = false;
-			}
-			// I/D commands 0180-019f broadcast the retained I/D data word to
-			// the corresponding Viper register.  All four Vipers see this bus.
-			if ((value & 0xffe0) == 0x0180)
-				m_viper_regs[value & 0x1f] = m_adder_regs[0x07];
-			// Function 3 with source 1 enabled and destination disabled is a
-			// bitmap-to-processor transfer.  E49 is selected by source Y bit 12;
-			// otherwise the source is bitmap memory.  In the board's eight-bit
-			// mode one FIFO read returns eight source pixels.
-			if (operation == 3 && BIT(value, 11) && !BIT(value, 10))
-			{
-				u32 const width = m_adder_regs[0x26] & 0x1fff;
-				u32 const height = m_adder_regs[0x29] & 0x1fff;
-				m_pbt_read_index = 0;
-				m_pbt_read_count = ((width + 7) / 8) * height;
-				m_pbt_read_active = m_pbt_read_count != 0;
-				if (m_bitmap_post_done)
-				{
-					m_adder_status |= 0x000c;
-					if (m_pbt_read_active)
-						m_adder_status |= 0x0020;
-					else
-						m_adder_status |= 0x0010;
-				}
-			}
-			execute_rasterop(value);
-			if (m_bitmap_post_done && (operation == 2))
-			{
-				m_adder_status |= 0x001c;
-				if (m_adder_status & m_adder_regs[0x02])
-					m_cpu2->set_input_line(MCS51_INT0_LINE, ASSERT_LINE);
-			}
-		}
+		if (reg == DC323_REG_COMMAND)
+			dc323_command_w(value);
 		return;
 	}
 
 	m_shared_ram[offset] = data;
+}
+
+void vt340_state::dc323_command_w(u16 command)
+{
+	unsigned const operation = (command >> 8) & 3;
+
+	// Loading a rasterop or processor/bitmap transfer clears the
+	// initialization, rasterop-complete and address-output-complete
+	// indications.  Rasterops execute synchronously in this driver, so all
+	// three conditions become true again before the register write returns.
+	if (m_bitmap_post_done && ((operation == 2) || (operation == 3)))
+	{
+		m_adder_status &= ~DC323_STATUS_COMMAND_MASK;
+		m_adder_status |= DC323_STATUS_ID_DATA_TRANSMIT_READY;
+		m_pbt_read_active = false;
+	}
+
+	// I/D commands 0180-019f broadcast the retained I/D data word to the
+	// corresponding Viper register.  All four Vipers see this bus.
+	if ((command & 0xffe0) == 0x0180)
+		m_viper_regs[command & 0x1f] = m_adder_regs[DC323_REG_ID_DATA];
+
+	// Function 3 with source 1 enabled and destination disabled is a
+	// bitmap-to-processor transfer.  E49 is selected by source Y bit 12;
+	// otherwise the source is bitmap memory.  In eight-bit mode one FIFO read
+	// returns eight source pixels.
+	if ((operation == 3) && BIT(command, 11) && !BIT(command, 10))
+	{
+		u32 const width = m_adder_regs[DC323_REG_WIDTH] & 0x1fff;
+		u32 const height = m_adder_regs[DC323_REG_HEIGHT] & 0x1fff;
+		m_pbt_read_index = 0;
+		m_pbt_read_count = ((width + 7) / 8) * height;
+		m_pbt_read_active = m_pbt_read_count != 0;
+		if (m_bitmap_post_done)
+		{
+			m_adder_status |= DC323_STATUS_RASTEROP_INITIALIZED | DC323_STATUS_RASTEROP_COMPLETE;
+			m_adder_status |= m_pbt_read_active
+				? DC323_STATUS_ID_DATA_READY
+				: DC323_STATUS_ADDRESS_COMPLETE;
+		}
+	}
+
+	execute_rasterop(command);
+	if (m_bitmap_post_done && (operation == 2))
+	{
+		m_adder_status |= DC323_STATUS_RASTEROP_MASK;
+		update_dc323_interrupt();
+	}
+}
+
+void vt340_state::update_dc323_interrupt()
+{
+	int const state = (m_adder_status & m_adder_regs[DC323_REG_INTERRUPT_ENABLE]) ? ASSERT_LINE : CLEAR_LINE;
+	m_cpu2->set_input_line(MCS51_INT0_LINE, state);
 }
 
 void vt340_state::cpu1_p3_w(u8 data)
@@ -733,7 +828,7 @@ u8 vt340_state::cpu2_p1_r()
 	// ready for processor 1 to leave its board-status wait and rendezvous on
 	// DAT9/T1 at 1701-1710 and 3919-392E.
 	if (pc == 0x129a)
-		m_cpu1_status = 1;
+		m_board_status = true;
 	if ((pc == 0x1711) && !BIT(data, 1))
 		machine().scheduler().trigger(CPU_T1_HANDSHAKE_TRIGGER);
 	if (m_video_test_select == 0x70)
@@ -794,7 +889,7 @@ void vt340_state::cpu2_p3_w(u8 data)
 	// path and writes/readbacks zero with T1 high.  Returning T1 low exposes
 	// the complemented 55 result that the final pass verifies and clears.
 	if (m_bitmap_test_active && BIT(old, 5) && !BIT(data, 5))
-		std::fill_n(&m_bitmap_ram[0], 0x10000, 0x55);
+		std::fill_n(&m_bitmap_ram[0], BITMAP_POST_SIZE, 0x55);
 }
 
 void vt340_state::execute_rasterop(u16 command)
@@ -809,20 +904,20 @@ void vt340_state::execute_rasterop(u16 command)
 	bool const destination_enabled = BIT(command, 10);
 	bool const source1_enabled = BIT(command, 11);
 	bool const source2_enabled = BIT(command, 12);
-	bool const normal_mode = m_adder_regs[0x09] == 0x0080;
+	bool const normal_mode = m_adder_regs[DC323_REG_X_CONTROL] == 0x0080;
 	if (!rasterop || !destination_enabled || source2_enabled ||
 		!normal_mode)
 		return;
 
-	u16 const source_x = m_adder_regs[0x22] & 0x3fff;
-	u16 const source_y = m_adder_regs[0x23] & 0x1fff;
+	u16 const source_x = m_adder_regs[DC323_REG_SOURCE_X] & 0x3fff;
+	u16 const source_y = m_adder_regs[DC323_REG_SOURCE_Y] & 0x1fff;
 	bool const source_is_e49 = source1_enabled && BIT(source_y, 12);
-	u16 const destination_x = m_adder_regs[0x24] & 0x3fff;
-	u16 const destination_y = m_adder_regs[0x25] & 0x3fff;
-	u16 const width = std::min<u16>(m_adder_regs[0x26] & 0x1fff, BITMAP_WIDTH);
-	u16 const height = std::min<u16>(m_adder_regs[0x29] & 0x1fff, BITMAP_HEIGHT);
-	u8 const logic = u8(m_viper_regs[4 + ((command >> 4) & 3)]);
-	if (source_is_e49 && (destination_x < 800) && (destination_y < 500) &&
+	u16 const destination_x = m_adder_regs[DC323_REG_DESTINATION_X] & 0x3fff;
+	u16 const destination_y = m_adder_regs[DC323_REG_DESTINATION_Y] & 0x3fff;
+	u16 const width = std::min<u16>(m_adder_regs[DC323_REG_WIDTH] & 0x1fff, BITMAP_WIDTH);
+	u16 const height = std::min<u16>(m_adder_regs[DC323_REG_HEIGHT] & 0x1fff, BITMAP_HEIGHT);
+	u8 const logic = u8(m_viper_regs[VIPER_REG_LOGIC_BASE + ((command >> 4) & 3)]);
+	if (source_is_e49 && (destination_x < SCREEN_WIDTH) && (destination_y < SCREEN_HEIGHT) &&
 		(width == 10) && (height == 20))
 		m_video_operational = true;
 
@@ -838,8 +933,8 @@ void vt340_state::execute_rasterop(u16 command)
 			// E49 O0 is the leftmost pixel of each eight-pixel source word.
 			// Mask registers use the same LSB-left 16-pixel word orientation.
 			unsigned const word_bit = (destination_x + x) & 15;
-			bool mask1 = BIT(m_viper_regs[8], word_bit);
-			bool mask2 = BIT(m_viper_regs[9], word_bit);
+			bool mask1 = BIT(m_viper_regs[VIPER_REG_MASK_1], word_bit);
+			bool mask2 = BIT(m_viper_regs[VIPER_REG_MASK_2], word_bit);
 			if (BIT(logic, 4))
 				mask1 = !mask1;
 			if (BIT(logic, 5))
@@ -847,24 +942,23 @@ void vt340_state::execute_rasterop(u16 command)
 			if (!mask1 || !mask2)
 				continue;
 
-			u32 const destination = (destination_y + y) * BITMAP_WIDTH + destination_x + x;
-			for (unsigned plane = 0; plane < 4; plane++)
+			for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
 			{
+				u32 const destination = bitmap_plane_address(plane, destination_x + x, destination_y + y);
 				bool source_bit;
 				if (!source1_enabled)
-					source_bit = BIT(m_viper_regs[0x0a], word_bit);
+					source_bit = BIT(m_viper_regs[VIPER_REG_SOURCE], word_bit);
 				else if (source_is_e49)
 					source_bit = BIT(rom_source, rom_x & 7);
 				else if ((source_pixel_x < BITMAP_WIDTH) && (source_pixel_y < BITMAP_HEIGHT))
-					source_bit = m_bitmap_planes[plane * BITMAP_PLANE_SIZE +
-						source_pixel_y * BITMAP_WIDTH + source_pixel_x];
+					source_bit = m_bitmap_planes[bitmap_plane_address(plane, source_pixel_x, source_pixel_y)];
 				else
 					source_bit = false;
 				if (!BIT(logic, 6))
 					source_bit = !source_bit;
-				bool const destination_bit = m_bitmap_planes[plane * BITMAP_PLANE_SIZE + destination];
+				bool const destination_bit = m_bitmap_planes[destination];
 				unsigned const logic_input = (destination_bit << 1) | source_bit;
-				m_bitmap_planes[plane * BITMAP_PLANE_SIZE + destination] = BIT(logic, logic_input);
+				m_bitmap_planes[destination] = BIT(logic, logic_input);
 			}
 		}
 	}
@@ -881,30 +975,29 @@ void vt340_state::execute_scroll_erase()
 	// region is replaced with the Viper fill word, independent of the distance.
 	// The right and bottom bounds are exclusive and the Y offset translates
 	// device coordinates to bitmap-memory coordinates.
-	u16 const scroll = m_adder_regs[0x14];
+	u16 const scroll = m_adder_regs[DC323_REG_SCROLL_Y];
 	if (!BIT(scroll, 13))
 		return;
 
-	u16 const x_min = std::min<u16>(m_adder_regs[0x0e] & 0x3ffc, BITMAP_WIDTH);
-	u16 const x_max = std::min<u16>(m_adder_regs[0x0f] & 0x3ffc, BITMAP_WIDTH);
-	u16 const y_min = std::min<u16>(m_adder_regs[0x10] & 0x1fff, BITMAP_HEIGHT);
-	u16 const y_max = std::min<u16>(m_adder_regs[0x11] & 0x1fff, BITMAP_HEIGHT);
-	u16 const y_offset = m_adder_regs[0x13] & 0x1fff;
-	u16 const fill = m_viper_regs[0x0b];
+	u16 const x_min = std::min<u16>(m_adder_regs[DC323_REG_SCROLL_X_MIN] & 0x3ffc, BITMAP_WIDTH);
+	u16 const x_max = std::min<u16>(m_adder_regs[DC323_REG_SCROLL_X_MAX] & 0x3ffc, BITMAP_WIDTH);
+	u16 const y_min = std::min<u16>(m_adder_regs[DC323_REG_SCROLL_Y_MIN] & 0x1fff, BITMAP_HEIGHT);
+	u16 const y_max = std::min<u16>(m_adder_regs[DC323_REG_SCROLL_Y_MAX] & 0x1fff, BITMAP_HEIGHT);
+	u16 const y_offset = m_adder_regs[DC323_REG_SCROLL_Y_OFFSET] & 0x1fff;
+	u16 const fill = m_viper_regs[VIPER_REG_FILL];
 
 	for (u16 device_y = y_min; device_y < y_max; device_y++)
 	{
 		u16 const bitmap_y = (device_y + y_offset) & (BITMAP_HEIGHT - 1);
 		for (u16 x = x_min; x < x_max; x++)
 		{
-			u32 const destination = bitmap_y * BITMAP_WIDTH + x;
-			for (unsigned plane = 0; plane < 4; plane++)
-				m_bitmap_planes[plane * BITMAP_PLANE_SIZE + destination] = BIT(fill, x & 15);
+			for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
+				m_bitmap_planes[bitmap_plane_address(plane, x, bitmap_y)] = BIT(fill, x & 15);
 		}
 	}
 }
 
-u32 vt340_state::screen_update(screen_device &screen, bitmap_rgb32 &bitmap, rectangle const &cliprect)
+u32 vt340_state::screen_update(screen_device &, bitmap_rgb32 &bitmap, rectangle const &cliprect)
 {
 	// Four serial bitmap planes form a 16-entry color-map index.  Until the
 	// color-map programming path is decoded, expose index 0 as black and any
@@ -913,10 +1006,9 @@ u32 vt340_state::screen_update(screen_device &screen, bitmap_rgb32 &bitmap, rect
 	for (int y = cliprect.top(); y <= cliprect.bottom(); y++)
 		for (int x = cliprect.left(); x <= cliprect.right(); x++)
 		{
-			u32 const address = y * BITMAP_WIDTH + x;
 			u8 color = 0;
-			for (unsigned plane = 0; plane < 4; plane++)
-				color |= m_bitmap_planes[plane * BITMAP_PLANE_SIZE + address] << plane;
+			for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
+				color |= m_bitmap_planes[bitmap_plane_address(plane, x, y)] << plane;
 			if (BIT(m_palette_rg_valid & m_palette_gb_valid, color))
 			{
 				u8 const red = (m_palette_rg[color] & 0x0f) * 0x11;
@@ -937,7 +1029,7 @@ void vt340_state::machine_start()
 	// observed for this unimplemented location on the target processor.
 	m_cpu1->space(MCS51_SFR_SPACE).install_read_handler(0xc2, 0xc2,
 		read8smo_delegate(*this, FUNC(vt340_state::cpu1_reserved_c2_r)));
-	std::fill_n(&m_bitmap_planes[0], 4 * BITMAP_PLANE_SIZE, 0);
+	std::fill_n(&m_bitmap_planes[0], BITMAP_PLANES * BITMAP_PLANE_SIZE, 0);
 	m_cpu2_hsync_timer = timer_alloc(FUNC(vt340_state::cpu2_hsync_tick), this);
 	m_cpu2_vsync_timer = timer_alloc(FUNC(vt340_state::cpu2_vsync_tick), this);
 
@@ -948,7 +1040,7 @@ void vt340_state::machine_start()
 	save_item(NAME(m_cpu1_p1));
 	save_item(NAME(m_cpu2_p1));
 	save_item(NAME(m_cpu2_p2));
-	save_item(NAME(m_cpu1_status));
+	save_item(NAME(m_board_status));
 	save_item(NAME(m_video_test_select));
 	save_item(NAME(m_cpu2_hsync_low));
 	save_item(NAME(m_cpu1_brd_strobe));
@@ -1007,9 +1099,8 @@ TIMER_CALLBACK_MEMBER(vt340_state::cpu2_vsync_tick)
 	// Pause Complete and Scroll Service are generated at the vertical frame
 	// boundary.  Both are sticky DC323 status conditions; interrupt assertion
 	// additionally depends on the matching enable bit in register 2.
-	m_adder_status |= 0x0003;
-	if (m_adder_status & m_adder_regs[0x02])
-		m_cpu2->set_input_line(MCS51_INT0_LINE, ASSERT_LINE);
+	m_adder_status |= DC323_STATUS_PAUSE_COMPLETE | DC323_STATUS_SCROLL_SERVICE;
+	update_dc323_interrupt();
 }
 
 void vt340_state::machine_reset()
@@ -1019,7 +1110,7 @@ void vt340_state::machine_reset()
 	m_cpu1_p1 = 0xff;
 	m_cpu2_p1 = 0xff;
 	m_cpu2_p2 = 0xff;
-	m_cpu1_status = 1;
+	m_board_status = true;
 	m_video_test_select = 0;
 	m_cpu2_hsync_low = true;
 	m_cpu1_brd_strobe = false;
@@ -1047,7 +1138,7 @@ void vt340_state::machine_reset()
 	m_palette_rg_valid = 0;
 	m_palette_gb_valid = 0;
 	m_video_operational = false;
-	std::fill_n(&m_bitmap_planes[0], 4 * BITMAP_PLANE_SIZE, 0);
+	std::fill_n(&m_bitmap_planes[0], BITMAP_PLANES * BITMAP_PLANE_SIZE, 0);
 	m_cpu1_trace_events = 0;
 	m_cpu2_trace_events = 0;
 	m_cpu1_io_trace_events = 0;
@@ -1062,12 +1153,12 @@ void vt340_state::machine_reset()
 	// to the firmware and can manufacture receive characters during startup.
 	m_duart->rx_a_w(1);
 	m_duart->rx_b_w(1);
-	m_acia->rxd_w(1);
+	m_printer_uart->rxd_w(1);
 	// E81's active-low CTS and DCD inputs are tied to ground on schematic
 	// sheet 8P0.  Local loopback ignores both pins, but normal mode must see
 	// the permanently asserted levels implemented by the board.
-	m_acia->cts_w(0);
-	m_acia->dcd_w(0);
+	m_printer_uart->cts_w(0);
+	m_printer_uart->dcd_w(0);
 	m_cpu2->set_input_line(MCS51_T0_LINE, ASSERT_LINE);
 	m_cpu2_hsync_timer->adjust(attotime::from_hz(63'000), 0, attotime::from_hz(63'000));
 	m_cpu2->set_input_line(MCS51_INT0_LINE, CLEAR_LINE);
@@ -1121,8 +1212,10 @@ void vt340_state::vt340(machine_config &config)
 	// E81 is the SCN2641 printer communications interface.  Its interrupt
 	// output is connected to processor-1 INT1; the keyboard instead uses the
 	// processor's internal UART on P3.0/P3.1.
-	SCN2641(config, m_acia, 3.6864_MHz_XTAL);
-	m_acia->intr_handler().set_inputline(m_cpu1, MCS51_INT1_LINE);
+	SCN2641(config, m_printer_uart, 3.6864_MHz_XTAL);
+	m_printer_uart->intr_handler().set_inputline(m_cpu1, MCS51_INT1_LINE);
+
+	EEPROM_2804(config, m_eeprom); // E80, Xicor X2804AP-45
 
 	I8031(config, m_cpu2, 12_MHz_XTAL);
 	m_cpu2->set_addrmap(AS_PROGRAM, &vt340_state::cpu2_program_map);
@@ -1137,7 +1230,7 @@ void vt340_state::vt340(machine_config &config)
 	// 1026 clocks and 526 lines gives the measured 31.5 kHz / 59.89 Hz raster.
 	// The 800x500 visible area includes the terminal's 25th status line.
 	SCREEN(config, m_screen);
-	m_screen->set_raw(XTAL(32'317'400), 1026, 0, 800, 526, 0, 500);
+	m_screen->set_raw(XTAL(32'317'400), 1026, 0, SCREEN_WIDTH, 526, 0, SCREEN_HEIGHT);
 	m_screen->set_screen_update(FUNC(vt340_state::screen_update));
 }
 

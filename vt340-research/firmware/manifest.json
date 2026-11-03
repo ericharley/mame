@@ -18,6 +18,6 @@
     {"filename":"e4.bin","component":"E4","size":32768,"crc32":"d6eddc42","sha1":"df8097bcd04bd9fed5618d88cd0e0159f81c074b","sha256":"b9ed8e8201f4e5c40f9a359b4ca1b2c5a1792bc76405c9200a88d3a2ad5399ab"},
     {"filename":"e5.bin","component":"E5","size":32768,"crc32":"135c5c7c","sha1":"171d1582d6a62ec9fa8e42421693da6dac3b2a8a","sha256":"f9e190c824ee60f7d16bd29a2829042124982b642033746883c19554de4fb4dd"},
     {"filename":"vt340e49.bin","component":"E49","size":32768,"crc32":"38379339","sha1":"394e8511581abc796c8c612149eff280146b0ac8","sha256":"eb0426b403e8bcd4dc72b448f6253cad22cb30386b22d89b0b57667a901f135e"},
-    {"filename":"23-001n2.bin","component":"E80","device":"Xicor X2804AP-45","size":512,"sha256":"1470ab44a5412341d384cb917e13b9ae1ba209b8b61041b2c5ad57d998cc55a8","status":"acquired; bus interface not yet modeled"}
+    {"filename":"23-001n2.bin","component":"E80","device":"Xicor X2804AP-45","size":512,"sha256":"1470ab44a5412341d384cb917e13b9ae1ba209b8b61041b2c5ad57d998cc55a8","status":"acquired; persistent read/write interface modeled"}
   ]
 }

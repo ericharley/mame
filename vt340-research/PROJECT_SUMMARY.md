@@ -107,10 +107,11 @@ CPU2's XDATA handler separates shared RAM from the decoded video apertures:
 - Diagnostic bitmap and graphics POST behavior.
 
 E80 is a CPU1-owned Xicor X2804 EEPROM. Its recovered 512-byte `23-001N2`
-image is read through CPU1's E10-selected `f000-f1ff` aperture. The image
-passes the ROM's native checksums and clears `NVR Error - 1`. EEPROM program
-timing and persistence remain unmodeled because the proven startup path is
-read-only.
+image supplies the first-run default for MAME's persistent X2804 device,
+which is read and written through CPU1's E10-selected `f000-f1ff` aperture.
+The image passes the ROM's native checksums and clears `NVR Error - 1`.
+Firmware changes saved from the native Set-Up directory persist between runs
+through MAME's standard NVRAM interface.
 
 The raster path retains DC323 origins, extents, scale, mode, masks, source
 selection, and Viper logic functions. It supports the proven E49-to-bitmap
@@ -232,8 +233,9 @@ never reads `7ff2`; `10` is a stale-zero guard, not a request notification.
 - Short DAT9/T1 handshakes use narrowly scoped pulse retention.
 - The exact LK201 ROMs are connected through MAME's ROM-driven keyboard
   device; keyboard timing does not change the checkpoint mismatch.
-- The 512-byte E80 `23-001N2` dump has been recovered, but its E10-latched
-  CPU1 bus interface is not yet modeled.
+- The 512-byte E80 `23-001N2` dump supplies the factory default. Native
+  firmware writes now persist through MAME's NVRAM storage and are restored
+  on later cold boots.
 - Some graphics POST/ready behavior remains PC-qualified; the operational
   DC323 interrupt status path is no longer PC-qualified.
 - Destination-only/source-2 operations, fill modes, scrolling, complete

@@ -257,8 +257,8 @@ The same archive supplies the previously missing 512-byte `23-001N2` E80
 image. It contains structured setup data rather than an erased pattern. A
 live-P1 trace found no CPU1 external access while NVREN was low before the
 current mailbox boundary, so E80 does not directly cause the first inversion.
-Its E10-latched chip-select/read/write interface still needs reconstruction
-before the image can be connected for later-startup testing.
+Its E10-selected read/write aperture is now connected to MAME's X2804 device;
+native Set-Up writes persist in the standard NVRAM file.
 
 The ROM baseline has been corrected more broadly than the earlier isolated
 repairs. The published Arduino dump corrupts every page transition; all 630
@@ -430,8 +430,8 @@ vt340-research/tests/phase2-closeout.sh ./vt340
 - DAT9/T1 pulses are retained at known rendezvous to cross scheduler slices.
 - The LK201 is the ROM-driven MAME device; terminal key mapping remains
   outside the current startup scope.
-- E80 contents have been recovered, but its CPU1 bus interface is not yet
-  modeled.
+- E80 uses MAME's X2804 device with the recovered image as its first-run
+  default. Native Set-Up writes persist through the standard NVRAM interface.
 - Some video POST/status behavior is still PC-qualified.
 - Incomplete raster modes and palette behavior remain, but current evidence
   rules them out as the cause of this startup transition.
