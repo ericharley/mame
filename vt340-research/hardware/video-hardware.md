@@ -185,6 +185,40 @@ The driver now executes that one-shot frame-boundary operation. The visible
 `Wait` hash changes to the all-zero value while the status line, outside the
 exclusive Y=480 boundary, is preserved.
 
+## Normal text scrolling
+
+A paced Comm 1 stream that fills the terminal screen establishes the native
+line-scroll sequence. CPU2 loads DC323 register 14 with `0014` once per row:
+20 pixels upward in normal-scroll mode. The active device-coordinate bounds
+are X=`4..804`, Y=`0..480`, Y offset is zero, and the Viper fill word is zero.
+Loading the constant schedules the operation for the following vertical frame.
+
+The driver now moves all four bitmap planes upward inside those exclusive
+bounds and fills the exposed bottom band from the Viper fill word. Downward
+requests use the inverse copy order so overlapping source rows are retained.
+The status line begins at Y=480 and is therefore not moved.
+
+The Adder X boundaries identify the first and last bitmap words involved;
+the Viper left/right boundary registers select individual pixels in those
+edge words. For the terminal's 8-bit Viper bus, normal line scrolling uses
+Adder X=`4..804`, left mask `00`, and right mask `ff`. The resulting effective
+pixel range is X=`0..799`: all eight pixels in the first byte participate and
+none in the trailing byte do. Treating the Adder values as literal pixel
+bounds left X=`0..3` stationary and produced a growing artifact in the first
+character column. The scroll engine now combines the Adder word range with
+the Viper edge masks, including the documented 4-, 8-, and 16-bit bus widths.
+
+The firmware redraws the newly exposed band with DC323 X-control value `00c0`:
+normal mode, pen down, and destination indexing enabled. All six pending/new/
+old index registers are zero on this verified terminal path. The former exact
+`0080` check rejected every `00c0` rasterop, which made the old lines move but
+left new rows blank or fragmentary. Normal rasterops now accept the documented
+index-enable control bits; the zero indexes make their addresses identical to
+the unindexed form. A 40-line paced serial run produces 17 native scroll
+requests and leaves lines 18 through 40 visible in order while preserving the
+status row. `../traces/scroll-command-trace.lua` records the register sequence
+and captures before/after screenshots without modifying emulated state.
+
 Direct framebuffer hashes also show that the success panel and copyright
 bitmap persist unchanged from 130 through 300 seconds; intermittent blank
 snapshots are in the presentation path, not the bitmap raster engine.
