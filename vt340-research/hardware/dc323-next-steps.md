@@ -1,0 +1,305 @@
+# DC323 assessment and next-step plan
+
+## Purpose
+
+The standalone DC323 device is a successful structural extraction of the
+Adder model previously embedded in `vt340_state`. It owns the register file,
+status and interrupt state, processor/bitmap transfer state, retained Viper
+registers, raster execution, scrolling, and bitmap planes. The verified model
+is sufficient for native POST, `VT340 OK`, Set-Up, terminal text, clear/erase,
+and normal scrolling.
+
+It is not yet a complete hardware model. The current implementation combines
+DC323 Adder sequencing, four DC322 Viper datapaths, and one VT340-specific
+display-policy heuristic. Command execution is synchronous, some status
+semantics remain provisional, and several raster modes are deliberately
+unsupported. This plan identifies the smallest correctness fixes and the
+evidence required before expanding the graphics engine.
+
+## Current implementation assessment
+
+### Established strengths
+
+- The device has a clean CPU-independent register and callback interface.
+- Board PAL decoding, CPU2 bus assembly, POST control, palette hardware, and
+  DC7051 timing remain in the VT340 driver.
+- Status acknowledgement uses the documented write-zero-to-clear behavior.
+- Interrupt output is derived from operational state, sticky status, and the
+  interrupt-enable mask.
+- The verified normal raster path supports E49 character-ROM sources, bitmap
+  sources, constant sources, Viper masks, Boolean functions, and clipping.
+- Frame-boundary erase and normal scrolling operate on all four bitmap planes,
+  including the established Adder-word/Viper-edge-mask interpretation.
+- Bitmap-to-processor transfers support both E49 and bitmap sources.
+- Disabled-by-default diagnostic logging is bounded for long terminal runs.
+- The firmware-free device regression covers the retained core behavior and
+  currently passes.
+
+Passing the existing regression proves extraction compatibility. It does not
+establish that every retained behavior matches DC323/DC322 silicon.
+
+## Confirmed implementation defect: incomplete IRQ recomputation
+
+The device does not recompute its interrupt output after every status change.
+In particular, starting a bitmap-to-processor transfer clears command status,
+sets transfer status, and may assert I/D Data Ready without calling
+`update_interrupt()`. Interrupt state is updated only on a later event, such
+as the final I/D read.
+
+This can leave the electrical IRQ output inconsistent with the device's own
+invariant:
+
+```text
+IRQ = operational AND ((status AND interrupt_enable) != 0)
+```
+
+### Required correction
+
+Introduce narrow status helpers that always recompute IRQ, for example:
+
+- `set_status(mask, reason)`;
+- `clear_status(mask, reason)`; and
+- `acknowledge_status(value)`.
+
+Use them for command initialization, raster completion, PBT start and finish,
+frame status, status acknowledgement, reset/operational transitions, and any
+future asynchronous event. Avoid exposing mutable status to individual
+command paths.
+
+### Required focused tests
+
+1. Enable I/D Data Ready, start a nonempty PBT, and verify immediate IRQ.
+2. Consume all but the final byte and verify Data Ready remains asserted.
+3. Consume the final byte and verify Data Ready clears, Address Complete sets,
+   and IRQ follows the enabled mask.
+4. Start a second command while completion status is enabled and verify no
+   stale IRQ state survives a status clear.
+5. Repeat with interrupt-enable changes before, during, and after a transfer.
+
+## Remaining architectural issues
+
+### Frame status generation is provisional
+
+Each high `vsync_w()` call currently services a pending scroll and then sets
+both Pause Complete and Scroll Service, even when no scroll is pending. This
+matches the firmware path that brought the terminal into stable operation, but
+the following physical semantics remain unresolved:
+
+- whether Pause Complete is periodic or conditional on a pause request;
+- whether Scroll Service is periodic, interval-controlled, or request-driven;
+- whether loading the scroll register changes either event;
+- whether both status bits arise on the same vertical edge; and
+- how acknowledgement near an edge interacts with a newly arriving event.
+
+These questions must be answered in conjunction with the DC7051 raster-phase
+work. Changing status generation before establishing the real event ordering
+could reintroduce CPU2 interrupt starvation.
+
+### Command completion has no elapsed time
+
+Raster operations execute inside the command-register write. Initialization,
+raster completion, and address completion are therefore effectively
+simultaneous. No busy state, queued command, FIFO depth, or operation overlap
+is represented.
+
+The standalone device is presently configured without an input clock. Do not
+add an arbitrary delay. First establish from the schematics and Dragon
+documentation:
+
+- the physical Adder clock;
+- initialization and per-pixel/per-word costs;
+- which stages may overlap;
+- when each completion bit changes; and
+- what happens when firmware writes a command while work is active.
+
+Once established, use device timers or a small command state machine and test
+observable status transitions at intermediate times.
+
+### VT340 display policy leaks into the device
+
+The device sets `video_operational` when it sees an E49-to-visible-bitmap
+raster operation with a 10-by-20 extent. The VT340 driver uses that inferred
+state to decide whether palette writes are normal display programming or
+destructive POST residue.
+
+Recognizing a terminal character cell is not DC323 behavior. Replace this
+with an explicit board-level phase derived from the existing VT340 POST state
+machine. Before changing it, trace the last diagnostic palette writes and the
+first operational palette writes so the replacement does not expose POST
+residue or hide legitimate color-map programming.
+
+### Overlapping bitmap copies retain a likely software-loop artifact
+
+The raster engine always traverses top-to-bottom and left-to-right. When a
+source and destination overlap, later source reads can observe pixels written
+earlier in the same operation. The current test explicitly preserves this as
+legacy behavior, not documented hardware behavior.
+
+Determine how scan direction, origins, command mode, and index registers
+control traversal. Add an overlap matrix covering left, right, up, and down
+copies before replacing the retained behavior.
+
+### Four Vipers are represented by one register set
+
+One retained Viper register array currently supplies logic functions, masks,
+source, fill, bus width, and scroll edges for all four planes. The physical
+VT340 uses four DC322 Vipers.
+
+Trace every Viper register load and determine:
+
+- whether writes are broadcast or individually chip-selected;
+- which command fields select chips or planes;
+- whether logic, mask, source, and fill values can differ by plane; and
+- whether status or pipeline behavior belongs to the Adder or Vipers.
+
+Only then decide whether to instantiate four DC322 subdevices. A later
+extraction should leave the DC323 responsible for coordinate generation and
+command sequencing while each Viper owns its plane datapath.
+
+### Raster coverage is intentionally incomplete
+
+The established cold-boot command inventory contains:
+
+| Classification | Count | Current behavior |
+| --- | ---: | --- |
+| Normal mode, source 1 and destination | 1,164 | Executed |
+| Normal mode, constant source and destination | 35 | Executed |
+| Non-normal mode | 3,347 | Rejected |
+| Destination-disabled diagnostic forms | 50 | Rejected |
+| Destination-enabled source 2 | 0 | Not observed |
+
+The large non-normal count does not by itself prove visible output is missing.
+Many commands may be POST, initialization, or off-screen operations. Classify
+them by mode, destination, extent, function, and visible intersection before
+implementing additional behavior.
+
+Known unimplemented areas include:
+
+- source 2;
+- nonzero indexed-coordinate translation;
+- scaling;
+- linear-pattern and other non-normal modes;
+- processor-to-bitmap transfers; and
+- complete chip/plane selection.
+
+### Save-state output restoration needs coverage
+
+Internal IRQ state is saved, but there is no explicit post-load path to
+re-drive the external CPU2 interrupt input. Add a save/load execution test and
+restore externally visible output levels after load.
+
+The test should cover:
+
+- asserted and cleared IRQ;
+- active PBT position and next returned byte;
+- pending scroll state;
+- Adder and Viper registers;
+- bitmap contents; and
+- correct handling of the next frame event.
+
+## Planned work
+
+### Stage 1: enforce status/IRQ invariants
+
+Add the focused tests first, centralize status mutations, and fix the PBT-start
+IRQ discrepancy. Record every status transition with its reason, old/new
+value, enable mask, and resulting IRQ state.
+
+Acceptance requires that the external IRQ always equals the documented
+invariant immediately after every public device operation and timer event.
+
+### Stage 2: remove the display-policy heuristic
+
+Capture the palette/POST transition, move the operational-palette decision to
+the VT340 board state, and remove `video_operational` from the generic device.
+Verify identical POST and visible framebuffer hashes before and after the
+change.
+
+### Stage 3: synchronize DC323 and DC7051 event tracing
+
+Use a common emulation-time trace for:
+
+- DC7051 frame and vertical phase;
+- DC323 Pause Complete and Scroll Service creation;
+- scroll-register loads and pending state;
+- DC323 status acknowledgements and IRQ transitions; and
+- CPU2 interrupt entry/exit.
+
+Trace cold boot, Setup, ordinary terminal output, repeated full-screen
+scrolling, and the known smooth-scroll failure if reproducible. Establish the
+first incorrect or missing event before changing frame-status semantics.
+
+### Stage 4: add save/load output restoration
+
+Implement post-load callback restoration and add a real save/load lifecycle
+test. Keep this separate from timing changes so failures have a single cause.
+
+### Stage 5: reconstruct command timing
+
+Inventory firmware polling and interrupt behavior for representative command
+sizes. Establish the clock and documented pipeline, then implement the
+smallest asynchronous state machine that distinguishes initialization,
+raster completion, address completion, and I/D readiness.
+
+Do not introduce a command queue unless documentation or observed firmware
+behavior establishes one.
+
+### Stage 6: correct traversal and indexing
+
+Reconstruct scan direction and indexed-coordinate rules. Replace the legacy
+overlap behavior only after the directional test matrix and native graphics
+regressions agree with the documented model.
+
+### Stage 7: separate Viper datapaths
+
+After chip-selection behavior is known, introduce a standalone DC322 model or
+equivalent per-plane state. Preserve the existing bitmap share and display
+backend during the extraction so structural work can be distinguished from
+new graphics behavior.
+
+### Stage 8: implement additional raster modes by evidence
+
+Prioritize modes that original firmware submits to a visible or subsequently
+read source region. For each added mode, document the command fields,
+coordinate transformations, Viper inputs, expected pixels, and a focused
+firmware-free regression.
+
+## Regression requirements
+
+Every behavioral change must preserve or explicitly explain:
+
+- native checksums and full POST;
+- persistent `VT340 OK` output;
+- Setup entry, navigation, and NVRAM persistence;
+- serial terminal operation;
+- palette and visible framebuffer hashes;
+- jump and sustained line scrolling;
+- status-line preservation;
+- repeated cold boots;
+- DC323 ring-drain interrupt acknowledgement; and
+- save/load continuation without duplicated, lost, or stale events.
+
+The firmware-free suite should expand to cover PBT interrupt edges, all status
+acknowledgement combinations, operational-state transitions, E49 multirow
+transfers, widths not divisible by eight, Boolean-function selection,
+overlapping copies, per-plane behavior, and save/load continuation.
+
+## Guardrails
+
+- Do not add firmware-PC-dependent behavior to the device.
+- Do not force status bits or synthesize command completion for a checkpoint.
+- Do not add fixed delays without a clock and documented timing relationship.
+- Do not treat compatibility tests as proof of silicon behavior.
+- Do not infer a raster mode solely from its command frequency.
+- Keep VT340 POST, palette policy, PAL decoding, and CPU bus assembly outside
+  the standalone device.
+- Change one timing or status hypothesis per controlled experiment.
+- Preserve the current implementation as a comparison baseline until its
+  replacement passes the complete regression set.
+
+## Recommended immediate work item
+
+Implement Stage 1 first: add PBT/status interrupt tests and enforce the IRQ
+invariant through centralized status helpers. Then perform Stage 2 as a
+separate cleanup. Coordinate Stage 3 with the DC7051 plan before changing
+Pause Complete or Scroll Service generation.
