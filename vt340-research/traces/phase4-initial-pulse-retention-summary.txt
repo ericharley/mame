@@ -1,0 +1,97 @@
+VT340 initial DAT9 pulse-retention experiment
+=============================================
+
+Question
+--------
+
+Is the remaining CPU2-to-CPU1 retained pulse at CPU1 PC 3925 merely a
+redundant scheduler accommodation now that DAT9 is explicitly resolved and
+each edge hands execution to the peer processor?
+
+Controlled experiment
+---------------------
+
+The retention was disabled while leaving clocks, DAT9 resolution, firmware,
+and all device behavior unchanged.  The first exchange then followed this
+timeline:
+
+  0.564814  CPU2 1703 has pulled P1.1/DAT9 low
+  0.565317  CPU2 170B has released DAT9 high
+  0.565319  CPU2 170E waits for CPU1 to pull DAT9 low
+  0.570763  CPU1 enters its request-delay interval with DAT9 low
+  0.573868  CPU1 releases DAT9 high
+  0.573869  CPU1 3922 begins waiting for a low response
+  0.574897  CPU1 times out and enters fatal path 3933
+
+CPU2's authentic low response has therefore ended approximately 8.552 ms
+before CPU1 begins sampling it.  This is not a lost edge at a scheduler slice:
+the resolved level is physically high throughout CPU1's wait.  The Phase 3
+checkpoint fails without retention.
+
+Result
+------
+
+The compatibility retention is still required, but its old scheduler-only
+explanation was inaccurate.  It masks an unresolved startup phase/timing
+mismatch.  The driver retains only this first CPU2 pulse and now documents
+the exact gap; the separate CPU1-to-CPU2 latch at 1711 was removed because it
+proved redundant.
+
+The initial mismatch does not by itself explain the late 7FF2 checkpoint
+race: after this first exchange, each 1701 wait synchronizes the processors,
+and the final 6.900 ms inversion is reproduced independently.  It is still a
+useful clue that the current model makes CPU2 bus activity arrive materially
+earlier than CPU1 firmware expects.  A hardware-correct replacement requires
+an identified reset, clock, or bus-phase mechanism, not another queued pulse.
+
+Reset-to-first-DAT9 audit
+-------------------------
+
+`phase4-reset-to-first-dat9.lua` now traces both processors from CPU1's reset
+release at `390e`.  It records live P1/P3 values, CPU2 external accesses, and
+CPU1 SBUF writes without changing emulated state.  The measured path is:
+
+       0 us  CPU1 releases CPU2 reset
+       3 us  CPU1 enters the four-byte LK201 command routine
+      17 us  CPU1 writes SBUF byte 11
+     590 us  CPU2 begins the first DC323 reset sequence
+   1,629 us  CPU2 begins the initial DC323 register table
+   2,164 us  CPU2 begins its internal-RAM test
+   3,119 us  CPU1 writes SBUF byte 8f
+   6,221 us  CPU1 writes SBUF byte 13
+   6,474 us  CPU2 completes its internal-RAM test
+   6,478 us  CPU2 pulls DAT9 low at 1701
+   6,981 us  CPU2 releases DAT9 at 1709
+   9,322 us  CPU1 writes SBUF byte 81
+  12,438 us  CPU1 pulls DAT9 low for its request
+  15,534 us  CPU1 begins waiting for the earlier CPU2 response
+
+CPU2 performs 37 external accesses before the exchange.  Its fixed path
+contains about 1.03 ms of explicit DC323 reset delays, 0.49 ms of register
+table writes, and 4.31 ms of internal-RAM test time.  There is no status poll
+or other firmware-visible wait that can supply the missing 8.55 ms.
+
+The terminal-control-module schematic closes two proposed explanations:
+
+- CPU1 P1.0 (`P1 RESET H`) connects directly to CPU2 RST, without an RC delay,
+  synchronizer, or programmable reset device on the shown path.
+- CPU2 receives the ungated 12 MHz `CPUBCLK`.  The PAL-gated clock branch is
+  `CPUACLK`, which drives CPU1, not CPU2.
+
+Intel specifies only two running machine cycles of asserted reset for the
+8031.  A core-level reset-release detail of that scale cannot account for an
+8.55 ms separation.  Slowing CPU2 is also contradicted by the schematic and
+the controlled 8 MHz experiment, which fails CPU2's native horizontal-timing
+measurement in the exact 12:8 ratio.
+
+Instrumentation correction
+---------------------------
+
+The first version of the trace exposed a separate debugger problem: querying
+the MCS-51 P1/P3 state calls the driver's port input callbacks with side
+effects disabled, but `cpu2_p1_r` still advanced DAT9 ownership and
+`cpu1_p3_r` could consume one-shot compatibility state.  Merely displaying
+the ports therefore changed the handshake.  The callbacks now advance state
+only for real CPU reads.  With live port reporting restored, all timestamps
+above match the trace that omitted port reads, Phase 3 passes, and the later
+Phase 4 interval remains 8.268 ms versus 13.579 ms (6.900 ms inversion).

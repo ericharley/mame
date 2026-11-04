@@ -1,0 +1,67 @@
+VT340 checkpoint-timeout duration audit
+=======================================
+
+Question
+--------
+
+Is the approximately 120-second visible startup delay caused by an incorrect
+CPU clock, scheduler behavior, or an accidentally inflated firmware timeout?
+
+Firmware loop
+-------------
+
+After CPU1 writes pending value 10 to 7ff2, it initializes R0, R1, and R2 to
+zero and executes this bounded loop at 3a18-3a1f:
+
+  MOVX A,@DPTR       2 machine cycles
+  JZ   3A21          2 machine cycles when the value is nonzero
+  DJNZ R0,3A18       2 machine cycles
+  DJNZ R1,3A18       2 machine cycles once per 256 iterations
+  DJNZ R2,3A18       2 machine cycles once per 65,536 iterations
+
+Zero-initialized DJNZ counters produce 2^24 reads. At the schematic 12 MHz
+clock, the no-interrupt duration is therefore:
+
+  2^24 * (2 + 2 + 2) + 2^16 * 2 + 2^8 * 2
+  = 100,794,880 machine cycles
+  = 100.794880 seconds
+
+Controlled measurement
+----------------------
+
+`phase4-timeout-interrupt-cost.lua` lets startup and the missed checkpoint
+occur normally. At the first 3a18 entry it disables only CPU1 Timer-0
+interrupt delivery, leaving both processors, shared RAM, clocks, scheduling,
+and the already-established 7ff2 value unchanged.
+
+  8.309668  enter 3a18, IE 82 -> 80, 7ff2=10
+ 109.104548  exit  3a21, 7ff2=80
+ ------------
+ 100.794880  measured loop duration
+
+The measured duration is exactly the instruction-count prediction. MAME's
+8031 clock and instruction timing are not inflating the fallback loop.
+
+Normal run
+----------
+
+With Timer 0 left enabled, the current production driver records:
+
+   8.309668  enter 3a18
+ 119.955287  exit  3a21
+ 119.995544  enter native success path 4551
+
+The normal loop therefore lasts 111.645619 seconds. Timer-0 service and the
+firmware it invokes account for the additional 10.850739 seconds. Adding the
+8.31 seconds of startup before the loop produces the apparent 120-second
+delay.
+
+Conclusion
+----------
+
+The long duration is faithful fallback behavior, not a scheduler problem and
+not a reason to change either 8031 clock. The real defect remains upstream:
+CPU2 publishes checkpoint zero before CPU1 installs its pending 10, so CPU1
+must exhaust this deliberately enormous loop before accepting the already
+available result 80. A correct fix must restore the native 10 -> 00 -> 80
+ordering; shortening or bypassing the loop would merely hide that failure.

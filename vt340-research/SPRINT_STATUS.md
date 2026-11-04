@@ -1,8 +1,8 @@
 # Sprint status: resolve `Wait` to `VT340 OK`
 
-- **Status:** native POST result clear; firmware-generated `VT340 OK` visible
+- **Status:** native POST result clear and persistent `VT340 OK`; fast startup path unresolved
 - **Checkpoint:** `acd91b61` (`mame: add VT340 ROM-level emulation checkpoint`)
-- **Updated:** 2026-11-03
+- **Updated:** 2026-11-04
 
 ## Sprint objective
 
@@ -33,11 +33,12 @@ every FIFO read. The implemented E49 PBT now copies the real localized string
 table. CPU1 result `63` originally produced four authentic messages: NVR,
 Comm 1 data, Comm 2 DEC-423 data, and printer-port errors. Corrected E80 and
 SCN2681 and SCN2641 paths now produce result `00`; the original firmware
-renders `VT340 OK`. A separate display persistence issue leaves the old
-top-left `Wait` glyph and intermittently omits the success panel, despite the
-stable `00` result. See
+renders `VT340 OK`. Implementing the documented frame-boundary scroll erase
+removes the old top-left `Wait` glyph and makes the success panel persistent.
+See
 `traces/phase4-pbt-report.md` and
-`traces/phase4-scn2641-printer-report.md`.
+`traces/phase4-scn2641-printer-report.md`, and
+`traces/graphics-clear-erase-report.md`.
 
 Phase 3 is closed. CPU2 dispatch, ROM banking, stack/return behavior, reset
 sequencing, reconstructed ROM execution, and the native low-ROM-to-E4 path are
@@ -163,6 +164,24 @@ jumps over the apparent `3102-3116` frame/configuration path. The only live
 timing input is T0/HSYNC phase and its validated edge count; it cannot add the
 required 6.9 ms to a successful path. Interrupt-vector breakpoints confirm no
 INT0 or timer-0 service in the interval.
+
+The separate power-on DAT9 retention has also been bounded from reset release.
+CPU2 asserts its first response at 6.478 ms and releases it at 6.981 ms; CPU1,
+while transmitting the native four-byte LK201 block, does not begin sampling
+until 15.534 ms. Schematics show a direct CPU2 reset line and ungated 12 MHz
+CPU2 clock, while the executed CPU2 path has no missing ready wait. The
+retention therefore remains an explicitly unresolved compatibility measure,
+not a scheduler fix and not an explanation for the later 120-second path.
+The audit also fixed debugger port reads so observation can no longer advance
+DAT9 ownership or consume a retained event.
+
+The 120-second path itself is now cycle-accounted. CPU1's 24-bit checkpoint
+fallback takes exactly 100.794880 seconds with Timer 0 masked only after loop
+entry, matching the 12 MHz instruction count. With normal timer service the
+loop takes 111.645619 seconds; adding startup places the native success entry
+at 119.995544 seconds. The duration is genuine fallback execution, not a CPU
+clock or scheduling defect. The remaining task is still to prevent entry by
+restoring the native `10 -> 00 -> 80` checkpoint order.
 
 Schematic sheets 1, 2, and 10 confirm that CPU1 P3.5/T1, CPU2 P1.1, and
 DC323 DAT09 share one uninterrupted `P2 DAT9/TSTATUS H` net. CPU2's table-data
@@ -300,6 +319,25 @@ frame DC323/DC7051 configuration tests, writes authentic success `7ff2=80` at
 12.994345 s, and enters operational E4 firmware at 13.084467 s. DC323 status
 bits 0/1 now use the documented sticky, write-zero-to-clear frame semantics.
 
+The DC7051 frame scheduler is now independent of DC323 interrupt masking. A
+controlled 20-second A/B recorded 696 device-frame events over 1,198 screen
+frames with the old coupling and 1,198/1,198 with continuous timing. DC323
+ignores pre-operational frame service, while its own interrupt-enable register
+continues to gate IRQ delivery. See
+`traces/dc7051-continuous-frame-report.md`.
+
+DC7051 frame service now also shares the visible screen's Y1-clock raster:
+539,676 clocks per 1026-by-526 frame. This removes the previous 0.826721 us per
+frame drift without changing CPU2 T0 or the provisional selector-`70` pulse.
+See `traces/dc7051-raster-unification-report.md`.
+
+The DC7051/DC323 interface is now explicitly event-oriented rather than a
+one-sided line callback. A real two-process autosave/load regression resumes a
+known low horizontal level, retained registers, counters, and timer phase and
+reaches 2,000 frames without a lost or duplicated event. The same regression
+proves that reset after elapsed emulation time establishes a fresh horizontal
+and frame epoch. See `traces/dc7051-stage4-state-report.md`.
+
 Before the full ROM reconstruction, normal execution reached CPU1 `41f7` with
 `B=40` and took a second graphics retry/test path rather than submitting
 command 32. That Phase 2 observation remains valid control-flow evidence, but
@@ -386,16 +424,18 @@ DAT9/mailbox ordering defect is identified and modeled.
 
 | Criterion | Status |
 |---|---|
-| Original firmware leaves `Wait` in normal configuration | Not yet |
-| Original ROM submits the `VT340 OK` drawing commands | Not yet |
+| Original firmware leaves `Wait` in normal configuration | Yes, after the native timeout path |
+| Original ROM submits the `VT340 OK` drawing commands | Yes |
 | Renderer accepts firmware operations without a banner-specific change | Yes |
-| Transition is tied to documented firmware state | Partially: both gates are identified |
+| Transition is tied to documented firmware state | Yes: POST result `00` and command 32 |
 | No hardcoded string, success PC trigger, or synthetic production packet | Yes |
 | Repeated cold boots are stable | Yes |
-| Persistent success state is reached | Not yet |
+| Persistent success state is reached | Yes |
+| Fast `7ff2` checkpoint path is taken | No: CPU1 succeeds through the approximately 120-second firmware timeout |
 
-Phase 3 closed with an exact next boundary and a bounded experiment. The
-overall sprint remains open in Phase 4 synchronization work.
+The visible-boot objective is achieved. Phase 4 remains open only for the
+startup synchronization fidelity requirement: CPU1 must observe CPU2's real
+checkpoint without relying on the ROM's long timeout fallback.
 
 ## Verification
 
@@ -437,7 +477,14 @@ vt340-research/tests/phase2-closeout.sh ./vt340
   workaround has been removed; the current Phase 4 timeline is unchanged.
   A previously observed later serial-service stack excursion above `7f`
   remains a risk after the startup blocker is resolved.
-- DAT9/T1 pulses are retained at known rendezvous to cross scheduler slices.
+- The former CPU1-pulse latch at CPU2 `1711` is removed. Explicit DAT9
+  resolution and edge-triggered timeslice handoff preserve the rendezvous;
+  the Phase 3 checkpoint passes and Phase 4 timing is unchanged.
+- One CPU2 startup pulse is still retained for CPU1's initial `3925` sample.
+  A controlled removal proves it is not merely a timeslice artifact: CPU2
+  releases the physical low 8.552 ms before CPU1 begins sampling and CPU1
+  enters fatal path `3933`. This is now tracked as an unresolved startup
+  timing/phase mismatch rather than described as electrical pulse storage.
 - CPU1's `3940/3941` P1-BRD/T0 observation remains PC-qualified. A controlled
   cleanup found that generic port retention is consumed too early, while a
   dedicated T0 pulse incorrectly clocks the counter. Safe removal requires a
@@ -446,17 +493,24 @@ vt340-research/tests/phase2-closeout.sh ./vt340
   outside the current startup scope.
 - E80 uses MAME's X2804 device with the recovered image as its first-run
   default. Native Set-Up writes persist through the standard NVRAM interface.
-- Some video POST/status behavior is still PC-qualified.
+- DC323 register-7 diagnostics and ready status are no longer PC-qualified.
+  The device now produces all four polled conditions from command/FIFO state;
+  see `traces/dc323-post-shim-cleanup-report.md`.
 - Incomplete raster modes and palette behavior remain, but current evidence
   rules them out as the cause of this startup transition.
 
 ## Recommended next work
 
-Continue Phase 4 from CPU2 `dc02`. Reconstruct which native event after
-command 32 should make producer and consumer differ or otherwise take `dc18`
-and clear `60bb`. Keep the earlier `7ff2` ordering as a separate startup-
-latency defect. Do not inject a ring packet, clear `60bb`, shorten the LK201
-delay, or add a PC-qualified completion trigger in the normal configuration.
+Continue Phase 4 at the `7ff2` race. CPU2 writes checkpoint `00` at
+8.228779 seconds; CPU1 writes stale-zero guard `10` at 8.295773 seconds and
+therefore waits until 119.955290 seconds before consuming the authentic `80`
+result. The current post-graphics baseline reproduces those timestamps. A
+controlled CPU2 slowdown is not viable: at 8 MHz the native T0 validation
+counts `91` instead of `61` and traps at `1366`, confirming the firmware and
+schematic 12 MHz contract. Continue by auditing the final pipelined DAT9
+response and any cycle-level bus behavior that can change its observation
+without altering either clock. Do not delay a firmware PC, force `7ff2`, or
+shorten the ROM timeout.
 
 ## Key references
 

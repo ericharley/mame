@@ -226,10 +226,14 @@ A PC-independent board model should maintain explicit DAT8–15 ownership:
 4. The same resolved level must feed CPU1 P3.5 reads, CPU1's T1 input line,
    and CPU2 P1.1 reads.
 
-The remaining bounded accommodations are:
+The remaining bounded accommodation is:
 
-- Narrow-pulse retention at CPU1 `3925` and CPU2 `1711` is a scheduling
-  compatibility accommodation rather than an electrical storage element.
+- Narrow-pulse retention at CPU1 `3925` is a compatibility workaround rather
+  than an electrical storage element. A controlled removal proved the
+  underlying low ends 8.552 ms before CPU1 samples it, so the unresolved issue
+  is startup phasing rather than a scheduler boundary. The former CPU1-pulse
+  latch at CPU2 `1711` was removed after explicit DAT9 resolution and timeslice
+  handoff reproduced every rendezvous without it.
 
 During both `17cf` groups CPU2 is the legitimate bus driver, and its P1.1
 changes reach CPU1 in both the physical and emulated resolved-net models.

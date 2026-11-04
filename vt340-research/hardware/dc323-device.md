@@ -30,7 +30,7 @@ The runtime interface is:
 | `write(offset, data)` | Write a decoded register with the board-assembled 16-bit data value |
 | `operational_w(state)` | Release or hold the operational model around board graphics POST |
 | `viper_select_w(mask)` | Select which of the four plane datapaths accept Viper loads and raster destination writes |
-| `vsync_w(state)` | Supply the board's vertical-frame event; a high call services pending scroll and frame status |
+| `frame_event()` | Supply one completed-frame occurrence; services pending scroll and frame status without implying a physical line level |
 | `irq_handler()` | Electrical interrupt output, asserted when enabled sticky status is nonzero |
 | `pixel_r(plane, x, y)` | Narrow display-backend access to the retained four bitmap planes |
 | `bitmap_clear(data)` | Reset/diagnostic initialization of the retained bitmap storage |
@@ -63,7 +63,7 @@ Status bits remain sticky until acknowledged.  Raster command functions 2 and
 bitmap-to-processor transfer completes through register 7 reads.  Bitmap
 source data comes from the selected Viper plane whose command-selected CSR
 enables I/D-bus output; it is not inherently sourced from plane zero.  Writing
-scroll register `14` records one pending operation; the next high `vsync_w`
+scroll register `14` records one pending operation; the next `frame_event`
 call executes it, sets Pause Complete and Scroll Service, and recomputes IRQ.
 
 X-mode processor-to-bitmap commands consume one I/D word per bitmap bus word
@@ -96,15 +96,15 @@ The following is not DC323 device behavior:
 - CPU2 P1/high-byte assembly with the low external data bus;
 - F072/F060 reset and DAT9 startup sequencing;
 - the separate byte-oriented bitmap POST memory and AA/55/clear sweeps;
-- PC `1bd1` diagnostic I/D readback and the ready-bit observations at `2900`,
-  `bba0`, `bbaa`, and `bbb4`;
 - DC7051 registers and host frame-timer scheduling;
 - E51/E52 palette storage and display conversion; and
 - CPU2 ROM banking, shared RAM, and all serial/keyboard behavior.
 
-The PC-qualified reads are explicitly a VT340 compatibility adapter.  They
-approximate external POST mux/ready behavior that has not yet been modeled
-from complete chipset timing evidence.  They must not migrate into the DC323.
+Diagnostic I/D readback and ready status are device-owned and independent of
+firmware addresses. The DC323 retains diagnostic selectors `00cf`/`00c6`,
+routes command `0bc0` through the normal FIFO completion path, initializes
+idle completion outputs when made operational, and returns to idle on command
+zero. See `../traces/dc323-post-shim-cleanup-report.md`.
 
 ## Diagnostic logging
 
@@ -129,8 +129,8 @@ control remains observable through the separate DUART/connector traces.
 - Scroll request queuing or overwrite behavior when register `14` is loaded
   more than once before a frame event.
 - The physical source and phase of Pause Complete and Scroll Service.
-- The real reset/ready interface currently represented by the board's
-  `operational_w` transition and PC-qualified POST adapter.
+- The exact physical reset input currently represented by the board's
+  `operational_w` transition.
 
 These questions should be answered with chipset documentation or controlled
 firmware traces after structural equivalence is secured.

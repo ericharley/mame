@@ -49,7 +49,7 @@ for key, _ in pairs(points) do
 end
 
 local function elapsed(now, origin)
-	if not origin then
+	if not now or not origin then
 		return -1
 	end
 	return (now - origin) * 1000000

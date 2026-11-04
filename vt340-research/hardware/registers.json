@@ -28,7 +28,7 @@
         "5": "I/D data receive ready"
       },
       "evidence": "E5 firmware c043-c049",
-      "implementation": "bits 0/1 are enabled by register 2, set at the frame boundary, and cleared by writing zero to register 3; ready mask 3c remains supplied at confirmed polling sites",
+      "implementation": "bits 0/1 are enabled by register 2, set at the frame boundary, and cleared by writing zero to register 3; bits 2-5 follow command, address, and I/D FIFO state without firmware-address qualification",
       "confidence": "high"
     },
     {

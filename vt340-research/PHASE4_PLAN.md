@@ -1,5 +1,29 @@
 # Phase 4 plan: DAT9 and mailbox synchronization
 
+## Current status
+
+Phase 4 has achieved the visible and functional boot result: native POST
+returns `00`, `Wait` is erased, and firmware displays persistent `VT340 OK`.
+It has not achieved the fast-path synchronization requirement. CPU2 still
+writes `7ff2=00` approximately 67 ms before CPU1 writes its stale-zero guard
+`10`; CPU1 therefore advances only after the ROM timeout at 119.955290 s.
+
+The remaining Phase 4 objective is narrowly the authentic fast checkpoint.
+Serial diagnostics, NVRAM, packet draining, banner rendering, clear/erase,
+and interactive terminal operation are completed dependencies, not candidate
+explanations for the delay.
+
+The apparent 120-second duration has now been audited independently. The
+`3a18-3a1f` fallback performs 2^24 iterations of `MOVX`, `JZ`, and `DJNZ`,
+plus the two outer `DJNZ` levels. At 12 MHz its bare duration is exactly
+100.794880 seconds. A controlled run that masks Timer 0 only after entering
+the already-missed checkpoint wait measures that exact value; normal timer
+service adds 10.850739 seconds, and the preceding 8.31 seconds of startup
+places success at 119.995544 seconds. This validates CPU timing and confirms
+that the delay must be removed by restoring the checkpoint order, not by
+shortening the firmware fallback. See
+`traces/phase4-timeout-cost-summary.txt`.
+
 ## Objective
 
 Determine why CPU2 publishes the shared `7ff2` checkpoint zero before CPU1
@@ -9,6 +33,12 @@ sentinel/checkpoint/result order.
 
 Phase 4 will not delay a checkpoint at a firmware PC, force a mailbox
 value, extend pulses indefinitely, or render `VT340 OK` directly.
+
+For interactive use only, the driver now exposes an optional ROM compatibility
+patch that changes CPU1's pending value from `10` to `00`. This takes the
+existing fast path while retaining CPU2's native final result and CPU1's
+`80` validation. It is disabled by default, separately documented in
+`firmware/fast-start-patch.md`, and is not considered a Phase 4 hardware fix.
 
 ## Starting boundary
 
@@ -88,7 +118,30 @@ removed from the normal driver:
   MAME's default scheduling produces the same startup sequence.
 - A CPU1 P3.5 edge near the `7ff2=10` sentinel write no longer queues a retained
   DAT9/T1 pulse.  Retention remains limited to the existing CPU2
-  `1701-1711` rendezvous while its pin-level replacement is investigated.
+  startup pulse consumed by CPU1's initial diagnostic wait.
+- The PC-qualified CPU1-pulse latch at CPU2 `1711` is also gone. Explicit DAT9
+  resolution plus timeslice handoff preserves all six native rendezvous without
+  it; Phase 3 passes and the Phase 4 boundary remains exactly 6.900 ms.
+- The opposite-direction startup retention at CPU1 `3925` is not redundant.
+  Without it, CPU2 releases its first low response 8.553 ms before CPU1 starts
+  sampling and CPU1 takes fatal path `3933`. This exposes a real unresolved
+  startup phase/timing mismatch; see
+  `traces/phase4-initial-pulse-retention-summary.txt`.
+
+A reset-relative trace now accounts for that entire lead. CPU2 asserts DAT9
+at 6.478 ms after reset release, following DC323 reset/table initialization
+and a 4.31 ms internal-RAM test, and releases it at 6.981 ms. CPU1's native
+four-byte LK201 block delays its first response sample until 15.534 ms.
+Schematic sheets 1-3 show CPU1 P1.0 wired directly to CPU2 RST and CPU2 driven
+by ungated 12 MHz CPUBCLK, so neither a board reset delay nor a slower CPU2
+clock is supported. `traces/phase4-reset-to-first-dat9.lua` captures the path;
+`traces/phase4-initial-pulse-retention-summary.txt` records the result.
+
+During this audit, live debugger reads of P1/P3 were found to invoke the
+driver callbacks and consume modeled DAT9 phases. Port-read side effects are
+now suppressed whenever MAME marks the access side-effect-free. Live-port
+tracing consequently reproduces the same 6.478/6.981/15.534 ms timing as a
+trace that does not inspect the ports.
 
 After each removal, the ROM-boundary audit and Phase 2/3 regression suites
 passed. With default scheduling, CPU2 published its checkpoint at 8.228779 s, CPU1
@@ -149,6 +202,12 @@ stop CPU1 during memory-controller ownership. Modeling that gate could only
 delay CPU1 relative to CPU2, however, and would increase the current
 checkpoint-before-sentinel lead. It is a remaining fidelity item, not a
 candidate correction for this ordering failure.
+
+A controlled 8 MHz CPU2 build independently rejects clock skew as a workaround.
+CPU2 reaches its native T0 validation with `TL0=91`, exactly the `12/8` scaling
+of the required `61`, and loops at `1366` before publishing a checkpoint. The
+production driver was restored to 12 MHz after the experiment. See
+`traces/phase4-clock-ratio-summary.txt`.
 
 ### `7ff2=10` is a pending sentinel, not a CPU2 request
 
@@ -414,8 +473,10 @@ eventual success because the checkpoint wait has a long timeout fallback.
    mechanism absent from both executed CPU paths.
 3. The operational PC-qualified DC323 bit-0 substitution has been removed.
    Native `fe`/`fd` acknowledgements now release INT0 and CPU2 drains every
-   startup ring packet. Preserve the remaining POST-only ready substitutions
-   until their hardware inputs are independently modeled.
+   startup ring packet. The former POST-only register-7 and ready substitutions
+   at `1bd1`, `2900`, and `bba0-bbb4` have also been removed: the standalone
+   DC323 now supplies diagnostic data and completion state from device events.
+   See `traces/dc323-post-shim-cleanup-report.md`.
 4. Implement only verified physical behavior, remove all forcing, and run
    repeated cold boots plus the Phase 2/3 regressions.
 
@@ -427,13 +488,15 @@ branch.
 
 ### Current late-boot result
 
-The firmware now passes the former display-data artifact. Command-32 PBT
+The firmware now passes every modeled startup diagnostic. Command-32 PBT
 `0bc4` streams the E49 startup strings through the documented DC323 register-7
-FIFO, and the original renderer displays four errors selected by CPU1 result
-`63`. The remaining path to `VT340 OK` is to resolve those NVR and serial-port
-POST conditions. This result and its deterministic regression are documented
-in `traces/phase4-pbt-report.md`.
+FIFO. Correct E80, SCN2681, and SCN2641 behavior produces CPU1 result `00`,
+and the original renderer displays persistent `VT340 OK` after the documented
+frame-boundary erase. These results are covered by the Phase 4 peripheral,
+PBT, ring-drain, and graphics regressions.
 
 An ordinary cold boot must place CPU1's `7ff2=10` pending sentinel before the
-native CPU2 checkpoint zero, allow CPU1 to consume the authentic `80` result, and
-continue stably without a PC-qualified timing or mailbox workaround.
+native CPU2 checkpoint zero, allow CPU1 to consume the authentic `80` result,
+and continue stably without a PC-qualified timing or mailbox workaround. The
+current driver satisfies only the final stability clause: it misses the zero
+and reaches the same result through the approximately 120-second timeout.

@@ -2,24 +2,23 @@
 
 ## Extraction scope
 
-`src/devices/video/dc7051.{h,cpp}` is a behavior-preserving extraction of the
-timing state formerly embedded in `vt340_state`. It owns retained raw storage,
-the horizontal-output timer, compatibility frame scheduler, diagnostic
-vertical waveform, output state, event counts, and save-state registration.
+`src/devices/video/dc7051.{h,cpp}` is an extraction of the timing state formerly
+embedded in `vt340_state`. It owns retained raw storage, the horizontal-output
+timer, continuously running compatibility frame scheduler, diagnostic vertical
+waveform, output state, event counts, and save-state registration.
 
 This first device is not yet a decoded or counter-derived DC7051 model. Unknown
-registers remain raw storage, and the three inherited timing definitions are
-preserved rather than silently unified:
+registers remain raw storage. The screen and DC323 frame-service paths now use
+one raster definition; two other inherited waveforms remain provisional:
 
 | Timing path | Preserved value | Derived rate |
 | --- | ---: | ---: |
 | CPU2 T0 horizontal toggle | 63,000 transitions/s | 31,500 complete cycles/s |
-| DC323 compatibility frame event | 526 / 31,500 s | 59.8859 Hz |
-| MAME screen raster | 32.3174 MHz / 1026 / 526 | 59.8830 Hz |
+| Screen and DC323 frame service | 32.3174 MHz / 1026 / 526 | 59.8830 Hz |
 | POST diagnostic pulse | 27 us high every 16,698 us | 59.8874 Hz |
 
-The small differences are pre-existing approximations. Combining them is
-deferred until the register definitions and physical signal phases are known.
+CPU2 T0 and the POST diagnostic pulse remain separate until their physical
+sources and phases are known.
 
 ## Register interface and confidence
 
@@ -48,9 +47,8 @@ by established wiring:
 | --- | --- | --- | --- |
 | device clock | input | DC7051 | Schematic-backed Y1 source |
 | `hsync_handler` | output | CPU2 external T0 | Preserved active-low 63 kHz toggle model; exact physical pulse width/phase unresolved |
-| `frame_handler` | event output | DC323 `vsync_w` | Compatibility frame service, not asserted to be a literal VSYNC pin |
+| `frame_event_callback` | event output | DC323 `frame_event` | Completed-frame occurrence; deliberately has no asserted/deasserted line state |
 | `diagnostic_vsync_r` | sampled output | external VT340 test mux, then CPU2 P1.0 | Preserved 27 us POST waveform; physical source/mux input unresolved |
-| `frame_enable_w` | compatibility input | driven from DC323 interrupt-enable writes | Not assigned to a documented DC7051 pin |
 
 No HBLANK, VBLANK, display-enable, field, or interlace callbacks are exposed
 because their physical behavior has not yet been established in this model.
@@ -85,14 +83,28 @@ not fabricated because no internal counter model exists yet.
 2. Identify the physical output feeding CPU2 T0 and its polarity/pulse width.
 3. Decode the external F0E0 test multiplexer and map every selectable input.
 4. Determine which vertical phase causes DC323 Pause Complete/Scroll Service.
-5. Replace `frame_enable_w` coupling with continuously generated physical
-   timing after proving firmware equivalence.
-6. Select one authoritative raster: preferably a DC7051 counter model driving
-   callbacks and screen configuration, or a screen-synchronized equivalent.
-7. Establish register load/latch behavior and invalid/partial programming.
-8. Add HBLANK/VBLANK/display-enable only when justified by documentation.
-9. Add a save/load execution test once the device-test harness gains a safe
-   programmatic state-file lifecycle.
+5. Establish register load/latch behavior and invalid/partial programming.
+6. Add HBLANK/VBLANK/display-enable only when justified by documentation.
+7. Identify whether the low/high raw arrays represent any real retained
+   storage or should be removed.
+
+The former `frame_enable_w` coupling was removed after a controlled A/B trace.
+DC323 interrupt-enable writes had stopped and restarted the timing generator,
+producing only 696 DC7051 events during 1,198 screen frames. Continuous timing
+produces 1,198 events during the same interval; DC323 reset now suppresses
+pre-operational frame service. See
+`../traces/dc7051-continuous-frame-report.md`.
+
+Frame service was subsequently unified with the visible screen raster. Both
+now use 539,676 Y1 dot clocks per frame from the reset epoch, eliminating the
+former 0.827 us-per-frame phase drift. See
+`../traces/dc7051-raster-unification-report.md`.
+
+The DC323-facing interface is explicitly event-oriented. Save/load restores
+timer phase, counters, retained registers, and re-drives the saved horizontal
+level, but does not synthesize a frame occurrence. A two-process autosave test
+also verifies a fresh timing epoch after reset at nonzero emulation time. See
+`../traces/dc7051-stage4-state-report.md`.
 
 Dynamic timing, screen resolution changes, and the smooth-scroll freeze are
 deliberately outside this structural extraction.

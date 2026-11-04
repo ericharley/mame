@@ -79,7 +79,7 @@ public:
 	void write(offs_t offset, u16 data);
 	void operational_w(int state);
 	void viper_select_w(u8 data);
-	void vsync_w(int state);
+	void frame_event();
 
 	// Board compatibility and video-backend accessors.  These expose state,
 	// but never CPU identity or firmware addresses, so policy remains outside.
@@ -147,6 +147,8 @@ private:
 	u16 m_pbt_write_words_per_row = 0;
 	u32 m_pbt_write_index = 0;
 	u32 m_pbt_write_count = 0;
+	u8 m_diagnostic_data = 0;
+	bool m_raster_diagnostic = false;
 	bool m_video_operational = false;
 	bool m_irq_state = false;
 	u32 m_log_events = 0;
