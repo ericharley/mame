@@ -13,6 +13,9 @@
 
 #include "video/dc323.h"
 
+#include "corefile.h"
+#include "png.h"
+
 
 namespace {
 
@@ -40,6 +43,7 @@ private:
 	void viper_w(unsigned reg, u16 value);
 	void fill(unsigned x, unsigned y, unsigned width, unsigned height, bool value);
 	void expect_pixel(unsigned x, unsigned y, bool value, char const *message);
+	void write_visual(char const *name, unsigned x, unsigned y, unsigned width, unsigned height);
 	TIMER_CALLBACK_MEMBER(run_tests);
 };
 
@@ -90,6 +94,37 @@ void dc323_test_state::expect_pixel(unsigned x, unsigned y, bool value, char con
 {
 	for (unsigned plane = 0; plane < dc323_device::BITMAP_PLANES; plane++)
 		require(bool(m_dc323->pixel_r(plane, x, y)) == value, message);
+}
+
+
+void dc323_test_state::write_visual(char const *name, unsigned x, unsigned y, unsigned width, unsigned height)
+{
+	char const *const artifact_dir = osd_getenv("VT340_TEST_ARTIFACT_DIR");
+	if (!artifact_dir || !*artifact_dir)
+		return;
+
+	constexpr unsigned scale = 24;
+	bitmap_rgb32 image(width * scale, height * scale);
+	for (unsigned source_y = 0; source_y < height; source_y++)
+		for (unsigned source_x = 0; source_x < width; source_x++)
+		{
+			unsigned color_index = 0;
+			for (unsigned plane = 0; plane < dc323_device::BITMAP_PLANES; plane++)
+				color_index |= unsigned(m_dc323->pixel_r(plane, x + source_x, y + source_y)) << plane;
+			rgb_t const color = color_index ? rgb_t(0x4c, 0xd9, 0xff) : rgb_t(0x16, 0x19, 0x22);
+			for (unsigned pixel_y = 0; pixel_y < scale; pixel_y++)
+				for (unsigned pixel_x = 0; pixel_x < scale; pixel_x++)
+					image.pix(source_y * scale + pixel_y, source_x * scale + pixel_x) =
+						(pixel_x == 0 || pixel_y == 0) ? rgb_t(0x3b, 0x40, 0x4d) : color;
+		}
+
+	std::unique_ptr<util::core_file> file;
+	std::string const path = util::string_format("%s/%s.png", artifact_dir, name);
+	std::error_condition error = util::core_file::open(path,
+		OPEN_FLAG_WRITE | OPEN_FLAG_CREATE | OPEN_FLAG_CREATE_PATHS, file);
+	require(!error, "open DC323 visual artifact");
+	error = util::png_write_bitmap(*file, nullptr, image, 0, nullptr);
+	require(!error, "write DC323 visual artifact");
 }
 
 
@@ -250,21 +285,107 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	expect_pixel(25, 22, true, "source-2 tile repeated occurrence");
 	expect_pixel(22, 22, false, "source-2 tile preserves clear neighboring phase");
 
-	// Dual-source commands require Viper I/D routing that is not modeled yet.
+	// The two source CSRs route each local memory read independently. Here
+	// source 1 loads the Viper source register while source 2 loads both masks,
+	// producing a source-1 copy clipped by the source-2 pattern.
 	m_dc323->bitmap_clear();
-	fill(401, 402, 1, 1, true);
-	reg_w(dc323_device::REG_SOURCE_X, 401);
-	reg_w(dc323_device::REG_SOURCE_Y, 402);
-	reg_w(dc323_device::REG_DESTINATION_X, 21);
-	reg_w(dc323_device::REG_DESTINATION_Y, 22);
+	fill(100, 200, 4, 1, true);
+	fill(300, 300, 1, 1, true);
+	fill(302, 300, 1, 1, true);
+	viper_w(0x10, 0x0004); // CSR 0: internal source-1 read -> source
+	viper_w(0x11, 0x0008); // CSR 1: internal source-2 read -> mask 1 and 2
+	reg_w(dc323_device::REG_SOURCE_X, 100);
+	reg_w(dc323_device::REG_SOURCE_Y, 200);
+	reg_w(dc323_device::REG_SOURCE_FAST_DX, 1);
+	reg_w(dc323_device::REG_SOURCE_SLOW_DY, 1);
+	reg_w(dc323_device::REG_SOURCE2_X, 280);
+	reg_w(dc323_device::REG_SOURCE2_Y, 250);
+	reg_w(dc323_device::REG_SOURCE2_SIZE, 0x0080);
+	reg_w(dc323_device::REG_DESTINATION_X, 20);
+	reg_w(dc323_device::REG_DESTINATION_Y, 50);
+	reg_w(dc323_device::REG_WIDTH, 4);
+	reg_w(dc323_device::REG_HEIGHT, 1);
+	reg_w(dc323_device::REG_COMMAND, 0x1ec0);
+	expect_pixel(20, 50, true, "dual source internal route first enabled mask pixel");
+	expect_pixel(21, 50, false, "dual source internal route first masked pixel");
+	expect_pixel(22, 50, true, "dual source internal route second enabled mask pixel");
+	expect_pixel(23, 50, false, "dual source internal route second masked pixel");
+
+	// CSR bank 2 reverses the two loads: source 1 supplies the masks and source
+	// 2 supplies the logic-unit source. Command bit 2 selects CSRs 4/5/6.
+	m_dc323->bitmap_clear();
+	fill(100, 200, 1, 1, true);
+	fill(300, 300, 1, 1, true);
+	viper_w(0x14, 0x0008); // CSR 4: source 1 -> masks
+	viper_w(0x15, 0x0004); // CSR 5: source 2 -> source
+	reg_w(dc323_device::REG_DESTINATION_X, 20);
+	reg_w(dc323_device::REG_DESTINATION_Y, 50);
+	reg_w(dc323_device::REG_WIDTH, 1);
+	reg_w(dc323_device::REG_COMMAND, 0x1ec4);
+	expect_pixel(20, 50, true, "dual source command selects second CSR bank");
+
+	// A Viper may broadcast its shifted source read on the I/D bus while a
+	// different Viper loads that bus value through its external-load field.
+	m_dc323->bitmap_clear();
+	m_dc323->viper_select_w(0x03);
+	viper_w(0x11, 0x0000); // source-2 cycle leaves the routed source intact
+	m_dc323->viper_select_w(0x01);
+	fill(100, 210, 1, 1, true);
+	viper_w(0x0a, 0x0000);
+	viper_w(0x10, 0x0010); // plane 0 drives source 1 on I/D bus
+	m_dc323->viper_select_w(0x02);
+	viper_w(0x0a, 0x0000);
+	viper_w(0x10, 0x0001); // plane 1 loads I/D bus into source
+	m_dc323->viper_select_w(0x03);
+	viper_w(0x08, 0xffff);
+	viper_w(0x09, 0xffff);
+	reg_w(dc323_device::REG_SOURCE_X, 100);
+	reg_w(dc323_device::REG_SOURCE_Y, 210);
+	reg_w(dc323_device::REG_SOURCE2_X, 400);
+	reg_w(dc323_device::REG_SOURCE2_Y, 400);
+	reg_w(dc323_device::REG_DESTINATION_X, 30);
+	reg_w(dc323_device::REG_DESTINATION_Y, 60);
 	reg_w(dc323_device::REG_WIDTH, 1);
 	reg_w(dc323_device::REG_HEIGHT, 1);
 	reg_w(dc323_device::REG_COMMAND, 0x1ec0);
-	expect_pixel(21, 22, false, "unmodeled dual-source command does not invent output");
+	require(!m_dc323->pixel_r(0, 30, 60) && m_dc323->pixel_r(1, 30, 60),
+		"dual source external I/D broadcast routes between Vipers");
+
+	// Linear-pattern mode uses the same source-cycle routing.  The repeating
+	// two-pixel source-1 pattern is clipped by a repeating four-pixel source-2
+	// mask, leaving only their common first pixel.
+	m_dc323->viper_select_w(0x0f);
 	m_dc323->bitmap_clear();
-	reg_w(dc323_device::REG_X_CONTROL, 0x0083);
-	reg_w(dc323_device::REG_COMMAND, 0x16c0);
-	expect_pixel(21, 22, false, "unmodeled source-2 polygon fill does not invent output");
+	fill(100, 300, 1, 1, true);
+	fill(400, 400, 2, 4, true);
+	viper_w(0x10, 0x0004); // CSR 0: source 1 -> source
+	viper_w(0x11, 0x0008); // CSR 1: source 2 -> masks
+	reg_w(dc323_device::REG_X_CONTROL, 0x0082);
+	reg_w(dc323_device::REG_SOURCE_X, 100);
+	reg_w(dc323_device::REG_SOURCE_Y, 300);
+	reg_w(dc323_device::REG_SOURCE_FAST_DX, 2);
+	reg_w(dc323_device::REG_SOURCE_SLOW_DY, 1);
+	reg_w(dc323_device::REG_SOURCE2_X, 400);
+	reg_w(dc323_device::REG_SOURCE2_Y, 400);
+	reg_w(dc323_device::REG_SOURCE2_SIZE, 0x0000); // 4x4 tile
+	reg_w(dc323_device::REG_DESTINATION_X, 40);
+	reg_w(dc323_device::REG_DESTINATION_Y, 70);
+	reg_w(dc323_device::REG_DESTINATION_FAST_DY, 0);
+	reg_w(dc323_device::REG_DESTINATION_SLOW_DX, 0);
+	reg_w(dc323_device::REG_WIDTH, 4);
+	reg_w(dc323_device::REG_HEIGHT, 1);
+	reg_w(dc323_device::REG_COMMAND, 0x1ec0);
+	expect_pixel(40, 70, true, "dual source linear route common enabled pixel");
+	expect_pixel(41, 70, false, "dual source linear route source-1 clear pixel");
+	expect_pixel(42, 70, false, "dual source linear route source-2 clear pixel");
+	expect_pixel(43, 70, false, "dual source linear route both clear pixel");
+
+	m_dc323->viper_select_w(0x0f);
+	viper_w(0x0a, 0xffff);
+	viper_w(0x10, 0x0000);
+	viper_w(0x11, 0x0000);
+	viper_w(0x14, 0x0000);
+	viper_w(0x15, 0x0000);
 	reg_w(dc323_device::REG_X_CONTROL, 0x0080);
 
 	// Constant fill affects all planes and preserves pixels beyond the region.
@@ -571,6 +692,59 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	expect_pixel(63, 102, false, "fill error adjustment preserves exterior");
 	reg_w(dc323_device::REG_ERROR_1, 0);
 	reg_w(dc323_device::REG_ERROR_2, 0);
+
+	// A source-2 tile textures every span generated by an ordinary polygon
+	// fill. The Viper constant is cleared so only the off-screen tile can
+	// produce the two repeated foreground columns.
+	m_dc323->bitmap_clear();
+	fill(402, 400, 1, 4, true);
+	viper_w(0x0a, 0x0000);
+	reg_w(dc323_device::REG_SOURCE2_X, 400);
+	reg_w(dc323_device::REG_SOURCE2_Y, 400);
+	reg_w(dc323_device::REG_SOURCE2_SIZE, 0x0000); // 4x4 tile
+	reg_w(dc323_device::REG_X_CONTROL, 0x0083);
+	reg_w(dc323_device::REG_DESTINATION_X, 50);
+	reg_w(dc323_device::REG_DESTINATION_Y, 100);
+	reg_w(dc323_device::REG_SOURCE_X, 55);
+	reg_w(dc323_device::REG_DESTINATION_SLOW_DX, 0);
+	reg_w(dc323_device::REG_HEIGHT, 4);
+	reg_w(dc323_device::REG_SOURCE_FAST_DX, 0);
+	reg_w(dc323_device::REG_SOURCE_SLOW_DY, 4);
+	reg_w(dc323_device::REG_COMMAND, 0x16c0);
+	for (unsigned y = 100; y < 104; y++)
+	{
+		expect_pixel(50, y, true, "source-2 polygon fill first tile phase");
+		expect_pixel(54, y, true, "source-2 polygon fill repeated tile phase");
+		expect_pixel(51, y, false, "source-2 polygon fill clear tile phase");
+	}
+	write_visual("source2-tiled-polygon-fill", 48, 98, 12, 8);
+
+	// Untiled source 2 also applies to baseline/Y fills. These two source rows
+	// become horizontal stripes inside both vertical spans generated by edge A.
+	m_dc323->bitmap_clear();
+	fill(480, 482, 2, 1, true);
+	fill(480, 486, 2, 1, true);
+	viper_w(0x0a, 0x0000);
+	reg_w(dc323_device::REG_SOURCE2_X, 400);
+	reg_w(dc323_device::REG_SOURCE2_Y, 400);
+	reg_w(dc323_device::REG_SOURCE2_SIZE, 0x0080); // tiling disabled
+	reg_w(dc323_device::REG_X_CONTROL, 0x008f);
+	reg_w(dc323_device::REG_DESTINATION_X, 80);
+	reg_w(dc323_device::REG_DESTINATION_Y, 80);
+	reg_w(dc323_device::REG_SOURCE_Y, 86);
+	reg_w(dc323_device::REG_DESTINATION_SLOW_DX, 4);
+	reg_w(dc323_device::REG_HEIGHT, 2);
+	reg_w(dc323_device::REG_SOURCE_FAST_DX, 4);
+	reg_w(dc323_device::REG_SOURCE_SLOW_DY, 0);
+	reg_w(dc323_device::REG_COMMAND, 0x16c0);
+	expect_pixel(80, 82, true, "untiled source-2 baseline fill first stripe");
+	expect_pixel(80, 86, true, "untiled source-2 baseline fill second stripe");
+	expect_pixel(80, 81, false, "untiled source-2 baseline fill clear source row");
+	expect_pixel(81, 82, true, "untiled source-2 baseline fill follows edge A");
+	write_visual("source2-untiled-baseline-fill", 78, 78, 8, 12);
+	viper_w(0x0a, 0xffff);
+	reg_w(dc323_device::REG_SOURCE2_SIZE, 0x0000);
+	reg_w(dc323_device::REG_X_CONTROL, 0x0083);
 
 	// A polygon is submitted as a vector string.  After one paired edge
 	// command, the next pair starts at the previous A/B endpoints without

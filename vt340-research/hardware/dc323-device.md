@@ -100,8 +100,18 @@ unindexed destination address plus the source-2 origin. With tiling enabled,
 only the destination bits selected by the programmed power-of-two width and
 height participate, so the pattern remains phase-aligned across independently
 drawn objects. Destination indexing moves the write without moving the tile
-phase. Dual-source Viper routing and source-2 patterned polygon fill remain
-outside this bounded implementation.
+phase. The same source-2 addressing textures ordinary and baseline polygon
+fill spans, including chained fills supported by the retained edge state.
+
+When both bitmap sources are enabled, the two reads are separate Viper source
+cycles rather than a fixed Boolean combination. Command bit 2 selects CSR
+bank 0/1/2 or 4/5/6 for source 1, source 2, and destination respectively. For
+each source cycle, CSR bits 3-2 load the local read into Source, both masks, or
+Mask 2; bits 1-0 select the same targets for a value driven on the shared I/D
+bus; and bit 4 enables that Viper's shifted local read onto the bus. The model
+applies these routes per selected plane before the ordinary logic-unit write.
+This supports local Source/Mask routing, either CSR bank, cross-plane I/D-bus
+broadcast, and the same routing in normal and linear-pattern modes.
 
 The two programmable error registers offset Bresenham initialization from its
 normal negative major-axis magnitude. `ERR1` controls the destination slow
@@ -161,8 +171,9 @@ control remains observable through the separate DUART/connector traces.
 - Whether the retained synchronous raster completion ordering is correct.
 - Whether the four retained per-plane Viper datapaths should become standalone
   DC322 subdevices after their remaining timing and pipeline behavior is known.
-- Dual-source Viper routing, source-2 patterned fill, and raster-phase
-  selection between old and new indexes.
+- Exact word-level Viper barrel-shifter/delay-register behavior and electrical
+  contention when more than one selected Viper drives the I/D bus.
+- Raster-phase selection between old and new indexes.
 - Exact right-edge word and mask behavior when `SCROLL_X_MAX` is aligned.
 - Scroll request queuing or overwrite behavior when register `14` is loaded
   more than once before a frame event.

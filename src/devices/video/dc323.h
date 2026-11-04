@@ -132,6 +132,8 @@ private:
 	void execute_linear_pattern(u16 command);
 	void execute_fill(u16 command);
 	void execute_scroll();
+	void route_source_cycle(unsigned csr, unsigned destination_x, std::array<bool, BITMAP_PLANES> const &source_bits);
+	void load_viper_bit(unsigned plane, unsigned target, unsigned word_bit, bool data);
 	void write_viper_pixel(unsigned plane, unsigned x, unsigned y, u16 command, bool source_bit);
 	void update_interrupt(char const *event);
 
