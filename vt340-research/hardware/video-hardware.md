@@ -212,8 +212,9 @@ A complete 300-second command trace is documented in
 rasterops with destination enabled and both memory sources disabled.  Dragon
 defines this as a constant-source operation; the Viper source register supplies
 the constant and the selected logic function combines it with destination.
-The driver now executes that documented class.  Source 2 and non-normal modes
-remain unsupported.
+The driver now executes that documented class. Normal-mode source-2-only
+rasters also support destination-relative and tiled addressing; dual-source
+combination and source-2 patterned fills remain unsupported.
 
 The six late zero-source clears target `(0,522)` at `800x20` and `(0,1506)` at
 `800x24`.  Both bands were already clear, so the corrected commands change no

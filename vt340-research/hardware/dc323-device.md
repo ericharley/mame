@@ -57,6 +57,7 @@ special registers are:
 | `0e-14` | Scroll bounds, offset, and frame-pending Y command |
 | `15-1a` | Pending, new, and old X/Y index values and frame-boundary promotion |
 | `22-29` | Source, destination, width, and height parameters |
+| `2c-2e` | Source-2 origin and power-of-two tile dimensions |
 
 Status bits remain sticky until acknowledged.  Raster command functions 2 and
 3 retain the existing initialization/completion/address sequencing.  A
@@ -92,6 +93,14 @@ and the pending pair becomes new. Because the current scroll backend moves a
 whole region atomically at that boundary, post-frame drawing uses the new
 pair; selecting old versus new while a physical scan is partway through a
 scroll remains a timing-model boundary.
+
+Normal-mode source-2-only rasters derive their source address from the
+unindexed destination address plus the source-2 origin. With tiling enabled,
+only the destination bits selected by the programmed power-of-two width and
+height participate, so the pattern remains phase-aligned across independently
+drawn objects. Destination indexing moves the write without moving the tile
+phase. Dual-source Viper routing and source-2 patterned polygon fill remain
+outside this bounded implementation.
 
 Fill mode `11` now has bounded functional coverage. Basic X/Y two-edge fills
 use the destination slow generator as edge A and the source-1 generator as
@@ -144,7 +153,8 @@ control remains observable through the separate DUART/connector traces.
 - Whether the retained synchronous raster completion ordering is correct.
 - Whether the four retained per-plane Viper datapaths should become standalone
   DC322 subdevices after their remaining timing and pipeline behavior is known.
-- Source-2 behavior and raster-phase selection between old and new indexes.
+- Dual-source Viper routing, source-2 patterned fill, and raster-phase
+  selection between old and new indexes.
 - Exact right-edge word and mask behavior when `SCROLL_X_MAX` is aligned.
 - Scroll request queuing or overwrite behavior when register `14` is loaded
   more than once before a frame event.

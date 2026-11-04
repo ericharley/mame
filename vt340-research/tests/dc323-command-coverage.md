@@ -25,7 +25,7 @@ read-back result; **negative** verifies a no-draw/unsupported boundary; and
 | `raster.fill-two-edge` — X/Y two-edge fill | op=2 D=1 S1=0 S2=0, X-control mode 11, baseline=0 | partial | direct | `dc323-device` (direct) | Only edge pairs with equal duration and matching scan coordinates are implemented. |
 | `raster.fill-baseline` — X/Y baseline fill | op=2 D=1 S1=0 S2=0, X-control mode 11, baseline=1 | partial | direct | `dc323-device` (direct) | Hardware comparison and complement interactions remain. |
 | `raster.fill-chained` — Chained polygon fill edges | successive op=2 fill commands without origin reload | partial | direct | `dc323-device` (direct) | Partially expired and crossing edge continuation is not implemented. |
-| `raster.source2` — Raster source 2 | op=2 S2=1 | unsupported | none | — | Source selection and combination semantics are unknown. |
+| `raster.source2` — Raster source 2 | op=2 S2=1 | partial | direct | `dc323-device` (direct) | Normal-mode source-2-only offset and tiled addressing are implemented; dual-source Viper routing and patterned fill remain. |
 | `transfer.bitmap-to-processor-x` — X-mode bitmap-to-processor transfer | op=3 D=0 S1=1 | partial | direct | `dc323-device` (direct); `phase4-pbt-transfer` (integration) | Six-entry FIFO occupancy and asynchronous timing are not modeled. |
 | `transfer.processor-to-bitmap-x` — X-mode processor-to-bitmap transfer | op=3 D=1 S1=0 | partial | direct | `dc323-device` (direct); `sixel-bill-pty` (integration); `sixel-color-indices` (integration); `vt340test-corpus/sixel-editing` (integration); `vt340test-corpus/sixel-line-attributes` (integration); `vt340test-corpus/sixel-overlap` (integration); `vt340test-corpus/sixel-raster-size` (integration); `vt340test-corpus/sixel-repeat` (integration); `vt340test-corpus/sixel-scrolling` (integration) | Six-entry FIFO occupancy and asynchronous timing are not modeled. |
 | `transfer.z-mode` — Z-mode processor/bitmap transfer | op=3 with Z-mode selection | unsupported | none | — | Z addressing and transfer semantics are not implemented. |
@@ -48,6 +48,7 @@ read-back result; **negative** verifies a no-draw/unsupported boundary; and
 | `dc323-device` | direct | `raster.normal-hole-fill` | Compares rotated broad vectors with hole filling off and on at exact interior pixels. |
 | `dc323-device` | direct | `raster.normal-indexed` | Checks independent source and destination indexing, signed offsets, and pending/new/old frame rollover. |
 | `dc323-device` | direct | `raster.reserved-mode` | Verifies X-control mode 01 produces no drawing. |
+| `dc323-device` | direct | `raster.source2` | Checks normal-mode source-2-only copies, destination-index independence, 4x4 tiling, and unsupported dual-source/fill boundaries. |
 | `dc323-device` | direct | `scroll.frame-service` | Checks deferred up/down scroll, erase, edge masks, offsets, and pending-command replacement. |
 | `dc323-device` | direct | `transfer.bitmap-to-processor-x` | Checks selected-plane packing, I/D readback, and completion status. |
 | `dc323-device` | direct | `transfer.processor-to-bitmap-x` | Checks aligned and unaligned writes, masks, CSR routing, and completion status. |

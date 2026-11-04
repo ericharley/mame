@@ -124,9 +124,9 @@
       "id": "raster.source2",
       "title": "Raster source 2",
       "encoding": "op=2 S2=1",
-      "status": "unsupported",
-      "required_level": "none",
-      "remaining": "Source selection and combination semantics are unknown."
+      "status": "partial",
+      "required_level": "direct",
+      "remaining": "Normal-mode source-2-only offset and tiled addressing are implemented; dual-source Viper routing and patterned fill remain."
     },
     {
       "id": "transfer.bitmap-to-processor-x",
