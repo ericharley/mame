@@ -100,6 +100,7 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	reg_w(0x30, 0xa55a);
 	require(m_dc323->register_r(0x30) == 0xa55a, "16-bit register retention");
 	require(m_dc323->read(0x30) == 0x5a, "low data-bus readback");
+	reg_w(dc323_device::REG_ERROR_2, 0);
 	m_dc323->frame_event();
 	require((m_dc323->status_r() &
 		(dc323_device::STATUS_PAUSE_COMPLETE | dc323_device::STATUS_SCROLL_SERVICE)) == 0,
@@ -467,6 +468,32 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	expect_pixel(23, 22, true, "Bresenham final selected point");
 	expect_pixel(24, 22, false, "Bresenham excludes vector endpoint");
 
+	// ERR2 offsets fast-vector error initialization. A negative half-major
+	// adjustment delays each minor-axis step of this 4x2 vector.
+	m_dc323->bitmap_clear();
+	reg_w(dc323_device::REG_ERROR_2, 0x3ffc); // -4
+	reg_w(dc323_device::REG_COMMAND, 0x06c0);
+	expect_pixel(20, 20, true, "ERR2 fast vector retains origin");
+	expect_pixel(21, 20, true, "negative ERR2 delays first fast minor step");
+	expect_pixel(21, 21, false, "negative ERR2 removes unadjusted fast point");
+	expect_pixel(23, 21, true, "negative ERR2 delays final fast minor step");
+
+	// ERR1 independently offsets the destination slow-vector generator.
+	m_dc323->bitmap_clear();
+	reg_w(dc323_device::REG_ERROR_2, 0);
+	reg_w(dc323_device::REG_ERROR_1, 0x3ffc); // -4
+	reg_w(dc323_device::REG_DESTINATION_X, 30);
+	reg_w(dc323_device::REG_DESTINATION_Y, 30);
+	reg_w(dc323_device::REG_WIDTH, 1);
+	reg_w(dc323_device::REG_DESTINATION_FAST_DY, 0);
+	reg_w(dc323_device::REG_DESTINATION_SLOW_DX, 2);
+	reg_w(dc323_device::REG_HEIGHT, 4);
+	reg_w(dc323_device::REG_COMMAND, 0x06c0);
+	expect_pixel(30, 31, true, "negative ERR1 delays first slow minor step");
+	expect_pixel(31, 31, false, "negative ERR1 removes unadjusted slow point");
+	expect_pixel(31, 33, true, "negative ERR1 retains delayed slow progression");
+	reg_w(dc323_device::REG_ERROR_1, 0);
+
 	// Operation-2 diagnostic forms with the destination disabled must not
 	// modify bitmap memory even when the remaining raster state is drawable.
 	m_dc323->bitmap_clear();
@@ -525,6 +552,25 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	expect_pixel(49, 50, false, "two-edge X fill left exterior");
 	expect_pixel(55, 50, false, "two-edge X fill right exterior");
 	expect_pixel(50, 54, false, "two-edge X fill excludes edge endpoint");
+
+	// Fill maps ERR1 to destination edge A and ERR2 to source edge B. Opposite
+	// adjustments therefore widen selected scans independently on either side.
+	m_dc323->bitmap_clear();
+	reg_w(dc323_device::REG_DESTINATION_X, 50);
+	reg_w(dc323_device::REG_DESTINATION_Y, 100);
+	reg_w(dc323_device::REG_SOURCE_X, 60);
+	reg_w(dc323_device::REG_DESTINATION_SLOW_DX, 2);
+	reg_w(dc323_device::REG_HEIGHT, 4);
+	reg_w(dc323_device::REG_SOURCE_FAST_DX, 2);
+	reg_w(dc323_device::REG_SOURCE_SLOW_DY, 4);
+	reg_w(dc323_device::REG_ERROR_1, 0x3ffc); // -4 delays edge A
+	reg_w(dc323_device::REG_ERROR_2, 4);      // +4 advances edge B
+	reg_w(dc323_device::REG_COMMAND, 0x06c0);
+	expect_pixel(50, 101, true, "ERR1 independently delays fill edge A");
+	expect_pixel(62, 102, true, "ERR2 independently advances fill edge B");
+	expect_pixel(63, 102, false, "fill error adjustment preserves exterior");
+	reg_w(dc323_device::REG_ERROR_1, 0);
+	reg_w(dc323_device::REG_ERROR_2, 0);
 
 	// A polygon is submitted as a vector string.  After one paired edge
 	// command, the next pair starts at the previous A/B endpoints without

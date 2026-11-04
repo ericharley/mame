@@ -197,8 +197,9 @@ Some accepted commands still have incomplete semantics:
   indexes to enabled source and destination origins. Frame service promotes
   new values to old and pending values to new. The synchronous, atomic scroll
   model does not yet select old versus new indexes by physical raster phase.
-- Programmable Bresenham initial/error offsets are ignored; only the currently
-  reconstructed vector endpoints and steps affect traversal.
+- Programmable signed Bresenham error offsets now initialize destination fast
+  and slow vectors and fill edges B and A, respectively. Extreme overflow
+  behavior has not been compared with physical silicon.
 - Overlapping bitmap copies always traverse top-to-bottom and left-to-right,
   which may not match command-controlled hardware scan direction.
 - PTB/PBT completion is functional but synchronous and does not reproduce the
@@ -215,9 +216,9 @@ order unless a trace establishes a different dependency:
    constrain them. The
    current ReGIS `F(V...)` probe uses normal spans and does not validate DC323
    fill mode.
-2. **Programmable raster error offsets and raster-phase index selection.**
-   These affect oblique-vector accuracy and updates made while a physical
-   scroll is partway through the frame.
+2. **Raster-phase index selection.** This affects updates made while a
+   physical scroll is partway through the frame; the documented programmable
+   raster error offsets are now implemented independently of that timing work.
 3. **Complete linear-pattern semantics.** Add full scaling and retained phase
    behavior after identifying firmware paths that constrain them; do not
    invent behavior for the documented-illegal source-free encoding.

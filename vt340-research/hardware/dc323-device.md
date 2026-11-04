@@ -58,6 +58,7 @@ special registers are:
 | `15-1a` | Pending, new, and old X/Y index values and frame-boundary promotion |
 | `22-29` | Source, destination, width, and height parameters |
 | `2c-2e` | Source-2 origin and power-of-two tile dimensions |
+| `2f-30` | Signed Bresenham error adjustments for the two vector generators |
 
 Status bits remain sticky until acknowledged.  Raster command functions 2 and
 3 retain the existing initialization/completion/address sequencing.  A
@@ -101,6 +102,13 @@ height participate, so the pattern remains phase-aligned across independently
 drawn objects. Destination indexing moves the write without moving the tile
 phase. Dual-source Viper routing and source-2 patterned polygon fill remain
 outside this bounded implementation.
+
+The two programmable error registers offset Bresenham initialization from its
+normal negative major-axis magnitude. `ERR1` controls the destination slow
+vector and fill edge A; `ERR2` controls the destination fast vector and fill
+edge B. The same mapping applies to linear-pattern destinations. This permits
+firmware to shift the center line of an oblique vector without changing its
+slope or endpoints.
 
 Fill mode `11` now has bounded functional coverage. Basic X/Y two-edge fills
 use the destination slow generator as edge A and the source-1 generator as
