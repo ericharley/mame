@@ -53,6 +53,7 @@
 !/LICENSE
 /.idea
 .vscode
+*-BBEditPreviewTemp.md.html
 docs/build
 docs/source/_build
 regtests/chdman/temp

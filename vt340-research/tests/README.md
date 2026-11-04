@@ -19,6 +19,7 @@ vt340-research/tests/run.py run core
 vt340-research/tests/run.py run graphics serial
 vt340-research/tests/run.py run conformance
 vt340-research/tests/run.py run dc323-device graphics-raster-commands
+vt340-research/tests/run.py run dc323-command-coverage
 
 # Use another targeted executable or result location.
 vt340-research/tests/run.py run core --binary ./vt340 \
@@ -102,6 +103,27 @@ file is represented in the manifest and that every manifest script exists.
 Adding or removing a test therefore requires updating the catalog in the same
 change.
 
+## DC323 command coverage
+
+`dc323-command-catalog.json` is the canonical inventory of implemented,
+partial, no-op, and unsupported command families. Tests declare only the
+families whose behavior they actually assert using a `dc323_commands` list;
+individual external-corpus cases make the same declaration in
+`vt340test-cases.json`.
+
+`dc323-command-coverage.sh` validates those declarations and the required
+coverage strength, then checks the generated `dc323-command-coverage.md`
+matrix. Moving a family from unsupported to partial or implemented therefore
+requires appropriate direct or integration coverage in the same change. A
+command merely present during boot is `observed`, not functional coverage.
+
+Regenerate the human-readable matrix after editing command status or claims:
+
+```sh
+python3 vt340-research/tests/lib/dc323_coverage.py --write
+vt340-research/tests/dc323-command-coverage.sh
+```
+
 ## Principal suites
 
 | Suite | Purpose |
@@ -112,6 +134,7 @@ change.
 | `startup` | Boot, POST, mailbox, and processor synchronization |
 | `graphics` | Raster, Set-Up, color, and SIXEL behavior |
 | `conformance` | Selected programs from the external `vt340test` behavior corpus |
+| `gallery` | Tracked screenshots, animations, and provenance checks |
 | `serial` | UART diagnostics, connectors, and PTY transport |
 | `persistence` | E80 configuration persistence |
 | `historical` | Sprint-specific evidence that remains reproducible |
@@ -137,3 +160,7 @@ revision and individual file hashes are pinned in `vt340test-cases.json`, so
 unrelated edits in that checkout do not silently change a regression. See
 `vt340test-coverage.md` for the reviewed inventory, current coverage, and the
 groups that still need bidirectional or interactive test support.
+
+The curated visual showcase lives in `../gallery/README.md`. Its `gallery`
+suite verifies that every tracked PNG/GIF is declared, linked, dimensionally
+valid, and byte-identical to its recorded provenance hash.

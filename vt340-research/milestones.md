@@ -1,5 +1,21 @@
 # Milestones
 
+Reviewed: 2026-11-04.
+
+The native target runs the original firmware through successful POST and
+interactive text, ReGIS, and color SIXEL sessions. A packaged WebAssembly
+preview also runs in Chromium with a WebSocket-to-PTY bridge and persistent
+browser settings. The authentic fast startup handshake remains unresolved;
+normal cold boot still reaches success through the firmware's roughly
+120-second timeout. An optional fast-start ROM patch is a separate convenience,
+not completion of that hardware milestone.
+
+Checked items below record achieved checkpoints, not complete hardware
+conformance. Validation references describe recorded evidence; this document
+review did not rerun the native regression suites.
+
+## Firmware, hardware, and native display
+
 - [x] Retrieve E1-E5 and E49 from the VT340 Internals archive.
 - [x] Record reproducible size, CRC32, SHA-1, and SHA-256 values.
 - [x] Identify E57 and E24 as 8031 processors clocked from 12 MHz.
@@ -49,8 +65,10 @@
   indirect handler dispatch without a synthetic stack frame.
 - [x] Replace CPU1's provisional serial-register bytes with SCN2681 and
   SCN2641 devices and connect their documented INT0/INT1 lines.
-- [x] Keep CPU1 stable through its normal serial-service burst by providing
-  the upper indirect RAM the ROM demonstrably uses through address `8c`.
+- [x] Investigate CPU1's serial-service stack excursion through address `8c`
+  using an upper-indirect-RAM compatibility experiment. The I8032 workaround
+  was subsequently removed; the schematic-correct I8031 remains in use and
+  the excursion remains an open hardware risk.
 - [x] Trace the stable loop's `0ec0` glyph stream and confirm that its final
   blank-glyph/logic-`81` sweep intentionally clears all four visible planes.
 - [x] Reach the documented successful power-up display (`VT340 OK`, firmware
@@ -63,3 +81,61 @@
 - [x] Hold unconnected SCN2681 and SCN2641 receive inputs at the serial marking
   level instead of allowing a zero-initialized break condition.
 - [ ] Remove the monochrome fallback after firmware initialization of all displayed entries is understood.
+
+## Interactive terminal and graphics
+
+- [x] Exercise the ROM-driven LK201 keyboard and interactive PTY shell sessions.
+- [x] Expose Comm 1 and Comm 2 through MAME RS-232 endpoints.
+- [x] Support firmware Set-Up and persistent E80/X2804 NVRAM settings.
+- [x] Exercise text scrolling, return from Set-Up, ReGIS, and color SIXEL.
+- [x] Render the complete color Bill SIXEL fixture through the PTY acceptance
+  path, with byte-level transport comparison.
+- [x] Extract DC323 and DC7051 into standalone devices with focused regressions.
+- [x] Provide an optional fast-start ROM patch with a separate regression.
+- [x] Add native 2×/4× prescaling and smoothing launch options.
+- [x] Catalog native tests with a common runner and retained evidence.
+
+## Browser / WebAssembly preview
+
+- [x] Build the targeted VT340 runtime with Emscripten 6.0.2 and SDL3.
+- [x] Correct browser SDL3 renderer registration and newer-Chromium memory compatibility.
+- [x] Package VT340/LK201 ROMs, a 512-byte EEPROM seed, and keyboard settings.
+  Generated ROM-containing packages remain private and ignored by Git.
+- [x] Add scale/smoothing controls and a raw binary WebSocket serial adapter.
+- [x] Provide a loopback PTY bridge with session-token and same-origin checks.
+- [x] Verify browser keyboard input and shell output with `echo ok`.
+- [x] Verify all 256 byte values through the PTY bridge independently of the emulator.
+- [x] Flush EEPROM/configuration on explicit stop and persist files in IndexedDB;
+  verify storage survives reload. Closing a tab alone is not a save step.
+- [x] Provide SSH launch mode using the bridge host's system SSH client.
+- [ ] Validate SSH login against an actual remote destination.
+- [ ] Validate SIXEL/ReGIS transport end to end in the browser.
+- [ ] Expand browser compatibility and scale/performance coverage beyond the
+  current Chromium checks.
+
+The measured runtime is approximately 21 MiB; the ZIP with assets is about
+4.9 MiB. SSH uses the companion bridge. This remains a local development
+preview, not an internet-facing terminal service. See [browser instructions
+and validation](browser/README.md).
+
+## Remaining priorities and validation
+
+- Resolve the authentic DAT9/`7ff2` startup race without forcing firmware
+  decisions or treating the optional fast-start patch as a hardware fix.
+- Complete unsupported raster modes, palette behavior, and the focused device
+  correctness work in [the DC323 assessment](hardware/dc323-next-steps.md).
+- Retain the existing open hardware risks documented in
+  [sprint status](SPRINT_STATUS.md) and [project summary](PROJECT_SUMMARY.md).
+- Validate remote SSH and browser graphics transport separately from native
+  graphics acceptance. Successful terminal text does not prove graphics conformance.
+
+Native test inventory and recorded evidence are described in
+[the test guide](tests/README.md). From the MAME checkout root, run the default
+suite with:
+
+```sh
+vt340-research/tests/run.py run
+```
+
+Browser checks and their dependencies are documented in
+[browser validation](browser/README.md#validation).
