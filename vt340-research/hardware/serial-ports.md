@@ -86,7 +86,7 @@ with `ONLCR` enabled expands to CR/LF inside the DCS stream.
 Use the VT340 compatibility wrapper for in-place animations:
 
 ```sh
-vt340-research/tools/vt340-gnuplot /Users/harley/vt340_waves.gnuplot
+vt340-research/tools/vt340-gnuplot ./vt340_waves.gnuplot
 ```
 
 The wrapper changes only the SIXEL introducer's background parameter from

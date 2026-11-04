@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "id": "vt340-v1.1-research",
+  "system": "vt340",
+  "release": {
+    "display_name": "VT330/VT340 V1.1 research baseline",
+    "firmware_version": "V1.1",
+    "version_evidence": "Text embedded in E5 and the photographed VT330/340 V1.1 cartridge label",
+    "hardware": "DEC VT340 terminal control module with VT330/VT340 cartridge",
+    "date": null,
+    "part_number": null
+  },
+  "status": "working",
+  "composition": "composite research baseline",
+  "compatibility": {
+    "mame_system": "vt340",
+    "driver_rom_definition": "src/mame/dec/vt340.cpp",
+    "tested_result": "Native POST completes and displays VT340 OK",
+    "notes": "The cartridge ROMs, character generator, and EEPROM have compatible verified behavior, but are not proven to originate from the same physical unit."
+  },
+  "provenance": [
+    {
+      "components": ["E1", "E2", "E3", "E4", "E5", "E49"],
+      "acquired": "2026-10-26",
+      "page": "https://avitech.com.au/?page_id=1964",
+      "base_url": "https://www.avitech.com.au/mm-files/vt340/",
+      "source": "Malcolm Macleod physical VT340 dumps",
+      "notes": "Published E1-E5 files contain a one-byte-lag address artifact. The emulator preserves the source bytes and reconstructs recoverable boundaries during initialization."
+    },
+    {
+      "components": ["E80"],
+      "page": "https://www.9track.net/roms/",
+      "base_url": "https://www.9track.net/roms/files/dec/vt340/",
+      "source": "Physical VT340 EEPROM archive",
+      "notes": "Recovered 512-byte Xicor X2804AP-45 factory/default image."
+    }
+  ],
+  "images": [
+    {
+      "filename": "e1.bin",
+      "component": "E1",
+      "role": "cartridge ROM",
+      "size": 32768,
+      "crc32": "68b3cbde",
+      "sha1": "d51677c17e056c69a5864b1673f7887b24f50958",
+      "sha256": "66544299b3b045babb4c81f46412da74cd948430782a81a4a5f1ec112e5b9317",
+      "active_path": "vt340/e1.bin",
+      "dump_format": "published raw address-lagged dump"
+    },
+    {
+      "filename": "e2.bin",
+      "component": "E2",
+      "role": "cartridge ROM",
+      "size": 32768,
+      "crc32": "19f788f0",
+      "sha1": "f4018501fee8c429bc1148014f2d9bb97e8cfdcf",
+      "sha256": "b796c962e72026461f9761b60e9ec0487e464ecccc91a30042125572ffebce53",
+      "active_path": "vt340/e2.bin",
+      "dump_format": "published raw address-lagged dump"
+    },
+    {
+      "filename": "e3.bin",
+      "component": "E3",
+      "role": "cartridge ROM",
+      "size": 32768,
+      "crc32": "83919be1",
+      "sha1": "937b36e0475a8947a01d03c8e800c54a6461caf7",
+      "sha256": "55fb225855ac7a9e2c28a036c197c4e2625aae110ed70911b8bfb48ac392c9e0",
+      "active_path": "vt340/e3.bin",
+      "dump_format": "published raw address-lagged dump"
+    },
+    {
+      "filename": "e4.bin",
+      "component": "E4",
+      "role": "cartridge ROM",
+      "size": 32768,
+      "crc32": "d6eddc42",
+      "sha1": "df8097bcd04bd9fed5618d88cd0e0159f81c074b",
+      "sha256": "b9ed8e8201f4e5c40f9a359b4ca1b2c5a1792bc76405c9200a88d3a2ad5399ab",
+      "active_path": "vt340/e4.bin",
+      "dump_format": "published raw address-lagged dump"
+    },
+    {
+      "filename": "e5.bin",
+      "component": "E5",
+      "role": "cartridge ROM",
+      "size": 32768,
+      "crc32": "135c5c7c",
+      "sha1": "171d1582d6a62ec9fa8e42421693da6dac3b2a8a",
+      "sha256": "f9e190c824ee60f7d16bd29a2829042124982b642033746883c19554de4fb4dd",
+      "active_path": "vt340/e5.bin",
+      "dump_format": "published raw address-lagged dump"
+    },
+    {
+      "filename": "vt340e49.bin",
+      "component": "E49",
+      "role": "character-generator ROM",
+      "size": 32768,
+      "crc32": "38379339",
+      "sha1": "394e8511581abc796c8c612149eff280146b0ac8",
+      "sha256": "eb0426b403e8bcd4dc72b448f6253cad22cb30386b22d89b0b57667a901f135e",
+      "active_path": "vt340/vt340e49.bin",
+      "dump_format": "raw binary"
+    },
+    {
+      "filename": "e80.bin",
+      "source_filename": "23-001n2.bin",
+      "component": "E80",
+      "device": "Xicor X2804AP-45",
+      "role": "factory EEPROM image",
+      "size": 512,
+      "crc32": "d1fd44bb",
+      "sha1": "ffbdeeffb55374211a371a77ed633b780cd0f526",
+      "sha256": "1470ab44a5412341d384cb917e13b9ae1ba209b8b61041b2c5ad57d998cc55a8",
+      "active_path": "vt340/e80.bin",
+      "dump_format": "raw binary",
+      "notes": "Renamed to the MAME driver filename; source identity retained separately."
+    }
+  ]
+}

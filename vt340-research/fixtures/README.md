@@ -1,5 +1,9 @@
 # VT340 integration-test fixtures
 
+These are stable, tracked test inputs. Runnable tests reference them from
+`../tests/manifest.json`; generated logs, JSON events, screenshots, and hashes
+belong in the ignored `../test-results/` tree created by `../tests/run.py`.
+
 `bill-the-cat.six` is a 16-entry-palette, 330 by 440 SIXEL rendition used to
 exercise the VT340 firmware's native SIXEL parser and graphics-command path.
 The color acceptance test sends the original fixture through a raw Comm 1

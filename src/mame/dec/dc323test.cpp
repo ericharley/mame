@@ -357,6 +357,179 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	expect_pixel(23, 22, true, "Bresenham final selected point");
 	expect_pixel(24, 22, false, "Bresenham excludes vector endpoint");
 
+	// Mode 01 is reserved, not fill mode.
+	m_dc323->bitmap_clear();
+	reg_w(dc323_device::REG_X_CONTROL, 0x0081);
+	reg_w(dc323_device::REG_DESTINATION_X, 45);
+	reg_w(dc323_device::REG_DESTINATION_Y, 45);
+	reg_w(dc323_device::REG_WIDTH, 2);
+	reg_w(dc323_device::REG_HEIGHT, 2);
+	reg_w(dc323_device::REG_COMMAND, 0x06c0);
+	expect_pixel(45, 45, false, "reserved mode 01 does not draw");
+
+	// Fill mode uses the destination slow generator for edge A and the source
+	// generator for edge B.  X fill scans horizontally between two edges while
+	// advancing in Y; both edge pixels are included and the vector endpoints
+	// are excluded.
+	m_dc323->bitmap_clear();
+	viper_w(0x04, 0x00ca);
+	viper_w(0x08, 0xffff);
+	viper_w(0x09, 0xffff);
+	viper_w(0x0a, 0xffff);
+	reg_w(dc323_device::REG_X_CONTROL, 0x0083);
+	reg_w(dc323_device::REG_DESTINATION_X, 50);
+	reg_w(dc323_device::REG_DESTINATION_Y, 50);
+	reg_w(dc323_device::REG_SOURCE_X, 54);
+	reg_w(dc323_device::REG_SOURCE_Y, 0);
+	reg_w(dc323_device::REG_DESTINATION_SLOW_DX, 0);
+	reg_w(dc323_device::REG_HEIGHT, 4);
+	reg_w(dc323_device::REG_SOURCE_FAST_DX, 0);
+	reg_w(dc323_device::REG_SOURCE_SLOW_DY, 4);
+	reg_w(dc323_device::REG_COMMAND, 0x06c0);
+	for (unsigned y = 50; y < 54; y++)
+		for (unsigned x = 50; x <= 54; x++)
+			expect_pixel(x, y, true, "two-edge X fill interior");
+	expect_pixel(49, 50, false, "two-edge X fill left exterior");
+	expect_pixel(55, 50, false, "two-edge X fill right exterior");
+	expect_pixel(50, 54, false, "two-edge X fill excludes edge endpoint");
+
+	// A polygon is submitted as a vector string.  After one paired edge
+	// command, the next pair starts at the previous A/B endpoints without
+	// reloading either origin.  These two pairs form the upper and lower halves
+	// of a small diamond; the final endpoint remains excluded.
+	m_dc323->bitmap_clear();
+	reg_w(dc323_device::REG_DESTINATION_X, 100);
+	reg_w(dc323_device::REG_DESTINATION_Y, 100);
+	reg_w(dc323_device::REG_SOURCE_X, 100);
+	reg_w(dc323_device::REG_DESTINATION_SLOW_DX, 0x3ffc); // -4
+	reg_w(dc323_device::REG_HEIGHT, 4);
+	reg_w(dc323_device::REG_SOURCE_FAST_DX, 4);
+	reg_w(dc323_device::REG_SOURCE_SLOW_DY, 4);
+	reg_w(dc323_device::REG_COMMAND, 0x06c0);
+	reg_w(dc323_device::REG_DESTINATION_SLOW_DX, 4);
+	reg_w(dc323_device::REG_HEIGHT, 4);
+	reg_w(dc323_device::REG_SOURCE_FAST_DX, 0x3ffc); // -4
+	reg_w(dc323_device::REG_SOURCE_SLOW_DY, 4);
+	reg_w(dc323_device::REG_COMMAND, 0x06c0);
+	for (unsigned x = 96; x <= 104; x++)
+		expect_pixel(x, 104, true, "chained fill begins at previous edge endpoints");
+	for (unsigned x = 99; x <= 101; x++)
+		expect_pixel(x, 107, true, "chained fill converging edge pair");
+	expect_pixel(95, 104, false, "chained fill lower left exterior");
+	expect_pixel(105, 104, false, "chained fill lower right exterior");
+	expect_pixel(100, 108, false, "chained fill excludes final endpoint");
+
+	// Loading a destination origin terminates the prior vector string and
+	// initializes both edge positions for a new fill.
+	reg_w(dc323_device::REG_DESTINATION_X, 120);
+	reg_w(dc323_device::REG_DESTINATION_Y, 120);
+	reg_w(dc323_device::REG_SOURCE_X, 124);
+	reg_w(dc323_device::REG_DESTINATION_SLOW_DX, 0);
+	reg_w(dc323_device::REG_HEIGHT, 2);
+	reg_w(dc323_device::REG_SOURCE_FAST_DX, 0);
+	reg_w(dc323_device::REG_SOURCE_SLOW_DY, 2);
+	reg_w(dc323_device::REG_COMMAND, 0x06c0);
+	for (unsigned x = 120; x <= 124; x++)
+		expect_pixel(x, 120, true, "destination origin restarts fill string");
+	expect_pixel(100, 108, false, "restarted fill does not continue old string");
+
+	// Y fill swaps the axis roles: the source Y origin supplies edge B and the
+	// hardware scans vertically between the two horizontal edges.
+	m_dc323->bitmap_clear();
+	reg_w(dc323_device::REG_X_CONTROL, 0x0087);
+	reg_w(dc323_device::REG_DESTINATION_X, 60);
+	reg_w(dc323_device::REG_DESTINATION_Y, 60);
+	reg_w(dc323_device::REG_SOURCE_X, 0);
+	reg_w(dc323_device::REG_SOURCE_Y, 64);
+	reg_w(dc323_device::REG_DESTINATION_SLOW_DX, 4);
+	reg_w(dc323_device::REG_HEIGHT, 0);
+	reg_w(dc323_device::REG_SOURCE_FAST_DX, 4);
+	reg_w(dc323_device::REG_SOURCE_SLOW_DY, 0);
+	reg_w(dc323_device::REG_COMMAND, 0x06c0);
+	for (unsigned x = 60; x < 64; x++)
+		for (unsigned y = 60; y <= 64; y++)
+			expect_pixel(x, y, true, "two-edge Y fill interior");
+	expect_pixel(64, 60, false, "two-edge Y fill excludes edge endpoint");
+	expect_pixel(60, 65, false, "two-edge Y fill exterior");
+
+	// Chaining is axis-independent.  This is the same two-pair diamond with
+	// X/Y roles exchanged, ensuring both retained endpoints advance in Y-fill.
+	m_dc323->bitmap_clear();
+	reg_w(dc323_device::REG_DESTINATION_X, 100);
+	reg_w(dc323_device::REG_DESTINATION_Y, 100);
+	reg_w(dc323_device::REG_SOURCE_Y, 100);
+	reg_w(dc323_device::REG_DESTINATION_SLOW_DX, 4);
+	reg_w(dc323_device::REG_HEIGHT, 0x3ffc); // -4
+	reg_w(dc323_device::REG_SOURCE_FAST_DX, 4);
+	reg_w(dc323_device::REG_SOURCE_SLOW_DY, 4);
+	reg_w(dc323_device::REG_COMMAND, 0x06c0);
+	reg_w(dc323_device::REG_DESTINATION_SLOW_DX, 4);
+	reg_w(dc323_device::REG_HEIGHT, 4);
+	reg_w(dc323_device::REG_SOURCE_FAST_DX, 4);
+	reg_w(dc323_device::REG_SOURCE_SLOW_DY, 0x3ffc); // -4
+	reg_w(dc323_device::REG_COMMAND, 0x06c0);
+	for (unsigned y = 96; y <= 104; y++)
+		expect_pixel(104, y, true, "chained Y fill begins at prior endpoints");
+	for (unsigned y = 99; y <= 101; y++)
+		expect_pixel(107, y, true, "chained Y fill converging edge pair");
+	expect_pixel(104, 95, false, "chained Y fill upper exterior");
+	expect_pixel(104, 105, false, "chained Y fill lower exterior");
+	expect_pixel(108, 100, false, "chained Y fill excludes final endpoint");
+
+	// Baseline X fill locks edge B to the source X origin.  The source delta
+	// still identifies the scan duration but does not move the baseline.
+	m_dc323->bitmap_clear();
+	reg_w(dc323_device::REG_X_CONTROL, 0x008b);
+	reg_w(dc323_device::REG_DESTINATION_X, 70);
+	reg_w(dc323_device::REG_DESTINATION_Y, 70);
+	reg_w(dc323_device::REG_SOURCE_X, 76);
+	reg_w(dc323_device::REG_DESTINATION_SLOW_DX, 2);
+	reg_w(dc323_device::REG_HEIGHT, 4);
+	reg_w(dc323_device::REG_SOURCE_FAST_DX, 0);
+	reg_w(dc323_device::REG_SOURCE_SLOW_DY, 4);
+	reg_w(dc323_device::REG_COMMAND, 0x06c0);
+	for (unsigned x = 70; x <= 76; x++)
+		expect_pixel(x, 70, true, "baseline X fill first scan");
+	for (unsigned x = 71; x <= 76; x++)
+		expect_pixel(x, 71, true, "baseline X fill sloped scan");
+	expect_pixel(70, 71, false, "baseline X fill follows edge A");
+
+	// Baseline Y fill uses the source Y origin as its fixed horizontal edge.
+	m_dc323->bitmap_clear();
+	reg_w(dc323_device::REG_X_CONTROL, 0x008f);
+	reg_w(dc323_device::REG_DESTINATION_X, 80);
+	reg_w(dc323_device::REG_DESTINATION_Y, 80);
+	reg_w(dc323_device::REG_SOURCE_Y, 86);
+	reg_w(dc323_device::REG_DESTINATION_SLOW_DX, 4);
+	reg_w(dc323_device::REG_HEIGHT, 2);
+	reg_w(dc323_device::REG_SOURCE_FAST_DX, 4);
+	reg_w(dc323_device::REG_SOURCE_SLOW_DY, 0);
+	reg_w(dc323_device::REG_COMMAND, 0x06c0);
+	for (unsigned y = 80; y <= 86; y++)
+		expect_pixel(80, y, true, "baseline Y fill first scan");
+	for (unsigned y = 81; y <= 86; y++)
+		expect_pixel(81, y, true, "baseline Y fill sloped scan");
+	expect_pixel(81, 80, false, "baseline Y fill follows edge A");
+
+	// The independent fast and slow Bresenham paths can leave holes inside a
+	// broad rotated constant-source parallelogram.  Mode bit 4 requests the
+	// Adder's hole-filling scan modification.
+	m_dc323->bitmap_clear();
+	reg_w(dc323_device::REG_X_CONTROL, 0x0080);
+	reg_w(dc323_device::REG_DESTINATION_X, 100);
+	reg_w(dc323_device::REG_DESTINATION_Y, 100);
+	reg_w(dc323_device::REG_WIDTH, 4);
+	reg_w(dc323_device::REG_DESTINATION_FAST_DY, 2);
+	reg_w(dc323_device::REG_DESTINATION_SLOW_DX, 0x3ffe); // -2
+	reg_w(dc323_device::REG_HEIGHT, 4);
+	reg_w(dc323_device::REG_COMMAND, 0x06c0);
+	expect_pixel(100, 101, false, "rotated broad vector exposes hole when disabled");
+	m_dc323->bitmap_clear();
+	reg_w(dc323_device::REG_X_CONTROL, 0x0090);
+	reg_w(dc323_device::REG_COMMAND, 0x06c0);
+	expect_pixel(100, 101, true, "hole fill repairs first interior gap");
+	expect_pixel(102, 102, true, "hole fill repairs second interior gap");
+
 	// Linear-pattern mode uses the same destination vector generators.  This
 	// rotated 1x4 operation is the form used for ReGIS grid lines.
 	m_dc323->bitmap_clear();

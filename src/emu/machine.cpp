@@ -1433,7 +1433,12 @@ void running_machine::emscripten_main_loop()
 	// cancel the emscripten loop if the system has been told to exit
 	if (machine->exit_pending())
 	{
+		// The browser main loop never returns through run()'s native cleanup.
+		if (machine->options().nvram_save())
+			machine->nvram_save();
+		machine->m_configuration->save_settings();
 		emscripten_cancel_main_loop();
+		EM_ASM({ if (Module.onEmulatorStopped) Module.onEmulatorStopped(); });
 	}
 }
 

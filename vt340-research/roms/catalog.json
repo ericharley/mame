@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "binary_root": "roms",
+  "description": "Tracked catalog for local, untracked VT340-family ROM images",
+  "sets": [
+    {
+      "id": "vt340-v1.1-research",
+      "system": "vt340",
+      "title": "VT330/VT340 V1.1 research baseline",
+      "manifest": "sets/vt340-v1.1-research.json",
+      "library_path": "library/vt340/v1.1-research"
+    },
+    {
+      "id": "lk201-mame-reference",
+      "system": "lk201",
+      "title": "LK201 MAME reference ROM pair",
+      "manifest": "sets/lk201-mame-reference.json",
+      "library_path": "library/lk201/mame-reference"
+    }
+  ],
+  "profiles": [
+    {
+      "id": "vt340-v1.1-working",
+      "title": "Current working VT340 V1.1 emulator profile",
+      "sets": ["vt340-v1.1-research", "lk201-mame-reference"],
+      "status": "default",
+      "notes": "This is a verified emulator baseline, not a claim that E1-E5, E49, E80, and both LK201 alternatives were dumped from one physical terminal."
+    }
+  ]
+}

@@ -1,9 +1,22 @@
-# Building and inspecting the first-stage driver
+# Building and inspecting the VT340 research driver
+
+## Prerequisites
+
+Use the normal MAME build prerequisites for the host platform. The targeted
+macOS build used Homebrew SDL 3 and `pkgconf`; if Homebrew is installed under
+`/opt/homebrew`, place that directory on `PATH` before building:
+
+```sh
+export PATH="/opt/homebrew/bin:$PATH"
+```
+
+The build itself does not depend on that absolute path. Set `JOBS` to choose
+the desired parallelism.
 
 From the MAME checkout root:
 
 ```sh
-PATH="/opt/homebrew/bin:$PATH" make -j4 REGENIE=1 USE_LIBSDL=1 \
+make -j"${JOBS:-4}" REGENIE=1 USE_LIBSDL=1 \
   SUBTARGET=vt340 \
   SOURCES=src/mame/dec/vt340.cpp,src/mame/dec/lk201.cpp \
   MACHINES='68681,SCN_PCI,EEPROMDEV'
@@ -12,10 +25,28 @@ PATH="/opt/homebrew/bin:$PATH" make -j4 REGENIE=1 USE_LIBSDL=1 \
 ./vt340 vt340 -rompath roms -video none -sound none -seconds_to_run 1
 ```
 
-The full LK201 device requires `roms/lk201.zip`. The expected files and SHA-1
-values are `23-001s9-00.bin` (`a11ae004d2d6055d7279da3560c3e56610a19fdb`)
-and `23-004m2.8051h.e1` (`9744c561d76fe85afaccc7a2485ce2865236873a`).
-ROM archives remain local and ignored by Git.
+The tracked ROM catalog is under `vt340-research/roms/`; copyrighted images
+remain local and ignored by Git. The current working profile combines the
+VT330/VT340 V1.1 research set with the LK201 MAME reference set. Import an
+existing MAME layout and verify both copies with:
+
+```sh
+vt340-research/tools/rom_catalog.py import-current
+vt340-research/tools/rom_catalog.py verify
+vt340-research/tools/rom_catalog.py verify --location active
+```
+
+The versioned local copies live under `roms/library/`. To restore the standard
+MAME layout from that library:
+
+```sh
+vt340-research/tools/rom_catalog.py activate vt340-v1.1-working
+```
+
+Activation creates `roms/vt340/` and `roms/lk201.zip`; other MAME ROM sets are
+untouched. Exact component names, sizes, hashes, provenance, and the distinction
+between the later 6805 and earlier 8051H LK201 images are recorded in the set
+manifests. See `roms/README.md` before adding another firmware version.
 
 E80 is backed by MAME's X2804 device. Its recovered ROM image supplies the
 factory default on the first run, and later firmware writes are stored in the
@@ -27,6 +58,20 @@ Settings** action before exiting when settings have been changed.
 macOS setup uses Homebrew `sdl3` and `pkgconf`.  A shallow MAME checkout may
 print `fatal: No names found, cannot describe anything.` while deriving its
 version; this did not prevent a successful build.
+
+## Startup modes
+
+The default configuration preserves the original ROM and its approximately
+120-second timeout fallback. To exercise the optional fast-start configuration
+without changing the normal user configuration or NVRAM, run:
+
+```sh
+vt340-research/tests/fast-start.sh ./vt340
+```
+
+The patch changes one ROM operand at reset and recomputes the firmware checksum.
+The later native result wait and success validation remain active. Its exact
+scope and limitations are documented in `firmware/fast-start-patch.md`.
 
 For external bus and port tracing, temporarily set `VERBOSE` in `vt340.cpp`
 to `LOG_PORTS | LOG_XDATA`, rebuild, and preserve `error.log`.  This is a
@@ -61,8 +106,9 @@ The first logs bounded register snapshots at CPU1 `09e4`; the second writes
 localizing the current graphics-initialization loop.  Trace files can grow
 quickly; always use a bounded run and keep generated output unversioned.
 
-The ROM files live in `roms/vt340/` and remain ignored by Git.  Their verified
-digests and source URLs are recorded in `firmware/manifest.json`.
+The active ROM files live in `roms/vt340/` and remain ignored by Git. Their
+versioned local sources live under `roms/library/`; verified digests and source
+URLs are recorded in `roms/sets/`.
 
 ### Scaled, smoothed display
 

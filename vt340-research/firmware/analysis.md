@@ -8,9 +8,10 @@
 
 ## Inventory
 
-All six available images are exactly 32 KiB.  Recompute their SHA-256, SHA-1,
-and CRC32 values with `tools/inspect_roms.py`; canonical values and provenance
-are in `manifest.json`.  E80 is not available and is not synthesized.
+At this historical checkpoint, all six available images were exactly 32 KiB
+and E80 had not yet been acquired. The later recovered E80 image and canonical
+hashes/provenance for every current set are recorded in `../roms/catalog.json`
+and `../roms/sets/`. Recompute raw-image hashes with `tools/inspect_roms.py`.
 
 ## CPU assignment and program map
 
