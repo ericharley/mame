@@ -181,7 +181,7 @@ matrix describes the behavior in `dc323.cpp` as of this checkpoint:
 | Operation 2 with destination disabled | No drawing | Currently rejected; observed instances have been diagnostic forms rather than proven missing visible work |
 | X-control mode `01` | Reserved | No drawing behavior should be inferred without contrary hardware evidence |
 | Linear-pattern mode (`X-control[1:0] = 10`) with source 1 | Partial | Repeats a bitmap pattern using signed source/destination vectors |
-| Linear-pattern mode without source 1 | Unsupported | Constant-source and other input forms are rejected |
+| Linear-pattern mode without source 1 | Illegal/no drawing | Dragon defines the mode around source 1 and warns that unlisted command combinations are undefined; no constant-pattern behavior is invented |
 | Fill mode (`X-control[1:0] = 11`) | Partial | Basic and baseline X/Y fills execute; equal-duration paired edges chain from retained endpoints, while independent vector expiration and crossing edges remain |
 | Operation 3, source 1 enabled and destination disabled | Partial | X-mode bitmap-to-processor transfer works; exact FIFO/timing and Z mode are missing |
 | Operation 3, source 1 disabled and destination enabled | Partial | X-mode processor-to-bitmap transfer works; exact FIFO/timing and Z mode are missing |
@@ -193,10 +193,10 @@ Some accepted commands still have incomplete semantics:
   Destination-only/constant-source broad parallelograms repair holes between
   occupied scanline endpoints; source-coupled hole pixels and exact silicon
   edge cases remain unresolved.
-- Normal-mode indexed commands execute only when all old/new index registers
-  are zero. Nonzero indexed-coordinate translation is rejected.
-- Linear-pattern mode applies the new destination index when selected, but
-  source/old-index behavior and the complete index rules are missing.
+- Normal and linear-pattern commands independently apply the signed new X/Y
+  indexes to enabled source and destination origins. Frame service promotes
+  new values to old and pending values to new. The synchronous, atomic scroll
+  model does not yet select old versus new indexes by physical raster phase.
 - Programmable Bresenham initial/error offsets are ignored; only the currently
   reconstructed vector endpoints and steps affect traversal.
 - Overlapping bitmap copies always traverse top-to-bottom and left-to-right,
@@ -215,11 +215,12 @@ order unless a trace establishes a different dependency:
    constrain them. The
    current ReGIS `F(V...)` probe uses normal spans and does not validate DC323
    fill mode.
-2. **Nonzero indexing and programmable raster error offsets.** These affect
-   placement and oblique-vector accuracy in otherwise supported commands.
-3. **Complete linear-pattern semantics.** Add constant/source selection,
-   scaling, and index behavior only after identifying the firmware paths that
-   request them.
+2. **Programmable raster error offsets and raster-phase index selection.**
+   These affect oblique-vector accuracy and updates made while a physical
+   scroll is partway through the frame.
+3. **Complete linear-pattern semantics.** Add full scaling and retained phase
+   behavior after identifying firmware paths that constrain them; do not
+   invent behavior for the documented-illegal source-free encoding.
 4. **Source 2.** Reconstruct and implement it when a destination-enabled use
    is observed; the historical cold boot contained none.
 5. **Z-mode transfers and exact FIFO/timing.** Treat functional transfer

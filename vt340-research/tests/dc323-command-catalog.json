@@ -60,9 +60,9 @@
       "id": "raster.normal-indexed",
       "title": "Normal raster with nonzero indexes",
       "encoding": "op=2, X-control index enabled, any old/new index nonzero",
-      "status": "unsupported",
-      "required_level": "none",
-      "remaining": "Coordinate translation and old/new index rules are not implemented."
+      "status": "partial",
+      "required_level": "direct",
+      "remaining": "The atomic frame model uses new indexes after frame service; raster-phase selection between old and new indexes remains."
     },
     {
       "id": "raster.destination-disabled",
@@ -86,15 +86,15 @@
       "encoding": "op=2 D=1 S1=1 S2=0, X-control mode 10",
       "status": "partial",
       "required_level": "direct",
-      "remaining": "Complete scale, old-index, and source-index rules remain."
+      "remaining": "Complete scaling, retained pattern phase, and raster-phase old/new index selection remain."
     },
     {
       "id": "raster.linear-constant",
-      "title": "Linear-pattern raster without source 1",
+      "title": "Source-free linear-pattern encoding",
       "encoding": "op=2 D=1 S1=0 S2=0, X-control mode 10",
-      "status": "unsupported",
-      "required_level": "none",
-      "remaining": "Constant/pattern selection semantics are not implemented."
+      "status": "no-op",
+      "required_level": "direct",
+      "remaining": "Dragon defines linear-pattern mode around source 1; the no-source form is an illegal command combination with undefined hardware results."
     },
     {
       "id": "raster.fill-two-edge",
