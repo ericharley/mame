@@ -7,6 +7,7 @@
     "device": "Firmware-free extracted-device tests",
     "startup": "Firmware boot, POST, and interprocessor tests",
     "graphics": "Text, raster, Set-Up, color, and SIXEL behavior",
+    "conformance": "External hardware-observed VT340 behavior corpus",
     "serial": "Serial device and connector diagnostics",
     "persistence": "Configuration and nonvolatile storage",
     "historical": "Sprint closeout and compatibility evidence",
@@ -220,6 +221,27 @@
       "external_inputs": ["../sources/vt340test/sixeltests/animation.sh"],
       "fixtures": [],
       "outputs": ["initial.log", "initial.jsonl", "shifted.log", "shifted.jsonl", "spin-initial.png", "spin-shifted.png"]
+    },
+    {
+      "id": "vt340test-corpus",
+      "script": "vt340test-corpus.sh",
+      "title": "External VT340 hardware-observed ReGIS and SIXEL corpus",
+      "kind": "atomic",
+      "suites": ["graphics", "serial", "conformance"],
+      "estimated_seconds": 150,
+      "requires_roms": true,
+      "requires": ["bash", "jq", "perl", "python3", "rg", "shasum"],
+      "fixtures": ["tests/vt340test-cases.json", "fixtures/fast-start.cfg"],
+      "external_inputs": [
+        "../sources/vt340test/regis/registest.sh",
+        "../sources/vt340test/j4james/repeat_introducer.sh",
+        "../sources/vt340test/j4james/raster_dimensions.sh",
+        "../sources/vt340test/j4james/image_overlap.sh",
+        "../sources/vt340test/j4james/image_movement.sh",
+        "../sources/vt340test/j4james/scrolling.sh",
+        "../sources/vt340test/j4james/line_attributes.sh"
+      ],
+      "outputs": ["*/input.stream", "*/mame.log", "*/events.jsonl", "*/screen.png"]
     },
     {
       "id": "serial-connectors",

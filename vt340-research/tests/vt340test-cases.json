@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "source_repository": "https://github.com/hackerb9/vt340test.git",
+  "source_revision": "9485704b827ec6d40109d1955e9e6c6a485a50c2",
+  "source_root": "../sources/vt340test",
+  "notes": "Each source file hash is authoritative. The external checkout may contain unrelated local changes without invalidating these cases.",
+  "cases": [
+    {
+      "id": "regis-raf",
+      "source": "regis/registest.sh",
+      "source_sha256": "7aeacc4a9fd3296ebe7d89ed688eec0fd4c2c00d090953a258e835d25d602469",
+      "argument": "raf",
+      "coverage": ["ReGIS", "circle", "color-index selection", "nested fill"],
+      "expected_wire_bytes": 103,
+      "expected_bitmap_hash": "0269915F",
+      "expected_nonzero_pixels": 249550
+    },
+    {
+      "id": "regis-grid",
+      "source": "regis/registest.sh",
+      "source_sha256": "7aeacc4a9fd3296ebe7d89ed688eec0fd4c2c00d090953a258e835d25d602469",
+      "argument": "grid",
+      "coverage": ["ReGIS", "vectors", "rotated text", "coordinate labels", "patterned lines"],
+      "expected_wire_bytes": 1056,
+      "expected_bitmap_hash": "EC71986B",
+      "expected_nonzero_pixels": 230482
+    },
+    {
+      "id": "sixel-repeat",
+      "source": "j4james/repeat_introducer.sh",
+      "source_sha256": "e5b6976d77ab029d82fa7e9230a8dc7fafbbf534c67948ce14f559904d174d8f",
+      "argument": null,
+      "coverage": ["SIXEL", "repeat introducer", "missing count", "zero count", "edge clipping"],
+      "expected_wire_bytes": 2192,
+      "expected_bitmap_hash": "99A1544B",
+      "expected_nonzero_pixels": 388453
+    },
+    {
+      "id": "sixel-raster-size",
+      "source": "j4james/raster_dimensions.sh",
+      "source_sha256": "0d42da394ff8d909de7ff309a6e3cf181508b0345beaed7bee890ecbee51cd8f",
+      "argument": null,
+      "coverage": ["SIXEL", "DECGRA", "raster dimensions", "zero and omitted dimensions"],
+      "expected_wire_bytes": 2376,
+      "expected_bitmap_hash": "5CE88D6B",
+      "expected_nonzero_pixels": 327263
+    },
+    {
+      "id": "sixel-overlap",
+      "source": "j4james/image_overlap.sh",
+      "source_sha256": "d9ee033605a072614a6e36c5cf4e5a5c157fb169c95ab83aed96b6d380e00d7e",
+      "argument": null,
+      "coverage": ["SIXEL", "transparent background", "color introducer", "layered images"],
+      "expected_wire_bytes": 2687,
+      "expected_bitmap_hash": "42077427",
+      "expected_nonzero_pixels": 346539
+    },
+    {
+      "id": "sixel-editing",
+      "source": "j4james/image_movement.sh",
+      "source_sha256": "ed146642a6c0b9cee06f6fe3f06108246c6b2604ef54668ceed763f91f595523",
+      "argument": null,
+      "coverage": ["SIXEL", "insert/delete line", "insert/delete character", "bitmap movement"],
+      "expected_wire_bytes": 2349,
+      "expected_bitmap_hash": "D4FA5BC9",
+      "expected_nonzero_pixels": 343140
+    },
+    {
+      "id": "sixel-scrolling",
+      "source": "j4james/scrolling.sh",
+      "source_sha256": "252d35229b9944f4f0f4521b1150fd3950aaa03098c8d50a1a54accc853577ae",
+      "argument": null,
+      "coverage": ["SIXEL", "scrolling", "DECSTBM margins", "graphic newline"],
+      "expected_wire_bytes": 2564,
+      "expected_bitmap_hash": "9DD92CE5",
+      "expected_nonzero_pixels": 293256
+    },
+    {
+      "id": "sixel-line-attributes",
+      "source": "j4james/line_attributes.sh",
+      "source_sha256": "4fc92696ea72865d2b1cc83cd8aa8d7894f0acea8665a494b62e03b0195318d8",
+      "argument": null,
+      "coverage": ["SIXEL", "DECDWL", "DECDHL", "text backing buffer", "line erasure"],
+      "expected_wire_bytes": 543,
+      "expected_bitmap_hash": "AE1504AB",
+      "expected_nonzero_pixels": 248029
+    }
+  ]
+}
