@@ -21,6 +21,12 @@ entries, and rendered the complete orange/yellow Bill image.
   `V0CS-V3CS`; `BAD5` drives the separate `OPADDS` output. The former
   contiguous `BAD5-BAD2` decode collapsed firmware colors into indices
   `3,7,11,15`.
+- The BP0 scanout wiring gives the Viper serial outputs the reverse bit
+  significance at the E51/E52 address latch from the DC323 device's internal
+  plane numbering. The former direct lookup made Color Set-Up entries `1-5`,
+  `7-8`, and `10-14` alter a different preview strip. Only the bit-reversal
+  fixed points `0`, `6`, `9`, and `15` appeared to work. Scanout now performs
+  that physical four-bit translation before looking up the programmed RGB.
 - The full VT340 model identity exposes the firmware's Color Map and Color
   Set-Up controls. The exact off-sheet source that resolves CPU1 P1.7 low for
   this identity is still not identified and remains an explicit wiring
@@ -84,3 +90,22 @@ boots. One earlier packaged run still left DCS mode, so sustained-stream
 repeatability is improved but not yet declared perfect. If the failure recurs,
 the test preserves its run directory and the new first-mismatch event
 distinguishes serial corruption from a parser-state failure immediately.
+
+## Gnuplot animation background mode
+
+Gnuplot 6.0.6 `sixelgd` emits every anchored frame with `DCS 9;1q`. Parameter
+two equal to one requests transparent background handling. A native trace
+shows CPU2 consequently programming the four Viper logic functions to
+`ce,ce,cc,cc` for the full-width background bands: selected planes are ORed
+and the others are preserved. This faithfully explains why old wave pixels
+remain under later frames; no DC323 erase command is dropped.
+
+A controlled two-frame experiment changed only the DCS parameter to
+`DCS 9;0q`. Native firmware then took its opaque-background clear path. The
+captured result displayed **Frame 1** without any pixels from **Frame 0**.
+The same experiment established that formatting LF bytes in gnuplot's output
+become CR/LF on a macOS tty configured with `ONLCR`, so the compatibility
+wrapper removes those optional newlines as well.
+
+`../tools/vt340-gnuplot` applies both stream-level compatibility changes. It
+does not modify the emulator, firmware, palette, or framebuffer.

@@ -75,6 +75,25 @@ The profile saves the previous tty discipline; `vt340_restore_tty` restores
 it in the same session.  All environment changes disappear normally at
 logout.
 
+### Animated gnuplot SIXEL
+
+Gnuplot 6.0's `sixelgd` backend emits `DCS 9;1q` for each plot. The second
+parameter requests transparent background handling on a VT340, so native
+firmware preserves existing color-plane bits and successive animation frames
+accumulate. The backend also inserts formatting newlines that a macOS tty
+with `ONLCR` enabled expands to CR/LF inside the DCS stream.
+
+Use the VT340 compatibility wrapper for in-place animations:
+
+```sh
+vt340-research/tools/vt340-gnuplot /Users/harley/vt340_waves.gnuplot
+```
+
+The wrapper changes only the SIXEL introducer's background parameter from
+transparent (`1`) to opaque (`0`) and removes formatting newlines. Native
+firmware then clears the declared SIXEL extent before drawing every frame.
+Ordinary static SIXEL files do not require the wrapper.
+
 The port slot also accepts MAME's `loopback`, `null_modem`, `terminal`, and
 other standard RS-232 endpoint devices.  Comm 2 is selected with `-comm2` in
 the same way.

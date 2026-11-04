@@ -59,6 +59,20 @@ constexpr int MCS51_SFR_SPACE = 4;
 constexpr int MCS51_IDATA_SPACE = 5;
 constexpr unsigned BITMAP_POST_SIZE = 0x10000;
 
+// The DC323 device numbers Viper planes from zero upward, while terminal
+// control module sheet BP0 connects their serialized outputs to the E51/E52
+// output-map address latch in the opposite bit significance.  Keep the
+// device's natural plane numbering internally and translate at scanout.
+constexpr u8 output_map_address(u8 planes)
+{
+	return bitswap<4>(planes, 0, 1, 2, 3);
+}
+
+static_assert(output_map_address(0x1) == 0x8);
+static_assert(output_map_address(0x6) == 0x6);
+static_assert(output_map_address(0x9) == 0x9);
+static_assert(output_map_address(0xe) == 0x7);
+
 enum dc323_post_mode : u8
 {
 	DC323_POST_INACTIVE,
@@ -784,9 +798,10 @@ u32 vt340_state::screen_update(screen_device &, bitmap_rgb32 &bitmap, rectangle 
 	for (int y = cliprect.top(); y <= cliprect.bottom(); y++)
 		for (int x = cliprect.left(); x <= cliprect.right(); x++)
 		{
-			u8 color = 0;
+			u8 planes = 0;
 			for (unsigned plane = 0; plane < dc323_device::BITMAP_PLANES; plane++)
-				color |= m_dc323->pixel_r(plane, x, y) << plane;
+				planes |= m_dc323->pixel_r(plane, x, y) << plane;
+			u8 const color = output_map_address(planes);
 			if (BIT(m_palette_rg_valid & m_palette_gb_valid, color))
 			{
 				u8 const red = (m_palette_rg[color] & 0x0f) * 0x11;

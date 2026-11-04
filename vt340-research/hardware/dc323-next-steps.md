@@ -30,7 +30,9 @@ evidence required before expanding the graphics engine.
   sources, constant sources, Viper masks, Boolean functions, and clipping.
 - Frame-boundary erase and normal scrolling operate on all four bitmap planes,
   including the established Adder-word/Viper-edge-mask interpretation.
-- Bitmap-to-processor transfers support both E49 and bitmap sources.
+- Bitmap-to-processor transfers support both E49 and bitmap sources. Bitmap
+  reads honor the command-selected Viper CSR's I/D-output enable when choosing
+  which selected plane drives the processor bus.
 - Disabled-by-default diagnostic logging is bounded for long terminal runs.
 - The firmware-free device regression covers the retained core behavior and
   currently passes.
@@ -156,13 +158,14 @@ functional color work without prematurely inventing a DC322 interface.
 
 ### Raster coverage is intentionally incomplete
 
-The established cold-boot command inventory contains:
+The historical cold-boot command inventory that motivated the current raster
+work contained:
 
 | Classification | Count | Current behavior |
 | --- | ---: | --- |
 | Normal mode, source 1 and destination | 1,164 | Executed |
 | Normal mode, constant source and destination | 35 | Executed |
-| Non-normal mode | 3,347 | Rejected |
+| Non-normal mode | 3,347 | Originally rejected; linear-pattern coverage has since been added |
 | Destination-disabled diagnostic forms | 50 | Rejected |
 | Destination-enabled source 2 | 0 | Not observed |
 
@@ -175,8 +178,8 @@ Known unimplemented areas include:
 
 - source 2;
 - nonzero indexed-coordinate translation;
-- scaling;
-- linear-pattern and other non-normal modes;
+- fill mode, hole filling, and remaining linear-pattern semantics;
+- programmable Bresenham error offsets;
 - exact six-entry I/D FIFO occupancy and asynchronous transfer timing; and
 - Z-mode processor/bitmap transfers.
 

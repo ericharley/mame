@@ -60,7 +60,9 @@ special registers are:
 
 Status bits remain sticky until acknowledged.  Raster command functions 2 and
 3 retain the existing initialization/completion/address sequencing.  A
-bitmap-to-processor transfer completes through register 7 reads.  Writing
+bitmap-to-processor transfer completes through register 7 reads.  Bitmap
+source data comes from the selected Viper plane whose command-selected CSR
+enables I/D-bus output; it is not inherently sourced from plane zero.  Writing
 scroll register `14` records one pending operation; the next high `vsync_w`
 call executes it, sets Pause Complete and Scroll Service, and recomputes IRQ.
 
@@ -75,6 +77,13 @@ Each of the four planes now retains its own Viper registers. A raster logic
 result selects that plane's foreground or background word; the selected bit
 from that word becomes the plane output. This is sufficient to form all 16
 four-plane color-map indices without inventing RGB values.
+
+Normal and linear-pattern raster destinations use both signed fast and slow
+vectors. Each vector follows the documented Bresenham initialization and
+selects its origin through, but not including, its endpoint. This supports
+rotated ReGIS vectors, text cells, and circle spans without protocol-specific
+rendering. Raster mode selection uses mode-register bits 0-1; hole-fill bit 4
+does not incorrectly reclassify normal mode as unsupported.
 
 The `bitmap_planes` memory share retains its root tag so existing debugger
 traces continue to inspect exactly the same 1024 by 2048 by four-plane layout.

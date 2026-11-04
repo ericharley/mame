@@ -257,7 +257,7 @@ sixel_dc323_write_tap = cpu2_xdata:install_write_tap(
 					(dc323_regs[0x19] or 0) | (dc323_regs[0x1a] or 0)) == 0
 				if ((command >> 10) & 1) == 0 then reason = "destination_disabled"
 				elseif ((command >> 12) & 1) ~= 0 then reason = "source2"
-				elseif (dc323_mode & 0x1f) ~= 0 or (dc323_mode & 0x80) == 0 then reason = "non_normal_mode"
+				elseif (dc323_mode & 0x03) ~= 0 or (dc323_mode & 0x80) == 0 then reason = "non_normal_mode"
 				elseif indexed and not zero_indexes then reason = "nonzero_index"
 				end
 				local outcome_key = command_key .. ":" .. reason
@@ -291,7 +291,7 @@ sixel_dc323_write_tap = cpu2_xdata:install_write_tap(
 			elseif post_pbt_commands > 0 then
 				post_pbt_commands = post_pbt_commands - 1
 				print(string.format(
-					'VT340_SIXEL_JSON {"event":"post_ptb_command","time":%.9f,"command":"%04X","source":[%d,%d],"destination":[%d,%d],"source_extent":["%04X","%04X"],"destination_vectors":["%04X","%04X","%04X","%04X"],"indexes":["%04X","%04X","%04X","%04X"],"mode":"%04X","select":"%X","logic":"%02X"}',
+					'VT340_SIXEL_JSON {"event":"post_ptb_command","time":%.9f,"command":"%04X","source":[%d,%d],"destination":[%d,%d],"source_extent":["%04X","%04X"],"destination_vectors":["%04X","%04X","%04X","%04X"],"indexes":["%04X","%04X","%04X","%04X"],"mode":"%04X","select":"%X","logic":["%02X","%02X","%02X","%02X"]}',
 					manager.machine.time:as_double(), command,
 					(dc323_regs[0x22] or 0) & 0x3fff, (dc323_regs[0x23] or 0) & 0x1fff,
 					(dc323_regs[0x24] or 0) & 0x3fff, (dc323_regs[0x25] or 0) & 0x3fff,
@@ -300,7 +300,11 @@ sixel_dc323_write_tap = cpu2_xdata:install_write_tap(
 					dc323_regs[0x28] or 0, dc323_regs[0x29] or 0,
 					dc323_regs[0x17] or 0, dc323_regs[0x18] or 0,
 					dc323_regs[0x19] or 0, dc323_regs[0x1a] or 0,
-					dc323_mode, viper_select, viper_regs[0][0x04 + ((command >> 4) & 3)] or 0))
+					dc323_mode, viper_select,
+					viper_regs[0][0x04 + ((command >> 4) & 3)] or 0,
+					viper_regs[1][0x04 + ((command >> 4) & 3)] or 0,
+					viper_regs[2][0x04 + ((command >> 4) & 3)] or 0,
+					viper_regs[3][0x04 + ((command >> 4) & 3)] or 0))
 			end
 			if operation == 2 and ((command >> 10) & 1) ~= 0 then
 				raster_candidates = raster_candidates + 1
@@ -320,7 +324,7 @@ sixel_dc323_write_tap = cpu2_xdata:install_write_tap(
 				end
 			end
 			if ((command >> 12) & 1) ~= 0 then source2_commands = source2_commands + 1 end
-			if (dc323_mode & 0x1f) == 0 and (dc323_mode & 0x80) ~= 0 then
+			if (dc323_mode & 0x03) == 0 and (dc323_mode & 0x80) ~= 0 then
 				normal_commands = normal_commands + 1
 			else
 				nonnormal_commands = nonnormal_commands + 1

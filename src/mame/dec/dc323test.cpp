@@ -79,6 +79,8 @@ void dc323_test_state::fill(unsigned x, unsigned y, unsigned width, unsigned hei
 	reg_w(dc323_device::REG_DESTINATION_X, x);
 	reg_w(dc323_device::REG_DESTINATION_Y, y);
 	reg_w(dc323_device::REG_WIDTH, width);
+	reg_w(dc323_device::REG_DESTINATION_FAST_DY, 0);
+	reg_w(dc323_device::REG_DESTINATION_SLOW_DX, 0);
 	reg_w(dc323_device::REG_HEIGHT, height);
 	reg_w(dc323_device::REG_COMMAND, 0x06c0);
 }
@@ -108,6 +110,12 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	m_dc323->viper_select_w(0x0f);
 	viper_w(0x0e, 0x0000);
 	viper_w(0x0f, 0xffff);
+	reg_w(dc323_device::REG_SOURCE_FAST_DX, 1);
+	reg_w(dc323_device::REG_SOURCE_SLOW_DY, 1);
+	reg_w(dc323_device::REG_DESTINATION_FAST_DY, 0);
+	reg_w(dc323_device::REG_DESTINATION_SLOW_DX, 0);
+	reg_w(dc323_device::REG_FAST_SCALE, 0x1fff);
+	reg_w(dc323_device::REG_SLOW_SCALE, 0x1fff);
 
 	// Constant fill affects all planes and preserves pixels beyond the region.
 	m_dc323->bitmap_clear();
@@ -253,17 +261,104 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	for (unsigned x = 0; x < 8; x++)
 		expect_pixel(x, 5, true, "overlapping source copy");
 
-	// Bitmap-to-processor transfers use bit zero as the leftmost pixel.
+	// Normal-mode up scaling maps one source row across a destination character
+	// cell.  The VT340 uses this exact 1:20 form when restoring the terminal
+	// backing store after leaving Set-Up.
 	m_dc323->bitmap_clear();
+	fill(0, 60, 8, 1, true);
+	fill(0, 61, 8, 1, false);
+	reg_w(dc323_device::REG_SOURCE_X, 0);
+	reg_w(dc323_device::REG_SOURCE_Y, 60);
+	reg_w(dc323_device::REG_DESTINATION_X, 20);
+	reg_w(dc323_device::REG_DESTINATION_Y, 70);
+	reg_w(dc323_device::REG_WIDTH, 8);
+	reg_w(dc323_device::REG_HEIGHT, 20);
+	reg_w(dc323_device::REG_SLOW_SCALE, 0x0199);
+	reg_w(dc323_device::REG_COMMAND, 0x0ec0);
+	for (unsigned y = 70; y < 90; y++)
+		for (unsigned x = 20; x < 28; x++)
+			expect_pixel(x, y, true, "normal-mode 1:20 slow scaling");
+	reg_w(dc323_device::REG_SLOW_SCALE, 0x1fff);
+
+	// Mode bits 0-1 select normal mode; hole-fill bit 4 must not cause the
+	// operation to be rejected.  The two signed destination vectors are walked
+	// independently, allowing the firmware to rotate a raster rectangle.
+	m_dc323->bitmap_clear();
+	viper_w(0x04, 0x00ca);
+	viper_w(0x08, 0xffff);
+	viper_w(0x09, 0xffff);
+	viper_w(0x0a, 0xffff);
+	reg_w(dc323_device::REG_X_CONTROL, 0x0090);
+	reg_w(dc323_device::REG_DESTINATION_X, 10);
+	reg_w(dc323_device::REG_DESTINATION_Y, 10);
+	reg_w(dc323_device::REG_WIDTH, 0);
+	reg_w(dc323_device::REG_DESTINATION_FAST_DY, 4);
+	reg_w(dc323_device::REG_DESTINATION_SLOW_DX, 3);
+	reg_w(dc323_device::REG_HEIGHT, 0);
+	reg_w(dc323_device::REG_COMMAND, 0x06c0);
+	for (unsigned y = 10; y < 14; y++)
+		for (unsigned x = 10; x < 13; x++)
+			expect_pixel(x, y, true, "rotated normal-mode rectangle");
+	expect_pixel(13, 10, false, "rotated rectangle excludes vector endpoint");
+
+	// The DC323 initializes Bresenham error to minus the major-axis magnitude.
+	// A 4x2 vector therefore visits (0,0), (1,1), (2,1), and (3,2).
+	m_dc323->bitmap_clear();
+	reg_w(dc323_device::REG_X_CONTROL, 0x0080);
+	reg_w(dc323_device::REG_DESTINATION_X, 20);
+	reg_w(dc323_device::REG_DESTINATION_Y, 20);
+	reg_w(dc323_device::REG_WIDTH, 4);
+	reg_w(dc323_device::REG_DESTINATION_FAST_DY, 2);
+	reg_w(dc323_device::REG_DESTINATION_SLOW_DX, 0);
+	reg_w(dc323_device::REG_HEIGHT, 1);
+	reg_w(dc323_device::REG_COMMAND, 0x06c0);
+	expect_pixel(20, 20, true, "Bresenham vector origin");
+	expect_pixel(21, 21, true, "Bresenham first minor step");
+	expect_pixel(22, 21, true, "Bresenham retained minor coordinate");
+	expect_pixel(23, 22, true, "Bresenham final selected point");
+	expect_pixel(24, 22, false, "Bresenham excludes vector endpoint");
+
+	// Linear-pattern mode uses the same destination vector generators.  This
+	// rotated 1x4 operation is the form used for ReGIS grid lines.
+	m_dc323->bitmap_clear();
+	fill(0, 100, 1, 1, true);
+	reg_w(dc323_device::REG_SOURCE_X, 0);
+	reg_w(dc323_device::REG_SOURCE_Y, 100);
+	reg_w(dc323_device::REG_SOURCE_FAST_DX, 1);
+	reg_w(dc323_device::REG_SOURCE_SLOW_DY, 1);
+	reg_w(dc323_device::REG_DESTINATION_X, 40);
+	reg_w(dc323_device::REG_DESTINATION_Y, 40);
+	reg_w(dc323_device::REG_WIDTH, 0);
+	reg_w(dc323_device::REG_DESTINATION_FAST_DY, 1);
+	reg_w(dc323_device::REG_DESTINATION_SLOW_DX, 4);
+	reg_w(dc323_device::REG_HEIGHT, 0);
+	reg_w(dc323_device::REG_X_CONTROL, 0x0082);
+	reg_w(dc323_device::REG_COMMAND, 0x0ec0);
+	for (unsigned x = 40; x < 44; x++)
+		expect_pixel(x, 40, true, "rotated linear-pattern destination");
+	reg_w(dc323_device::REG_DESTINATION_FAST_DY, 0);
+	reg_w(dc323_device::REG_DESTINATION_SLOW_DX, 0);
+	reg_w(dc323_device::REG_X_CONTROL, 0x0080);
+
+	// Bitmap-to-processor transfers use bit zero as the leftmost pixel and
+	// source data from the Viper whose active CSR enables I/D bus output.
+	m_dc323->bitmap_clear();
+	m_dc323->viper_select_w(0x04);
+	viper_w(0x04, 0x00ca);
 	fill(0, 8, 4, 1, true);
+	viper_w(0x10, 0x0010);
 	reg_w(dc323_device::REG_SOURCE_X, 0);
 	reg_w(dc323_device::REG_SOURCE_Y, 8);
 	reg_w(dc323_device::REG_WIDTH, 8);
 	reg_w(dc323_device::REG_HEIGHT, 1);
 	reg_w(dc323_device::REG_COMMAND, 0x0b00);
 	require(m_dc323->read(dc323_device::REG_ID_DATA) == 0x0f, "bitmap-to-processor packing");
+	for (unsigned plane = 0; plane < dc323_device::BITMAP_PLANES; plane++)
+		require(bool(m_dc323->pixel_r(plane, 0, 8)) == (plane == 2),
+			"bitmap-to-processor source plane setup");
 	require(m_dc323->status_r() & dc323_device::STATUS_ADDRESS_COMPLETE, "transfer completion status");
 	reg_w(dc323_device::REG_STATUS, 0x0000);
+	m_dc323->viper_select_w(0x0f);
 
 	// Configure the retained Viper scroll backend for a four-pixel region.
 	viper_w(0x01, 0x0000);
