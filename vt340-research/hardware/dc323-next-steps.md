@@ -177,7 +177,7 @@ matrix describes the behavior in `dc323.cpp` as of this checkpoint:
 | Viper register load, `0180-019f` | Implemented | Loads the selected per-plane Viper register from the DC323 I/D register |
 | Operation 2, normal mode (`X-control[1:0] = 00`), destination enabled, source 1 | Implemented | Bitmap and E49 character-ROM sources, signed vectors, scaling, clipping, masks, and Boolean functions |
 | Operation 2, normal mode, destination enabled, source 1 disabled | Implemented | Uses the Viper source constant |
-| Operation 2 with source 2 enabled (`S2E`, command bit 12) | Partial | Normal-mode source-2-only offset and tiled addressing execute; dual-source Viper routing and patterned polygon fill remain |
+| Operation 2 with source 2 enabled (`S2E`, command bit 12) | Partial | Source-2-only offset/tiled addressing and patterned fills execute; dual-source normal and linear commands route both reads through the selected Viper CSR bank, including external I/D-bus loads. Exact word pipeline and delay-register timing remain |
 | Operation 2 with destination disabled | No drawing | Currently rejected; observed instances have been diagnostic forms rather than proven missing visible work |
 | X-control mode `01` | Reserved | No drawing behavior should be inferred without contrary hardware evidence |
 | Linear-pattern mode (`X-control[1:0] = 10`) with source 1 | Partial | Repeats a bitmap pattern using signed source/destination vectors |
@@ -222,9 +222,13 @@ order unless a trace establishes a different dependency:
 3. **Complete linear-pattern semantics.** Add full scaling and retained phase
    behavior after identifying firmware paths that constrain them; do not
    invent behavior for the documented-illegal source-free encoding.
-4. **Complete source 2.** Reconstruct dual-source Viper I/D routing and
-   patterned polygon fill when a destination-enabled use is observed; the
-   historical cold boot contained none.
+4. **Complete source 2 timing.** Dual-source commands now perform the two
+   documented Viper source cycles through either CSR bank, including local
+   Source/Mask loads and cross-plane I/D-bus broadcast. Reconstruct the exact
+   word-level barrel-shifter delay behavior and invalid multiple-driver case
+   only when firmware or hardware evidence constrains them. Source-2-only
+   patterned polygon fills use the same offset/tile addressing as normal mode.
+   The historical cold boot contained no destination-enabled source-2 commands.
 5. **Z-mode transfers and exact FIFO/timing.** Treat functional transfer
    expansion separately from the later asynchronous command-timing work.
 

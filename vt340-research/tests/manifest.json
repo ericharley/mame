@@ -71,7 +71,7 @@
         {"family": "raster.normal-hole-fill", "level": "direct", "scope": "Compares rotated broad vectors with hole filling off and on at exact interior pixels."},
         {"family": "raster.normal-indexed", "level": "direct", "scope": "Checks independent source and destination indexing, signed offsets, and pending/new/old frame rollover."},
         {"family": "raster.error-offsets", "level": "direct", "scope": "Checks signed ERR1/ERR2 shifts on destination fast and slow vectors and independent fill edges A and B."},
-        {"family": "raster.source2", "level": "direct", "scope": "Checks normal-mode source-2-only copies, destination-index independence, 4x4 tiling, and unsupported dual-source/fill boundaries."},
+        {"family": "raster.source2", "level": "direct", "scope": "Checks source-2 copies, indexing independence, tiling, patterned fills, dual-source internal routing through both CSR banks, cross-plane I/D-bus broadcast, and linear-pattern routing."},
         {"family": "raster.destination-disabled", "level": "direct", "scope": "Verifies an operation-2 command with destination disabled leaves the target unchanged."},
         {"family": "raster.reserved-mode", "level": "direct", "scope": "Verifies X-control mode 01 produces no drawing."},
         {"family": "raster.linear-source1", "level": "direct", "scope": "Checks a rotated repeated bitmap pattern plus indexed source and destination origins at exact pixels."},
@@ -83,7 +83,7 @@
         {"family": "transfer.processor-to-bitmap-x", "level": "direct", "scope": "Checks aligned and unaligned writes, masks, CSR routing, and completion status."},
         {"family": "scroll.frame-service", "level": "direct", "scope": "Checks deferred up/down scroll, erase, edge masks, offsets, and pending-command replacement."}
       ],
-      "outputs": []
+      "outputs": ["source2-tiled-polygon-fill.png", "source2-untiled-baseline-fill.png"]
     },
     {
       "id": "dc323-command-coverage",

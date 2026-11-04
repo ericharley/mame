@@ -573,15 +573,7 @@ void dc323_device::execute_rasterop(u16 command)
 	bool const fill_mode = ((x_control & 0x0003) == 3) && BIT(x_control, 7);
 	if (!rasterop || !destination_enabled)
 		return;
-	// Combining both bitmap sources also depends on the command-selected Viper
-	// I/D routing.  Keep that form outside this source-2-only implementation.
-	if (source1_enabled && source2_enabled)
-		return;
-	// Patterned polygon fills use source 2 as well, but require coupling the
-	// source-2 data path to the fill generators.  This slice is normal mode.
-	if (source2_enabled && !normal_mode)
-		return;
-	if (linear_pattern_mode && source1_enabled)
+	if (linear_pattern_mode && (source1_enabled || source2_enabled))
 	{
 		execute_linear_pattern(command);
 		return;
@@ -678,25 +670,43 @@ void dc323_device::execute_rasterop(u16 command)
 			u16 const rom_y = source_pixel_y & 0x03ff;
 			u8 const rom_source = source_is_e49 ? m_chargen_rom[(rom_y << 5) | (rom_x >> 3)] : 0;
 			unsigned const word_bit = pixel_x & 15;
+			std::array<bool, BITMAP_PLANES> source1_bits{};
+			std::array<bool, BITMAP_PLANES> source2_bits{};
+			for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
+			{
+				if (!BIT(m_viper_select, plane))
+					continue;
+				if (source1_enabled)
+				{
+					if (source_is_e49)
+						source1_bits[plane] = BIT(rom_source, rom_x & 7);
+					else if ((source_pixel_x >= 0) && (source_pixel_x < BITMAP_WIDTH) &&
+						(source_pixel_y >= 0) && (source_pixel_y < BITMAP_HEIGHT))
+						source1_bits[plane] = m_bitmap_planes[bitmap_plane_address(plane, source_pixel_x, source_pixel_y)];
+				}
+				if (source2_enabled)
+					source2_bits[plane] = (source2_pixel_x >= 0) && (source2_pixel_x < BITMAP_WIDTH) &&
+						(source2_pixel_y >= 0) && (source2_pixel_y < BITMAP_HEIGHT) &&
+						m_bitmap_planes[bitmap_plane_address(plane, source2_pixel_x, source2_pixel_y)];
+			}
+			if (source1_enabled && source2_enabled)
+			{
+				unsigned const csr_bank = command & 4;
+				route_source_cycle(csr_bank + 0, pixel_x, source1_bits);
+				route_source_cycle(csr_bank + 1, pixel_x, source2_bits);
+			}
 			for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
 			{
 				if (!BIT(m_viper_select, plane))
 					continue;
 				auto const &viper = m_viper_registers[plane];
-				bool source_bit;
-				if (source2_enabled)
-					source_bit = (source2_pixel_x >= 0) && (source2_pixel_x < BITMAP_WIDTH) &&
-						(source2_pixel_y >= 0) && (source2_pixel_y < BITMAP_HEIGHT) &&
-						m_bitmap_planes[bitmap_plane_address(plane, source2_pixel_x, source2_pixel_y)];
-				else if (!source1_enabled)
-					source_bit = BIT(viper[VIPER_REG_SOURCE], word_bit);
-				else if (source_is_e49)
-					source_bit = BIT(rom_source, rom_x & 7);
-				else if ((source_pixel_x >= 0) && (source_pixel_x < BITMAP_WIDTH) &&
-					(source_pixel_y >= 0) && (source_pixel_y < BITMAP_HEIGHT))
-					source_bit = m_bitmap_planes[bitmap_plane_address(plane, source_pixel_x, source_pixel_y)];
-				else
-					source_bit = false;
+				unsigned const bus_width_select = (viper[VIPER_REG_BUS_WIDTH] >> 2) & 3;
+				unsigned const bus_width = (bus_width_select == 0) ? 4 : (bus_width_select == 3) ? 16 : 8;
+				unsigned const viper_word_bit = unsigned(pixel_x) & (bus_width - 1);
+				bool const source_bit = (source1_enabled && source2_enabled) ?
+					BIT(viper[VIPER_REG_SOURCE], viper_word_bit) :
+					source2_enabled ? source2_bits[plane] :
+					source1_enabled ? source1_bits[plane] : BIT(viper[VIPER_REG_SOURCE], word_bit);
 				write_viper_pixel(plane, pixel_x, pixel_y, command, source_bit);
 			}
 		}
@@ -748,11 +758,13 @@ void dc323_device::execute_linear_pattern(u16 command)
 	int const destination_fast_dy = delta(REG_DESTINATION_FAST_DY);
 	int const destination_slow_dx = delta(REG_DESTINATION_SLOW_DX);
 	int const destination_slow_dy = delta(REG_HEIGHT);
-	if (!source_fast_dx || !source_slow_dy)
+	bool const source1_enabled = BIT(command, 11);
+	bool const source2_enabled = BIT(command, 12);
+	if (source1_enabled && (!source_fast_dx || !source_slow_dy))
 		return;
 
-	unsigned const source_width = unsigned(std::abs(source_fast_dx));
-	unsigned const source_height = unsigned(std::abs(source_slow_dy));
+	unsigned const source_width = source1_enabled ? unsigned(std::abs(source_fast_dx)) : 1;
+	unsigned const source_height = source1_enabled ? unsigned(std::abs(source_slow_dy)) : 1;
 	auto const fast_path = raster_vector(destination_fast_dx, destination_fast_dy,
 		delta(REG_ERROR_2), BITMAP_HEIGHT);
 	auto const slow_path = raster_vector(destination_slow_dx, destination_slow_dy,
@@ -765,8 +777,10 @@ void dc323_device::execute_linear_pattern(u16 command)
 	int const source_y_step = source_slow_dy < 0 ? -1 : 1;
 	int source_origin_x = m_registers[REG_SOURCE_X] & 0x3fff;
 	int source_origin_y = m_registers[REG_SOURCE_Y] & 0x3fff;
-	int destination_origin_x = m_registers[REG_DESTINATION_X] & 0x3fff;
-	int destination_origin_y = m_registers[REG_DESTINATION_Y] & 0x3fff;
+	int const unindexed_destination_origin_x = m_registers[REG_DESTINATION_X] & 0x3fff;
+	int const unindexed_destination_origin_y = m_registers[REG_DESTINATION_Y] & 0x3fff;
+	int destination_origin_x = unindexed_destination_origin_x;
+	int destination_origin_y = unindexed_destination_origin_y;
 	if (BIT(m_registers[REG_X_CONTROL], 5))
 	{
 		source_origin_x = indexed_origin(REG_SOURCE_X, REG_NEW_X_INDEX);
@@ -777,6 +791,16 @@ void dc323_device::execute_linear_pattern(u16 command)
 		destination_origin_x = indexed_origin(REG_DESTINATION_X, REG_NEW_X_INDEX);
 		destination_origin_y = indexed_origin(REG_DESTINATION_Y, REG_NEW_Y_INDEX);
 	}
+	u16 const source2_size = m_registers[REG_SOURCE2_SIZE];
+	bool const source2_tiled = !BIT(source2_size, 7);
+	unsigned const source2_width = 1U << ((source2_size & 0x0007) + 2);
+	unsigned const source2_height = 1U << (((source2_size >> 4) & 0x0007) + 2);
+	auto const source2_coordinate = [this](unsigned origin_reg, int coordinate, unsigned tile_size, bool tiled)
+	{
+		u16 const raw = (m_registers[origin_reg] +
+			(tiled ? (coordinate & (tile_size - 1)) : coordinate)) & 0x3fff;
+		return BIT(raw, 13) ? int(raw) - 0x4000 : int(raw);
+	};
 
 	DC323_LOGMASKED(LOG_RASTEROPS, "%s %s: linear pattern command=%04X src=%d,%d pattern=%ux%u dst=%d,%d size=%ux%u select=%X\n",
 		machine().time().to_string(), tag(), command, source_origin_x, source_origin_y,
@@ -787,22 +811,54 @@ void dc323_device::execute_linear_pattern(u16 command)
 	{
 		raster_point const slow_point = slow_path[y];
 		int const source_y = source_origin_y + int(y % source_height) * source_y_step;
-		if (source_y < 0 || source_y >= BITMAP_HEIGHT)
+		if (source1_enabled && (source_y < 0 || source_y >= BITMAP_HEIGHT))
 			continue;
 		for (unsigned x = 0; x < destination_width; x++)
 		{
 			raster_point const fast_point = fast_path[x];
+			int const unindexed_destination_x = unindexed_destination_origin_x + slow_point.x + fast_point.x;
+			int const unindexed_destination_y = unindexed_destination_origin_y + slow_point.y + fast_point.y;
 			int const destination_x = destination_origin_x + slow_point.x + fast_point.x;
 			int const destination_y = destination_origin_y + slow_point.y + fast_point.y;
 			int const source_x = source_origin_x + int(x % source_width) * source_x_step;
+			int const source2_x = source2_coordinate(REG_SOURCE2_X, unindexed_destination_x, source2_width, source2_tiled);
+			int const source2_y = source2_coordinate(REG_SOURCE2_Y, unindexed_destination_y, source2_height, source2_tiled);
 			if (destination_x < 0 || destination_x >= BITMAP_WIDTH ||
 				destination_y < 0 || destination_y >= BITMAP_HEIGHT ||
-				source_x < 0 || source_x >= BITMAP_WIDTH)
+				(source1_enabled && (source_x < 0 || source_x >= BITMAP_WIDTH)))
 				continue;
+			std::array<bool, BITMAP_PLANES> source1_bits{};
+			std::array<bool, BITMAP_PLANES> source2_bits{};
 			for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
-				if (BIT(m_viper_select, plane))
-					write_viper_pixel(plane, destination_x, destination_y, command,
-						m_bitmap_planes[bitmap_plane_address(plane, source_x, source_y)]);
+			{
+				if (!BIT(m_viper_select, plane))
+					continue;
+				if (source1_enabled)
+					source1_bits[plane] = m_bitmap_planes[bitmap_plane_address(plane, source_x, source_y)];
+				if (source2_enabled)
+					source2_bits[plane] = (source2_x >= 0) && (source2_x < BITMAP_WIDTH) &&
+						(source2_y >= 0) && (source2_y < BITMAP_HEIGHT) &&
+						m_bitmap_planes[bitmap_plane_address(plane, source2_x, source2_y)];
+			}
+			if (source1_enabled && source2_enabled)
+			{
+				unsigned const csr_bank = command & 4;
+				route_source_cycle(csr_bank + 0, destination_x, source1_bits);
+				route_source_cycle(csr_bank + 1, destination_x, source2_bits);
+			}
+			for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
+			{
+				if (!BIT(m_viper_select, plane))
+					continue;
+				auto const &viper = m_viper_registers[plane];
+				unsigned const bus_width_select = (viper[VIPER_REG_BUS_WIDTH] >> 2) & 3;
+				unsigned const bus_width = (bus_width_select == 0) ? 4 : (bus_width_select == 3) ? 16 : 8;
+				unsigned const word_bit = unsigned(destination_x) & (bus_width - 1);
+				bool const source_bit = (source1_enabled && source2_enabled) ?
+					BIT(viper[VIPER_REG_SOURCE], word_bit) :
+					source2_enabled ? source2_bits[plane] : source1_bits[plane];
+				write_viper_pixel(plane, destination_x, destination_y, command, source_bit);
+			}
 		}
 	}
 }
@@ -819,6 +875,17 @@ void dc323_device::execute_fill(u16 command)
 	u16 const x_control = m_registers[REG_X_CONTROL];
 	bool const y_fill = BIT(x_control, 2);
 	bool const baseline = BIT(x_control, 3);
+	bool const source2_enabled = BIT(command, 12);
+	u16 const source2_size = m_registers[REG_SOURCE2_SIZE];
+	bool const source2_tiled = !BIT(source2_size, 7);
+	unsigned const source2_width = 1U << ((source2_size & 0x0007) + 2);
+	unsigned const source2_height = 1U << (((source2_size >> 4) & 0x0007) + 2);
+	auto const source2_coordinate = [this](unsigned origin_reg, int coordinate, unsigned tile_size, bool tiled)
+	{
+		u16 const raw = (m_registers[origin_reg] +
+			(tiled ? (coordinate & (tile_size - 1)) : coordinate)) & 0x3fff;
+		return BIT(raw, 13) ? int(raw) - 0x4000 : int(raw);
+	};
 	if (!m_fill_position_valid)
 	{
 		m_fill_a_x = m_registers[REG_DESTINATION_X] & 0x3fff;
@@ -838,11 +905,14 @@ void dc323_device::execute_fill(u16 command)
 	auto const a_path = raster_vector(a_dx, a_dy, delta(REG_ERROR_1), BITMAP_HEIGHT);
 	auto const b_path = raster_vector(b_dx, b_dy, delta(REG_ERROR_2), BITMAP_HEIGHT);
 
-	DC323_LOGMASKED(LOG_RASTEROPS, "%s %s: fill command=%04X axis=%c baseline=%u A=%d,%d points=%zu B=%d,%d points=%zu select=%X\n",
+	DC323_LOGMASKED(LOG_RASTEROPS, "%s %s: fill command=%04X axis=%c baseline=%u A=%d,%d points=%zu B=%d,%d points=%zu s2=%u/%04X,%04X tile=%u/%ux%u select=%X\n",
 		machine().time().to_string(), tag(), command, y_fill ? 'Y' : 'X', baseline,
-		a_origin_x, a_origin_y, a_path.size(), b_origin_x, b_origin_y, b_path.size(), m_viper_select);
+		a_origin_x, a_origin_y, a_path.size(), b_origin_x, b_origin_y, b_path.size(),
+		source2_enabled, m_registers[REG_SOURCE2_X], m_registers[REG_SOURCE2_Y],
+		source2_tiled, source2_width, source2_height, m_viper_select);
 
-	auto const write_span = [this, command, y_fill](int fixed, int first, int last)
+	auto const write_span = [this, command, y_fill, source2_enabled, source2_tiled,
+		source2_width, source2_height, &source2_coordinate](int fixed, int first, int last)
 	{
 		if (first > last)
 			std::swap(first, last);
@@ -852,13 +922,19 @@ void dc323_device::execute_fill(u16 command)
 			int const y = y_fill ? position : fixed;
 			if (x < 0 || x >= BITMAP_WIDTH || y < 0 || y >= BITMAP_HEIGHT)
 				continue;
+			int const source2_x = source2_coordinate(REG_SOURCE2_X, x, source2_width, source2_tiled);
+			int const source2_y = source2_coordinate(REG_SOURCE2_Y, y, source2_height, source2_tiled);
 			for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
 			{
 				if (!BIT(m_viper_select, plane))
 					continue;
 				auto const &viper = m_viper_registers[plane];
-				write_viper_pixel(plane, x, y, command,
-					BIT(viper[VIPER_REG_SOURCE], unsigned(x) & 15));
+				bool const source_bit = source2_enabled ?
+					((source2_x >= 0) && (source2_x < BITMAP_WIDTH) &&
+						(source2_y >= 0) && (source2_y < BITMAP_HEIGHT) &&
+						m_bitmap_planes[bitmap_plane_address(plane, source2_x, source2_y)]) :
+					BIT(viper[VIPER_REG_SOURCE], unsigned(x) & 15);
+				write_viper_pixel(plane, x, y, command, source_bit);
 			}
 		}
 	};
@@ -903,6 +979,62 @@ void dc323_device::execute_fill(u16 command)
 	m_fill_a_y += a_dy;
 	m_fill_b_x += b_dx;
 	m_fill_b_y += b_dy;
+}
+
+
+void dc323_device::load_viper_bit(unsigned plane, unsigned target, unsigned word_bit, bool data)
+{
+	auto set_register_bit = [this, plane, word_bit, data](unsigned reg)
+	{
+		u16 &value = m_viper_registers[plane][reg];
+		value = (value & ~u16(1U << word_bit)) | (u16(data) << word_bit);
+	};
+
+	switch (target & 3)
+	{
+	case 1:
+		set_register_bit(VIPER_REG_SOURCE);
+		break;
+	case 2:
+		set_register_bit(VIPER_REG_MASK_1);
+		set_register_bit(VIPER_REG_MASK_2);
+		break;
+	case 3:
+		set_register_bit(VIPER_REG_MASK_2);
+		break;
+	}
+}
+
+
+void dc323_device::route_source_cycle(unsigned csr, unsigned destination_x, std::array<bool, BITMAP_PLANES> const &source_bits)
+{
+	bool bus_valid = false;
+	bool bus_data = false;
+	for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
+	{
+		if (!BIT(m_viper_select, plane))
+			continue;
+		u16 const control = m_viper_registers[plane][VIPER_REG_CSR_BASE + (csr & 7)];
+		if (BIT(control, 4) && !bus_valid)
+		{
+			bus_valid = true;
+			bus_data = source_bits[plane];
+		}
+	}
+
+	for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
+	{
+		if (!BIT(m_viper_select, plane))
+			continue;
+		auto const &viper = m_viper_registers[plane];
+		u16 const control = viper[VIPER_REG_CSR_BASE + (csr & 7)];
+		unsigned const bus_width_select = (viper[VIPER_REG_BUS_WIDTH] >> 2) & 3;
+		unsigned const bus_width = (bus_width_select == 0) ? 4 : (bus_width_select == 3) ? 16 : 8;
+		unsigned const word_bit = destination_x & (bus_width - 1);
+		load_viper_bit(plane, (control >> 2) & 3, word_bit, source_bits[plane]);
+		if (bus_valid)
+			load_viper_bit(plane, control & 3, word_bit, bus_data);
+	}
 }
 
 
