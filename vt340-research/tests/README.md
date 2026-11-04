@@ -17,6 +17,7 @@ vt340-research/tests/run.py run
 # Run named suites or tests.
 vt340-research/tests/run.py run core
 vt340-research/tests/run.py run graphics serial
+vt340-research/tests/run.py run conformance
 vt340-research/tests/run.py run dc323-device graphics-raster-commands
 
 # Use another targeted executable or result location.
@@ -110,6 +111,7 @@ change.
 | `device` | Firmware-free DC323 and DC7051 tests |
 | `startup` | Boot, POST, mailbox, and processor synchronization |
 | `graphics` | Raster, Set-Up, color, and SIXEL behavior |
+| `conformance` | Selected programs from the external `vt340test` behavior corpus |
 | `serial` | UART diagnostics, connectors, and PTY transport |
 | `persistence` | E80 configuration persistence |
 | `historical` | Sprint-specific evidence that remains reproducible |
@@ -128,3 +130,10 @@ tests additionally declare tools such as `jq`, `rg`, Python, Perl, and `make`;
 the common runner checks these before starting. Configuration, NVRAM, save
 states, and intermediate streams use isolated temporary directories and do not
 modify the developer's normal MAME state.
+
+The `conformance` suite additionally expects the upstream `vt340test` checkout
+at `../sources/vt340test` relative to the MAME checkout. Its selected source
+revision and individual file hashes are pinned in `vt340test-cases.json`, so
+unrelated edits in that checkout do not silently change a regression. See
+`vt340test-coverage.md` for the reviewed inventory, current coverage, and the
+groups that still need bidirectional or interactive test support.
