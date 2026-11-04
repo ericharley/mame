@@ -207,6 +207,65 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	reg_w(dc323_device::REG_OLD_Y_INDEX, 0);
 	reg_w(dc323_device::REG_X_CONTROL, 0x0080);
 
+	// Source 2 derives its address from the unindexed destination address plus
+	// an off-screen origin. With tiling disabled this copies an aligned source
+	// rectangle without using the source-1 vector generators.
+	m_dc323->bitmap_clear();
+	fill(300, 300, 2, 2, true);
+	reg_w(dc323_device::REG_SOURCE2_X, 280);
+	reg_w(dc323_device::REG_SOURCE2_Y, 280);
+	reg_w(dc323_device::REG_SOURCE2_SIZE, 0x0080); // tiling disabled
+	reg_w(dc323_device::REG_DESTINATION_X, 20);
+	reg_w(dc323_device::REG_DESTINATION_Y, 20);
+	reg_w(dc323_device::REG_WIDTH, 2);
+	reg_w(dc323_device::REG_HEIGHT, 2);
+	reg_w(dc323_device::REG_COMMAND, 0x16c0);
+	for (unsigned y = 20; y < 22; y++)
+		for (unsigned x = 20; x < 22; x++)
+			expect_pixel(x, y, true, "non-tiled source 2 copies destination-relative source");
+
+	// Destination indexing moves the write but does not change source-2 phase.
+	reg_w(dc323_device::REG_NEW_X_INDEX, 5);
+	reg_w(dc323_device::REG_NEW_Y_INDEX, 4);
+	reg_w(dc323_device::REG_X_CONTROL, 0x00c0);
+	reg_w(dc323_device::REG_COMMAND, 0x16c0);
+	expect_pixel(25, 24, true, "source 2 uses destination address before indexing");
+	reg_w(dc323_device::REG_NEW_X_INDEX, 0);
+	reg_w(dc323_device::REG_NEW_Y_INDEX, 0);
+
+	// Tiled source 2 retains only the programmed low destination bits. The
+	// minimum 4x4 tile therefore repeats at four-pixel intervals.
+	m_dc323->bitmap_clear();
+	fill(401, 402, 1, 1, true);
+	reg_w(dc323_device::REG_SOURCE2_X, 400);
+	reg_w(dc323_device::REG_SOURCE2_Y, 400);
+	reg_w(dc323_device::REG_SOURCE2_SIZE, 0x0000); // 4x4 tile
+	reg_w(dc323_device::REG_DESTINATION_X, 21);
+	reg_w(dc323_device::REG_DESTINATION_Y, 22);
+	reg_w(dc323_device::REG_WIDTH, 8);
+	reg_w(dc323_device::REG_HEIGHT, 1);
+	reg_w(dc323_device::REG_COMMAND, 0x16c0);
+	expect_pixel(21, 22, true, "source-2 tile first occurrence");
+	expect_pixel(25, 22, true, "source-2 tile repeated occurrence");
+	expect_pixel(22, 22, false, "source-2 tile preserves clear neighboring phase");
+
+	// Dual-source commands require Viper I/D routing that is not modeled yet.
+	m_dc323->bitmap_clear();
+	fill(401, 402, 1, 1, true);
+	reg_w(dc323_device::REG_SOURCE_X, 401);
+	reg_w(dc323_device::REG_SOURCE_Y, 402);
+	reg_w(dc323_device::REG_DESTINATION_X, 21);
+	reg_w(dc323_device::REG_DESTINATION_Y, 22);
+	reg_w(dc323_device::REG_WIDTH, 1);
+	reg_w(dc323_device::REG_HEIGHT, 1);
+	reg_w(dc323_device::REG_COMMAND, 0x1ec0);
+	expect_pixel(21, 22, false, "unmodeled dual-source command does not invent output");
+	m_dc323->bitmap_clear();
+	reg_w(dc323_device::REG_X_CONTROL, 0x0083);
+	reg_w(dc323_device::REG_COMMAND, 0x16c0);
+	expect_pixel(21, 22, false, "unmodeled source-2 polygon fill does not invent output");
+	reg_w(dc323_device::REG_X_CONTROL, 0x0080);
+
 	// Constant fill affects all planes and preserves pixels beyond the region.
 	m_dc323->bitmap_clear();
 	viper_w(0x04, 0x00ca);

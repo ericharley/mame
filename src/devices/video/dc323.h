@@ -50,7 +50,10 @@ public:
 		REG_DESTINATION_SLOW_DX = 0x28,
 		REG_HEIGHT = 0x29,
 		REG_FAST_SCALE = 0x2a,
-		REG_SLOW_SCALE = 0x2b
+		REG_SLOW_SCALE = 0x2b,
+		REG_SOURCE2_X = 0x2c,
+		REG_SOURCE2_Y = 0x2d,
+		REG_SOURCE2_SIZE = 0x2e
 	};
 
 	enum status_bit : u16
