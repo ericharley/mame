@@ -1,0 +1,18 @@
+#!/bin/sh
+# Launch the VT340 with GPU upscaling and optional bilinear smoothing.
+set -eu
+scale=${1:-2}
+case "$scale" in
+  1|2|4) [ "$#" -eq 0 ] || shift ;;
+  *) echo "Usage: $0 [1|2|4] [smooth|sharp] [MAME options...]" >&2; exit 2 ;;
+esac
+mode=${1:-smooth}
+case "$mode" in
+  smooth) filter=-filter; [ "$#" -eq 0 ] || shift ;;
+  sharp) filter=-nofilter; shift ;;
+  -*) filter=-filter ;;
+  *) echo "Expected smooth or sharp" >&2; exit 2 ;;
+esac
+root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
+cd "$root"
+exec ./vt340 vt340 -rompath roms -window -video opengl -prescale "$scale" "$filter" "$@"

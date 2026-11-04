@@ -40,6 +40,56 @@
 	} while (false)
 
 
+namespace {
+
+struct raster_point
+{
+	int x;
+	int y;
+};
+
+
+std::vector<raster_point> raster_vector(int dx, int dy, unsigned limit)
+{
+	unsigned const abs_dx = unsigned(std::abs(dx));
+	unsigned const abs_dy = unsigned(std::abs(dy));
+	unsigned const length = std::min(std::max(abs_dx, abs_dy), limit);
+	std::vector<raster_point> result;
+	result.reserve(length);
+	if (!length)
+		return result;
+
+	bool const x_major = abs_dx >= abs_dy;
+	unsigned const major = x_major ? abs_dx : abs_dy;
+	unsigned const minor = x_major ? abs_dy : abs_dx;
+	int const x_step = (dx > 0) - (dx < 0);
+	int const y_step = (dy > 0) - (dy < 0);
+	int error = -int(major);
+	int x = 0;
+	int y = 0;
+	for (unsigned position = 0; position < length; position++)
+	{
+		result.push_back({ x, y });
+		if (x_major)
+			x += x_step;
+		else
+			y += y_step;
+		error += int(2 * minor);
+		if (error >= 0)
+		{
+			if (x_major)
+				y += y_step;
+			else
+				x += x_step;
+			error -= int(2 * major);
+		}
+	}
+	return result;
+}
+
+} // anonymous namespace
+
+
 DEFINE_DEVICE_TYPE(DC323, dc323_device, "dc323", "DEC DC323 Adder")
 
 
@@ -61,6 +111,7 @@ void dc323_device::device_start()
 	save_item(NAME(m_operational));
 	save_item(NAME(m_scroll_pending));
 	save_item(NAME(m_pbt_read_active));
+	save_item(NAME(m_pbt_read_command));
 	save_item(NAME(m_pbt_read_index));
 	save_item(NAME(m_pbt_read_count));
 	save_item(NAME(m_pbt_write_active));
@@ -84,6 +135,7 @@ void dc323_device::device_reset()
 	m_operational = false;
 	m_scroll_pending = false;
 	m_pbt_read_active = false;
+	m_pbt_read_command = 0;
 	m_pbt_read_index = 0;
 	m_pbt_read_count = 0;
 	m_pbt_write_active = false;
@@ -264,8 +316,24 @@ u8 dc323_device::id_data_r()
 	}
 	else if ((source_x < BITMAP_WIDTH) && (source_y < BITMAP_HEIGHT))
 	{
-		for (unsigned bit = 0; bit < 8 && (source_x + bit) < BITMAP_WIDTH; bit++)
-			data |= (m_bitmap_planes[bitmap_plane_address(0, source_x + bit, source_y)] & 1) << bit;
+		// In X-mode BTP, the active source CSR's I/D-output bit chooses the
+		// Viper plane that drives the shared processor bus.  Chip select can
+		// disambiguate multiple identically programmed source CSRs.
+		unsigned output_plane = 0;
+		bool output_enabled = false;
+		unsigned const csr = VIPER_REG_CSR_BASE + (m_pbt_read_command & 7);
+		for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
+		{
+			if (BIT(m_viper_select, plane) && BIT(m_viper_registers[plane][csr], 4))
+			{
+				output_plane = plane;
+				output_enabled = true;
+				break;
+			}
+		}
+		if (output_enabled)
+			for (unsigned bit = 0; bit < 8 && (source_x + bit) < BITMAP_WIDTH; bit++)
+				data |= (m_bitmap_planes[bitmap_plane_address(output_plane, source_x + bit, source_y)] & 1) << bit;
 	}
 
 	u32 const index = m_pbt_read_index++;
@@ -310,6 +378,7 @@ void dc323_device::command_w(u16 command)
 		u32 const width = m_registers[REG_WIDTH] & 0x1fff;
 		u32 const height = m_registers[REG_HEIGHT] & 0x1fff;
 		m_pbt_read_index = 0;
+		m_pbt_read_command = command;
 		m_pbt_read_count = ((width + 7) / 8) * height;
 		m_pbt_read_active = m_pbt_read_count != 0;
 		if (m_operational)
@@ -371,13 +440,62 @@ void dc323_device::update_interrupt(char const *event)
 
 void dc323_device::execute_rasterop(u16 command)
 {
+	auto const signed_14 = [](u16 value)
+	{
+		value &= 0x3fff;
+		return BIT(value, 13) ? int(value) - 0x4000 : int(value);
+	};
+	struct axis_sample
+	{
+		int destination;
+		int source;
+	};
+	auto const scaled_axis = [](unsigned destination_length, u16 scale)
+	{
+		std::vector<axis_sample> result;
+		unsigned const step = (scale & 0x1fff) + 1;
+		unsigned accumulator = 0;
+		unsigned source = 0;
+		unsigned destination = 0;
+		if (!BIT(scale, 13))
+		{
+			result.reserve(destination_length);
+			while (destination < destination_length)
+			{
+				result.push_back({ int(destination++), int(source) });
+				accumulator += step;
+				if (accumulator >= 0x2000)
+				{
+					accumulator -= 0x2000;
+					source++;
+				}
+			}
+		}
+		else
+		{
+			// During down scaling the source advances on every computation and
+			// the destination advances only when the scale accumulator carries.
+			while (destination < destination_length)
+			{
+				result.push_back({ int(destination), int(source++) });
+				accumulator += step;
+				if (accumulator >= 0x2000)
+				{
+					accumulator -= 0x2000;
+					destination++;
+				}
+			}
+		}
+		return result;
+	};
+
 	bool const rasterop = ((command >> 8) & 3) == 2;
 	bool const destination_enabled = BIT(command, 10);
 	bool const source1_enabled = BIT(command, 11);
 	bool const source2_enabled = BIT(command, 12);
 	u16 const x_control = m_registers[REG_X_CONTROL];
-	bool const normal_mode = ((x_control & 0x001f) == 0) && BIT(x_control, 7);
-	bool const linear_pattern_mode = ((x_control & 0x001f) == 2) && BIT(x_control, 7);
+	bool const normal_mode = ((x_control & 0x0003) == 0) && BIT(x_control, 7);
+	bool const linear_pattern_mode = ((x_control & 0x0003) == 2) && BIT(x_control, 7);
 	bool const indexed = BIT(x_control, 5) || BIT(x_control, 6);
 	bool const zero_indexes = !(m_registers[REG_NEW_X_INDEX] |
 		m_registers[REG_NEW_Y_INDEX] | m_registers[REG_OLD_X_INDEX] |
@@ -392,32 +510,48 @@ void dc323_device::execute_rasterop(u16 command)
 	if (!normal_mode || (indexed && !zero_indexes))
 		return;
 
-	u16 const source_x = m_registers[REG_SOURCE_X] & 0x3fff;
-	u16 const source_y = m_registers[REG_SOURCE_Y] & 0x1fff;
+	int const source_x = m_registers[REG_SOURCE_X] & 0x3fff;
+	int const source_y = m_registers[REG_SOURCE_Y] & 0x1fff;
 	bool const source_is_e49 = source1_enabled && BIT(source_y, 12);
-	u16 const destination_x = m_registers[REG_DESTINATION_X] & 0x3fff;
-	u16 const destination_y = m_registers[REG_DESTINATION_Y] & 0x3fff;
-	u16 const width = std::min<u16>(m_registers[REG_WIDTH] & 0x1fff, BITMAP_WIDTH);
-	u16 const height = std::min<u16>(m_registers[REG_HEIGHT] & 0x1fff, BITMAP_HEIGHT);
+	int const destination_x = m_registers[REG_DESTINATION_X] & 0x3fff;
+	int const destination_y = m_registers[REG_DESTINATION_Y] & 0x3fff;
+	int const destination_fast_dx = signed_14(m_registers[REG_WIDTH]);
+	int const destination_fast_dy = signed_14(m_registers[REG_DESTINATION_FAST_DY]);
+	int const destination_slow_dx = signed_14(m_registers[REG_DESTINATION_SLOW_DX]);
+	int const destination_slow_dy = signed_14(m_registers[REG_HEIGHT]);
+	auto const fast_path = raster_vector(destination_fast_dx, destination_fast_dy, BITMAP_HEIGHT);
+	auto const slow_path = raster_vector(destination_slow_dx, destination_slow_dy, BITMAP_HEIGHT);
+	unsigned const width = fast_path.size();
+	unsigned const height = slow_path.size();
+	int const source_x_step = BIT(m_registers[REG_SOURCE_FAST_DX], 13) ? -1 : 1;
+	int const source_y_step = BIT(m_registers[REG_SOURCE_SLOW_DY], 13) ? -1 : 1;
+	auto const fast_samples = scaled_axis(width, m_registers[REG_FAST_SCALE]);
+	auto const slow_samples = scaled_axis(height, m_registers[REG_SLOW_SCALE]);
 	unsigned const function = (command >> 4) & 3;
 	u8 const logic0 = u8(m_viper_registers[0][VIPER_REG_LOGIC_BASE + function]);
-	DC323_LOGMASKED(LOG_RASTEROPS, "%s %s: raster command=%04X src=%u,%u dst=%u,%u size=%ux%u select=%X logic0=%02X s1=%u s2=%u\n",
+	DC323_LOGMASKED(LOG_RASTEROPS, "%s %s: raster command=%04X src=%d,%d dst=%d,%d size=%ux%u select=%X logic0=%02X s1=%u s2=%u\n",
 		machine().time().to_string(), tag(), command, source_x, source_y,
 		destination_x, destination_y, width, height, m_viper_select, logic0, source1_enabled, source2_enabled);
 	if (source_is_e49 && (destination_x < 800) && (destination_y < 500) &&
 		(width == 10) && (height == 20) && m_viper_select)
 		m_video_operational = true;
 
-	for (u16 y = 0; y < height && (destination_y + y) < BITMAP_HEIGHT; y++)
+	for (axis_sample const slow : slow_samples)
 	{
-		for (u16 x = 0; x < width && (destination_x + x) < BITMAP_WIDTH; x++)
+		raster_point const slow_point = slow_path[slow.destination];
+		int const source_pixel_y = source_y + slow.source * source_y_step;
+		for (axis_sample const fast : fast_samples)
 		{
-			u16 const source_pixel_x = source_x + x;
-			u16 const source_pixel_y = source_y + y;
+			raster_point const fast_point = fast_path[fast.destination];
+			int const pixel_x = destination_x + slow_point.x + fast_point.x;
+			int const pixel_y = destination_y + slow_point.y + fast_point.y;
+			int const source_pixel_x = source_x + fast.source * source_x_step;
+			if (pixel_x < 0 || pixel_x >= BITMAP_WIDTH || pixel_y < 0 || pixel_y >= BITMAP_HEIGHT)
+				continue;
 			u16 const rom_x = source_pixel_x & 0x00ff;
 			u16 const rom_y = source_pixel_y & 0x03ff;
 			u8 const rom_source = source_is_e49 ? m_chargen_rom[(rom_y << 5) | (rom_x >> 3)] : 0;
-			unsigned const word_bit = (destination_x + x) & 15;
+			unsigned const word_bit = pixel_x & 15;
 			for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
 			{
 				if (!BIT(m_viper_select, plane))
@@ -428,11 +562,12 @@ void dc323_device::execute_rasterop(u16 command)
 					source_bit = BIT(viper[VIPER_REG_SOURCE], word_bit);
 				else if (source_is_e49)
 					source_bit = BIT(rom_source, rom_x & 7);
-				else if ((source_pixel_x < BITMAP_WIDTH) && (source_pixel_y < BITMAP_HEIGHT))
+				else if ((source_pixel_x >= 0) && (source_pixel_x < BITMAP_WIDTH) &&
+					(source_pixel_y >= 0) && (source_pixel_y < BITMAP_HEIGHT))
 					source_bit = m_bitmap_planes[bitmap_plane_address(plane, source_pixel_x, source_pixel_y)];
 				else
 					source_bit = false;
-				write_viper_pixel(plane, destination_x + x, destination_y + y, command, source_bit);
+				write_viper_pixel(plane, pixel_x, pixel_y, command, source_bit);
 			}
 		}
 	}
@@ -453,18 +588,19 @@ void dc323_device::execute_linear_pattern(u16 command)
 	int const destination_fast_dy = delta(REG_DESTINATION_FAST_DY);
 	int const destination_slow_dx = delta(REG_DESTINATION_SLOW_DX);
 	int const destination_slow_dy = delta(REG_HEIGHT);
-	if (!source_fast_dx || !source_slow_dy || !destination_fast_dx || !destination_slow_dy ||
-		destination_fast_dy || destination_slow_dx)
+	if (!source_fast_dx || !source_slow_dy)
 		return;
 
 	unsigned const source_width = unsigned(std::abs(source_fast_dx));
 	unsigned const source_height = unsigned(std::abs(source_slow_dy));
-	unsigned const destination_width = unsigned(std::abs(destination_fast_dx));
-	unsigned const destination_height = unsigned(std::abs(destination_slow_dy));
+	auto const fast_path = raster_vector(destination_fast_dx, destination_fast_dy, BITMAP_HEIGHT);
+	auto const slow_path = raster_vector(destination_slow_dx, destination_slow_dy, BITMAP_HEIGHT);
+	unsigned const destination_width = fast_path.size();
+	unsigned const destination_height = slow_path.size();
+	if (!destination_width || !destination_height)
+		return;
 	int const source_x_step = source_fast_dx < 0 ? -1 : 1;
 	int const source_y_step = source_slow_dy < 0 ? -1 : 1;
-	int const destination_x_step = destination_fast_dx < 0 ? -1 : 1;
-	int const destination_y_step = destination_slow_dy < 0 ? -1 : 1;
 	int const source_origin_x = m_registers[REG_SOURCE_X] & 0x3fff;
 	int const source_origin_y = m_registers[REG_SOURCE_Y] & 0x1fff;
 	int destination_origin_x = m_registers[REG_DESTINATION_X] & 0x3fff;
@@ -482,15 +618,19 @@ void dc323_device::execute_linear_pattern(u16 command)
 
 	for (unsigned y = 0; y < destination_height; y++)
 	{
-		int const destination_y = destination_origin_y + int(y) * destination_y_step;
+		raster_point const slow_point = slow_path[y];
 		int const source_y = source_origin_y + int(y % source_height) * source_y_step;
-		if (destination_y < 0 || destination_y >= BITMAP_HEIGHT || source_y < 0 || source_y >= BITMAP_HEIGHT)
+		if (source_y < 0 || source_y >= BITMAP_HEIGHT)
 			continue;
 		for (unsigned x = 0; x < destination_width; x++)
 		{
-			int const destination_x = destination_origin_x + int(x) * destination_x_step;
+			raster_point const fast_point = fast_path[x];
+			int const destination_x = destination_origin_x + slow_point.x + fast_point.x;
+			int const destination_y = destination_origin_y + slow_point.y + fast_point.y;
 			int const source_x = source_origin_x + int(x % source_width) * source_x_step;
-			if (destination_x < 0 || destination_x >= BITMAP_WIDTH || source_x < 0 || source_x >= BITMAP_WIDTH)
+			if (destination_x < 0 || destination_x >= BITMAP_WIDTH ||
+				destination_y < 0 || destination_y >= BITMAP_HEIGHT ||
+				source_x < 0 || source_x >= BITMAP_WIDTH)
 				continue;
 			for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
 				if (BIT(m_viper_select, plane))
