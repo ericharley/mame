@@ -46,7 +46,9 @@ public:
 		REG_WIDTH = 0x26,
 		REG_DESTINATION_FAST_DY = 0x27,
 		REG_DESTINATION_SLOW_DX = 0x28,
-		REG_HEIGHT = 0x29
+		REG_HEIGHT = 0x29,
+		REG_FAST_SCALE = 0x2a,
+		REG_SLOW_SCALE = 0x2b
 	};
 
 	enum status_bit : u16
@@ -136,6 +138,7 @@ private:
 	bool m_operational = false;
 	bool m_scroll_pending = false;
 	bool m_pbt_read_active = false;
+	u16 m_pbt_read_command = 0;
 	u32 m_pbt_read_index = 0;
 	u32 m_pbt_read_count = 0;
 	bool m_pbt_write_active = false;

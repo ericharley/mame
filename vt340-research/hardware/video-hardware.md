@@ -108,6 +108,15 @@ mask registers, source complement control, and bitmap-to-bitmap source path.
 This produces the first genuine on-screen firmware text (`Wait`) at exact
 832-total/800-active by 526-total/500-active screen timing.
 
+Normal-mode axis-aligned raster operations also apply the Dragon fast and slow
+scale accumulators. This is required by the Set-Up return path: firmware uses
+slow scale `0199` to replicate each off-screen session row across a 20-scanline
+terminal character row. The previous unscaled copy mixed 20 adjacent backing
+rows into every displayed row. Normal and linear-pattern destinations also
+walk both signed fast and slow vectors with the DC323's documented Bresenham
+initialization. This supplies rotated and non-axis-aligned ReGIS vectors and
+text without bypassing the firmware command stream.
+
 Schematic sheet 17 identifies the color map as E51/E52 AS870 register files.
 The four serialized bitmap-plane bits select one of 16 entries; the outputs
 are four bits each of red, green, and blue. PAL E16 decodes `f080-f09f` as the
@@ -116,6 +125,15 @@ nibble selects the entry. These ranges were previously misidentified as
 DC7051 timing registers. E51's low data nibble is red and its high nibble is
 unused. E52's high nibble drives green and its low nibble drives blue, as
 confirmed by both the board drawing and native SIXEL palette loads.
+
+The BP0 scanout drawing also establishes the bit significance at that lookup
+boundary. The DC323 device stores Viper 0 as plane bit 0, but the four serial
+outputs reach the E51/E52 address latch in reverse numerical significance.
+Scanout therefore reverses the four-bit plane value before selecting an
+output-map entry. Without that translation, firmware color `n` displayed
+entry `bitswap(n)`; only `0`, `6`, `9`, and `15` selected themselves. That
+exact four-entry set was independently observed in the native Color Set-Up
+preview before the correction.
 
 The driver retains both apertures and displays every completely programmed
 entry as genuine 12-bit RGB. Entries without both halves retain a monochrome

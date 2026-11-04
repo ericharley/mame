@@ -63,3 +63,19 @@ quickly; always use a bounded run and keep generated output unversioned.
 
 The ROM files live in `roms/vt340/` and remain ignored by Git.  Their verified
 digests and source URLs are recorded in `firmware/manifest.json`.
+
+### Scaled, smoothed display
+
+From the MAME checkout root:
+
+```sh
+./vt340-research/tools/vt340-display 2 smooth
+./vt340-research/tools/vt340-display 4 smooth
+./vt340-research/tools/vt340-display 2 sharp
+```
+
+The launcher defaults to 2× prescaling and bilinear smoothing, using OpenGL.
+Prescaling expands the native framebuffer in both axes before filtering;
+4× uses four times the texture memory of 2×. Resize the window to choose the
+final display size. This does not add detail to the emulated framebuffer.
+`sharp` disables smoothing. Extra MAME options may follow the display mode.

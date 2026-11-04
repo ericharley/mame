@@ -1,0 +1,17 @@
+#!/bin/bash
+# Run gnuplot's SIXEL output through the compatibility transformations needed
+# by a native VT340 connected through a tty.
+
+set -euo pipefail
+
+if [[ $# -eq 0 ]]; then
+	echo "usage: $0 GNUPLOT-FILE [GNUPLOT-ARG ...]" >&2
+	exit 2
+fi
+
+# sixelgd currently emits DCS 9;1q even for an opaque plot.  On the VT340,
+# parameter 1 selects the transparent/additive drawing path, so successive
+# animation frames accumulate.  Parameter 0 makes firmware clear the SIXEL
+# extent before drawing the new frame.  Removing formatting newlines also
+# prevents a tty with ONLCR enabled from expanding them to CR/LF inside DCS.
+gnuplot "$@" | LC_ALL=C perl -pe 's/\eP9;1q/\eP9;0q/g; s/[\r\n]//g'
