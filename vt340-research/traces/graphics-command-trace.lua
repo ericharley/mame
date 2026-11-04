@@ -4,6 +4,7 @@
 local cpu2 = manager.machine.devices[":cpu2"]
 local xdata = cpu2.spaces["xdata"]
 local screen = manager.machine.screens[":screen"]
+local artifact_dir = os.getenv("VT340_TEST_ARTIFACT_DIR")
 local planes = manager.machine.memory.shares[":bitmap_planes"]
 
 assert(planes, "VT340 bitmap_planes memory share is unavailable")
@@ -221,7 +222,9 @@ emu.register_frame_done(function()
 	local now = manager.machine.time:as_double()
 	while next_capture <= #capture_times and now >= capture_times[next_capture] do
 		local capture = capture_times[next_capture]
-		local path = string.format("/tmp/vt340-graphics-%03d.png", capture)
+		local path = artifact_dir and artifact_dir ~= "" and
+			string.format("%s/graphics-%03d.png", artifact_dir, capture) or
+			string.format("/tmp/vt340-graphics-%03d.png", capture)
 		screen:snapshot(path)
 		print(string.format(
 			'VT340_GFX_JSON {"event":"snapshot","time":%.9f,"target_time":%d,"path":"%s"}',

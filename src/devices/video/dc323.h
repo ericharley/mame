@@ -123,6 +123,7 @@ private:
 	void command_w(u16 command);
 	void execute_rasterop(u16 command);
 	void execute_linear_pattern(u16 command);
+	void execute_fill(u16 command);
 	void execute_scroll();
 	void write_viper_pixel(unsigned plane, unsigned x, unsigned y, u16 command, bool source_bit);
 	void update_interrupt(char const *event);
@@ -150,6 +151,11 @@ private:
 	u8 m_diagnostic_data = 0;
 	bool m_raster_diagnostic = false;
 	bool m_video_operational = false;
+	bool m_fill_position_valid = false;
+	s32 m_fill_a_x = 0;
+	s32 m_fill_a_y = 0;
+	s32 m_fill_b_x = 0;
+	s32 m_fill_b_y = 0;
 	bool m_irq_state = false;
 	u32 m_log_events = 0;
 };

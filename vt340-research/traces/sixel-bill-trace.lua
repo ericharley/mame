@@ -66,6 +66,7 @@ local viper_loads = 0
 local dc323_mode = 0
 local viper_select = 0
 local command_counts = {}
+local mode_counts = {}
 local raster_outcomes = {}
 local select_counts = {}
 local visible_rasters = 0
@@ -251,14 +252,21 @@ sixel_dc323_write_tap = cpu2_xdata:install_write_tap(
 			command_counts[command_key] = (command_counts[command_key] or 0) + 1
 			operation_counts[operation + 1] = operation_counts[operation + 1] + 1
 			if operation == 2 then
+				local mode_key = string.format("%04X", dc323_mode)
+				mode_counts[mode_key] = (mode_counts[mode_key] or 0) + 1
 				local reason = "executed"
 				local indexed = (dc323_mode & 0x60) ~= 0
 				local zero_indexes = ((dc323_regs[0x17] or 0) | (dc323_regs[0x18] or 0) |
 					(dc323_regs[0x19] or 0) | (dc323_regs[0x1a] or 0)) == 0
+				local raster_mode = dc323_mode & 0x03
+				local source1 = ((command >> 11) & 1) ~= 0
 				if ((command >> 10) & 1) == 0 then reason = "destination_disabled"
 				elseif ((command >> 12) & 1) ~= 0 then reason = "source2"
-				elseif (dc323_mode & 0x03) ~= 0 or (dc323_mode & 0x80) == 0 then reason = "non_normal_mode"
-				elseif indexed and not zero_indexes then reason = "nonzero_index"
+				elseif (dc323_mode & 0x80) == 0 then reason = "pen_up"
+				elseif raster_mode == 0 and indexed and not zero_indexes then reason = "nonzero_index"
+				elseif raster_mode == 1 then reason = "reserved_mode"
+				elseif raster_mode == 2 and not source1 then reason = "linear_without_source1"
+				elseif raster_mode == 3 and source1 then reason = "fill_with_source1"
 				end
 				local outcome_key = command_key .. ":" .. reason
 				raster_outcomes[outcome_key] = (raster_outcomes[outcome_key] or 0) + 1
@@ -378,6 +386,11 @@ local function capture_visible_bitmap()
 		print(string.format(
 			'VT340_SIXEL_JSON {"event":"command_count","command":"%s","count":%d}',
 			command, count))
+	end
+	for mode, count in pairs(mode_counts) do
+		print(string.format(
+			'VT340_SIXEL_JSON {"event":"mode_count","mode":"%s","count":%d}',
+			mode, count))
 	end
 	for outcome, count in pairs(raster_outcomes) do
 		local command, reason = outcome:match("^([^:]+):(.+)$")

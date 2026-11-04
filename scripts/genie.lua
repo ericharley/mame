@@ -1131,7 +1131,8 @@ configuration { "asmjs" }
 		"-s USE_SDL_TTF=3",
 		"-s DEFAULT_LIBRARY_FUNCS_TO_INCLUDE=\"['\\$$ERRNO_CODES']\"",
 		"-s EXPORTED_FUNCTIONS=\"['_main', '_malloc', '__ZN15running_machine30emscripten_get_running_machineEv', '__ZN15running_machine17emscripten_get_uiEv', '__ZN15running_machine20emscripten_get_soundEv', '__ZN15mame_ui_manager12set_show_fpsEb', '__ZNK15mame_ui_manager8show_fpsEv', '__ZN13sound_manager4muteEbh', '__ZN15running_machine15emscripten_saveEPKc', '__ZN15running_machine15emscripten_loadEPKc', '__ZN15running_machine21emscripten_hard_resetEv', '__ZN15running_machine21emscripten_soft_resetEv', '__ZN15running_machine15emscripten_exitEv']\"",
-		"-s EXPORTED_RUNTIME_METHODS=\"['cwrap']\"",
+		"-s EXPORTED_RUNTIME_METHODS=\"['cwrap','FS','callMain']\"",
+		"-lidbfs.js",
 		"-s ERROR_ON_UNDEFINED_SYMBOLS=0",
 		"-s STACK_SIZE=5MB",
 		"-s MAX_WEBGL_VERSION=2",
@@ -1181,6 +1182,7 @@ configuration { "asmjs" }
 	else
 		linkoptions {
 			"-s ALLOW_MEMORY_GROWTH=1",
+			"-s GROWABLE_ARRAYBUFFERS=0",
 			"-s INITIAL_MEMORY=24MB",
 		}
 	end

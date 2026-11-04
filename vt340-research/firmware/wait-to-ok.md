@@ -224,8 +224,9 @@ keyboard, configuration, timer, or interprocessor source before implementation.
   regression checks.
 
 The final targeted build completed without compiler errors. The ROM/listing
-smoke test passed, including `-verifyroms`; MAME reports only the expected
-`e80.bin` `NO_DUMP` warning. Three independent 15-second unthrottled cold
+smoke test passed, including `-verifyroms`. At that investigation stage E80
+was still declared `NO_DUMP`; the recovered image is now mapped and verified.
+Three independent 15-second unthrottled cold
 boots completed normally. A post-build controlled run also reached CPU2
 `dc02` through the original `db98` command-32 handler.
 
@@ -353,5 +354,5 @@ requires a zero after that post before it can consume result `80`.
 The CPU2 continuation stack injection is no longer present. Other known
 synthetic or provisional hardware behavior remains outside this phase,
 including retained short T1 handshake observations, the synthetic LK201
-power-on byte sequence, the undumped and currently unmapped CPU1-owned E80,
+power-on byte sequence, the then-undumped and unmapped CPU1-owned E80,
 and incomplete graphics device semantics. None was changed in this round.

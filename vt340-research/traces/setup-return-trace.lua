@@ -9,6 +9,7 @@ local xdata = cpu2.spaces["xdata"]
 local idata = cpu2.spaces["idata"]
 local keyboard = manager.machine.natkeyboard
 local screen = manager.machine.screens[":screen"]
+local artifact_dir = os.getenv("VT340_TEST_ARTIFACT_DIR")
 local planes = manager.machine.memory.shares[":bitmap_planes"]
 local cpu1_xdata = manager.machine.devices[":cpu1"].spaces["xdata"]
 local cpu1 = manager.machine.devices[":cpu1"]
@@ -336,7 +337,9 @@ emu.register_frame_done(function()
 		local hash, counts = visible_hash()
 		local count_text = {}
 		for index = 1, #counts do count_text[index] = tostring(counts[index]) end
-		local path = string.format("/tmp/vt340-setup-return-%03d.png", target)
+		local path = artifact_dir and artifact_dir ~= "" and
+			string.format("%s/setup-return-%03d.png", artifact_dir, target) or
+			string.format("/tmp/vt340-setup-return-%03d.png", target)
 		screen:snapshot(path)
 		print(string.format(
 			'VT340_SETUP_RETURN_JSON {"event":"capture","time":%.9f,"target":%d,"hash":"%08X","counts":[%s],"state":"%02X","y_offset":"%04X","y_scroll":"%04X","path":"%s"}',

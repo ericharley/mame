@@ -2,10 +2,12 @@
 set -eu
 
 binary=${1:-./vt340}
+test_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "$test_dir/lib/artifacts.sh"
 slots=$(mktemp -t vt340-serial-slots.XXXXXX)
 devices=$(mktemp -t vt340-serial-devices.XXXXXX)
 log=$(mktemp -t vt340-serial-post.XXXXXX)
-trap 'rm -f "$slots" "$devices" "$log"' EXIT HUP INT TERM
+trap 'vt340_artifact_copy "$slots" "slots.txt"; vt340_artifact_copy "$devices" "devices.txt"; vt340_artifact_copy "$log" "mame.log"; rm -f "$slots" "$devices" "$log"' EXIT HUP INT TERM
 
 "$binary" -listslots vt340 >"$slots"
 rg -q 'comm1' "$slots"

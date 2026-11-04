@@ -2,10 +2,12 @@
 set -eu
 
 binary=${1:-./vt340}
+test_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "$test_dir/lib/artifacts.sh"
 test_root=$(mktemp -d "${TMPDIR:-/tmp}/vt340-nvram-test.XXXXXX")
 write_log="$test_root/write.log"
 reload_log="$test_root/reload.log"
-trap 'rm -rf "$test_root"' EXIT HUP INT TERM
+trap 'vt340_artifact_copy "$write_log" "save.log"; vt340_artifact_copy "$reload_log" "reload.log"; vt340_artifact_copy "$test_root/vt340/eeprom" "eeprom.bin"; rm -rf "$test_root"' EXIT HUP INT TERM
 
 common_args="vt340 -rompath roms -video none -sound none -skip_gameinfo -nothrottle -nvram_directory $test_root -autoboot_delay 0"
 

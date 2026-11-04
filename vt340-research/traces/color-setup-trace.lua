@@ -5,6 +5,11 @@ io.stdout:setvbuf("no")
 
 local keyboard = manager.machine.natkeyboard
 local screen = manager.machine.screens[":screen"]
+local artifact_dir = os.getenv("VT340_TEST_ARTIFACT_DIR")
+local function artifact_path(name, fallback)
+	if artifact_dir and artifact_dir ~= "" then return artifact_dir .. "/" .. name end
+	return fallback
+end
 local cpu1_xdata = manager.machine.devices[":cpu1"].spaces["xdata"]
 local setup_enter = manager.machine.ioport.ports[":keyboard:KBD17"].fields["Enter"]
 local setup_down = manager.machine.ioport.ports[":keyboard:KBD16"].fields["Down"]
@@ -74,15 +79,15 @@ emu.register_frame_done(function()
 		next_action = next_action + 1
 	end
 	if not global_captured and now >= 185 then
-		screen:snapshot("/tmp/vt340-global-setup.png")
+		screen:snapshot(artifact_path("global-setup.png", "/tmp/vt340-global-setup.png"))
 		global_captured = true
 	end
 	if not color_captured and now >= 260 then
-		screen:snapshot("/tmp/vt340-global-color.png")
+		screen:snapshot(artifact_path("global-color.png", "/tmp/vt340-global-color.png"))
 		color_captured = true
 	end
 	if not captured and now >= 280 then
-		screen:snapshot("/tmp/vt340-color-setup.png")
+		screen:snapshot(artifact_path("color-setup.png", "/tmp/vt340-color-setup.png"))
 		print(string.format(
 			'VT340_COLOR_SETUP_JSON {"event":"capture","time":%.9f,"config_7b00":"%02X","state_4c00":"%02X"}',
 			now, cpu1_xdata:read_u8(0x7b00), cpu1_xdata:read_u8(0x4c00)))

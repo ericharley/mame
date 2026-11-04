@@ -3,12 +3,13 @@ set -eu
 
 binary=${1:-./vt340}
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
+. "$root/vt340-research/tests/lib/artifacts.sh"
 fixture="$root/vt340-research/fixtures/bill-the-cat.six"
 run_dir=$(mktemp -d -t vt340-sixel-pty.XXXXXX)
 nvram="$run_dir/nvram"
 log="$run_dir/run.log"
 json="$run_dir/run.json"
-snapshot=${VT340_SIXEL_SNAPSHOT:-/tmp/vt340-sixel-bill-color.png}
+snapshot=${VT340_SIXEL_SNAPSHOT:-$(vt340_artifact_path /tmp/vt340-sixel-bill-color.png sixel-bill.png)}
 capture_time=${VT340_SIXEL_CAPTURE_TIME:-560}
 run_time=$((capture_time + 5))
 byte_limit=${VT340_SIXEL_BYTE_LIMIT:-0}
@@ -21,6 +22,8 @@ cleanup()
 		kill "$pid" 2>/dev/null || true
 		wait "$pid" 2>/dev/null || true
 	fi
+	vt340_artifact_copy "$log" "mame.log"
+	vt340_artifact_copy "$json" "events.jsonl"
 	if test "$status" -eq 0; then
 		rm -rf "$run_dir"
 	else

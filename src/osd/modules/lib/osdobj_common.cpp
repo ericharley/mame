@@ -225,7 +225,12 @@ void osd_common_t::register_options()
 	REGISTER_MODULE(m_mod_man, FONT_NONE);
 
 #if defined(SDLMAME_EMSCRIPTEN)
-	REGISTER_MODULE(m_mod_man, RENDERER_SDL1); // don't bother trying to use video acceleration in browsers
+	// The browser software renderer must match the SDL major version.
+#if defined(SDLMAME_SDL3)
+	REGISTER_MODULE(m_mod_man, RENDERER_SDL3SOFT);
+#else
+	REGISTER_MODULE(m_mod_man, RENDERER_SDL1);
+#endif
 #endif
 #if defined(OSD_WINDOWS)
 	REGISTER_MODULE(m_mod_man, RENDERER_D3D); // this is only built for OSD=windows, there's no dummy stub

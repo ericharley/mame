@@ -3,10 +3,11 @@ set -eu
 
 binary=${1:-./vt340}
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
+. "$root/vt340-research/tests/lib/artifacts.sh"
 nvram=$(mktemp -d -t vt340-color-setup-nvram.XXXXXX)
 log=$(mktemp -t vt340-color-setup.XXXXXX)
 json=$(mktemp -t vt340-color-setup.XXXXXX)
-trap 'rm -f "$log" "$json"; rm -rf "$nvram"' EXIT HUP INT TERM
+trap 'vt340_artifact_copy "$log" "mame.log"; vt340_artifact_copy "$json" "events.jsonl"; rm -f "$log" "$json"; rm -rf "$nvram"' EXIT HUP INT TERM
 
 "$binary" vt340 -rompath "$root/roms" -nvram_directory "$nvram" \
 	-video none -sound none -nothrottle -seconds_to_run 282 \

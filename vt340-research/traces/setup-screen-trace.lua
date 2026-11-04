@@ -12,6 +12,7 @@ local cpu2_idata = cpu2.spaces["idata"]
 local keyboard = manager.machine.natkeyboard
 local planes = manager.machine.memory.shares[":bitmap_planes"]
 local screen = manager.machine.screens[":screen"]
+local artifact_dir = os.getenv("VT340_TEST_ARTIFACT_DIR")
 
 keyboard.in_use = true
 
@@ -121,7 +122,8 @@ emu.register_frame_done(function()
 				now, model_state, (model_state & 0x20) ~= 0 and "true" or "false"))
 		end
 		local hash, lit = visible_state()
-		local path = "/tmp/vt340-setup-screen.png"
+		local path = artifact_dir and artifact_dir ~= "" and
+			(artifact_dir .. "/setup-screen.png") or "/tmp/vt340-setup-screen.png"
 		screen:snapshot(path)
 		print(string.format(
 			'VT340_SETUP_JSON {"event":"summary","time":%.9f,"setup_key":%s,"initialization_ready":%s,"fifo_ready":%s,"visible_hash":"%08X","lit_pixels":%d,"cpu1_pc":"%04X","cpu2_pc":"%04X","barrier_4be5":"%02X","path":"%s"}',

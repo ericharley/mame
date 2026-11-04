@@ -20,6 +20,7 @@
 /vt340-research/traces/**/*.log
 /vt340-research/traces/**/*.png
 /vt340-research/traces/**/*.tr
+/vt340-research/test-results/
 !/.github/
 !/3rdparty/
 !/android-project/

@@ -2,10 +2,12 @@
 set -eu
 
 binary=${1:-./vt340}
+test_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "$test_dir/lib/artifacts.sh"
 config_dir=$(mktemp -d -t vt340-fast-config.XXXXXX)
 nvram_dir=$(mktemp -d -t vt340-fast-nvram.XXXXXX)
 log=$(mktemp -t vt340-fast-start.XXXXXX)
-trap 'rm -rf "$config_dir" "$nvram_dir"; rm -f "$log"' EXIT HUP INT TERM
+trap 'vt340_artifact_copy "$log" "mame.log"; rm -rf "$config_dir" "$nvram_dir"; rm -f "$log"' EXIT HUP INT TERM
 
 mkdir -p "$config_dir"
 cp vt340-research/fixtures/fast-start.cfg "$config_dir/vt340.cfg"

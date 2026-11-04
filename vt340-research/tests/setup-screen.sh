@@ -2,9 +2,11 @@
 set -eu
 
 binary=${1:-./vt340}
+test_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "$test_dir/lib/artifacts.sh"
 log=$(mktemp -t vt340-setup-screen.XXXXXX)
 json=$(mktemp -t vt340-setup-screen.XXXXXX)
-trap 'rm -f "$log" "$json"' EXIT HUP INT TERM
+trap 'vt340_artifact_copy "$log" "mame.log"; vt340_artifact_copy "$json" "events.jsonl"; rm -f "$log" "$json"' EXIT HUP INT TERM
 
 "$binary" vt340 -rompath roms -video none -sound none -nothrottle \
 	-seconds_to_run 143 -autoboot_delay 0 \
