@@ -141,6 +141,7 @@ public:
 		m_screen(*this, "screen"),
 		m_dc323(*this, "dc323"),
 		m_dc7051(*this, "dc7051"),
+		m_startup(*this, "STARTUP"),
 		m_cpu2banks_rom(*this, "cpu2banks"),
 		m_shared_ram(*this, "shared_ram", 0x10000, ENDIANNESS_LITTLE),
 		m_bitmap_ram(*this, "bitmap_ram", BITMAP_POST_SIZE, ENDIANNESS_LITTLE)
@@ -151,7 +152,7 @@ public:
 	void init_vt340();
 
 private:
-	required_device<mcs51_cpu_device> m_cpu1;
+	required_device<i8031_device> m_cpu1;
 	required_device<i8031_device> m_cpu2;
 	required_device<lk201_device> m_keyboard;
 	required_device<scn2681_device> m_duart;
@@ -162,6 +163,7 @@ private:
 	required_device<screen_device> m_screen;
 	required_device<dc323_device> m_dc323;
 	required_device<dc7051_device> m_dc7051;
+	required_ioport m_startup;
 	required_region_ptr<u8> m_cpu2banks_rom;
 	memory_share_creator<u8> m_shared_ram;
 	memory_share_creator<u8> m_bitmap_ram;
@@ -176,17 +178,13 @@ private:
 	bool m_board_status = false;
 	u8 m_video_test_select = 0;
 	bool m_cpu1_brd_strobe = false;
-	bool m_cpu2_t1_pulse = false;
+	bool m_cpu2_startup_pulse_pending = false;
 	bool m_keyboard_rxd = true;
-	u8 m_cpu1_t1_pulses = 0;
 
 	// Graphics POST compatibility state
-	bool m_adder_ready = false;
 	u8 m_dc323_post_mode = DC323_POST_INACTIVE;
-	bool m_bitmap_post_done = false;
+	bool m_dc323_post_done = false;
 	u32 m_bitmap_test_reads = 0;
-	u8 m_adder_test_data = 0;
-	bool m_adder_raster_test = false;
 
 	// Board-owned timing and palette state around the DC323/Viper subsystem
 	std::array<u8, 16> m_palette_rg{};
@@ -226,6 +224,7 @@ private:
 	u8 cpu2_p3_r();
 	bool dc323_post_bitmap_selected() const;
 	void release_dc323_post();
+	void apply_startup_rom_patch();
 	u32 screen_update(screen_device &, bitmap_rgb32 &bitmap, rectangle const &cliprect);
 
 	virtual void machine_start() override ATTR_COLD;
@@ -316,7 +315,7 @@ void vt340_state::cpu2_data_map(address_map &map)
 
 u8 vt340_state::cpu1_xdata_r(offs_t offset)
 {
-	if (should_log_xdata(offset, m_cpu1_trace_events, m_cpu1_io_trace_events))
+	if ((VERBOSE & LOG_XDATA) && should_log_xdata(offset, m_cpu1_trace_events, m_cpu1_io_trace_events))
 		LOGMASKED(LOG_XDATA, "%s CPU1 XDATA R %04X (PC=%04X)\n", machine().describe_context(), offset, m_cpu1->pc());
 	// E80's A0-A8 inputs are driven directly by CPU1's multiplexed external
 	// address bus.  E10 shifts P1.3 (NVRDS L) into the active-low NVRCS latch
@@ -350,7 +349,7 @@ u8 vt340_state::cpu1_reserved_c2_r()
 
 void vt340_state::cpu1_xdata_w(offs_t offset, u8 data)
 {
-	if (should_log_xdata(offset, m_cpu1_trace_events, m_cpu1_io_trace_events))
+	if ((VERBOSE & LOG_XDATA) && should_log_xdata(offset, m_cpu1_trace_events, m_cpu1_io_trace_events))
 		LOGMASKED(LOG_XDATA, "%s CPU1 XDATA W %04X=%02X (PC=%04X)\n", machine().describe_context(), offset, data, m_cpu1->pc());
 	if (eeprom_selected(offset))
 	{
@@ -380,7 +379,7 @@ bool vt340_state::eeprom_selected(offs_t offset)
 
 u8 vt340_state::cpu2_xdata_r(offs_t offset)
 {
-	if (should_log_xdata(offset, m_cpu2_trace_events, m_cpu2_io_trace_events))
+	if ((VERBOSE & LOG_XDATA) && should_log_xdata(offset, m_cpu2_trace_events, m_cpu2_io_trace_events))
 		LOGMASKED(LOG_XDATA, "%s CPU2 XDATA R %04X (PC=%04X)\n", machine().describe_context(), offset, m_cpu2->pc());
 
 	// The first external access after the three bitmap sweeps returns the bus
@@ -393,7 +392,6 @@ u8 vt340_state::cpu2_xdata_r(offs_t offset)
 	// write/read AA, write/read 55, then verify-55/write-zero/read-zero.  Track
 	// phase completion from the value at the last decoded address rather than
 	// from the program counter of the generic memory-test routine.
-	u16 const pc = m_cpu2->pc();
 	if (dc323_post_bitmap_selected())
 	{
 		u8 const data = m_bitmap_ram[offset];
@@ -426,26 +424,8 @@ u8 vt340_state::cpu2_xdata_r(offs_t offset)
 	// identities and bit assignments match DEC's Dragon chipset specification.
 	if ((offset & 0xf0c0) == 0xf000)
 	{
-		// Register 07 is the I/D data port.  During graphics POST the firmware
-		// writes equal-byte test words here, issues 00Cx commands through the
-		// command register, and then reads the retained diagnostic value.
 		unsigned const reg = offset & 0x3f;
-		if ((reg == dc323_device::REG_ID_DATA) && (m_cpu2->pc() == 0x1bd1))
-		{
-			if (m_adder_raster_test)
-				return BIT(m_dc323->register_r(dc323_device::REG_SOURCE_X), 3) ? 0x55 : 0xaa;
-			return m_adder_test_data;
-		}
-
-		u8 data = m_dc323->read(reg);
-		// POST verifies that every decoded register can round-trip its test
-		// pattern.  The ready outputs are external status inputs, not stored
-		// register bits.  The firmware's confirmed F003 polling routines wait
-		// on ready outputs in bits 2, 4, and 5.
-		if ((reg == dc323_device::REG_STATUS) && m_adder_ready &&
-			((pc == 0x2900) || (pc == 0xbba0) || (pc == 0xbbaa) || (pc == 0xbbb4)))
-			data |= dc323_device::STATUS_COMMAND_MASK;
-		return data;
+		return m_dc323->read(reg);
 	}
 
 	// P2 BRD L is also presented on the multiplexed DAT9/TSTATUS net.  Retain
@@ -468,13 +448,13 @@ bool vt340_state::dc323_post_bitmap_selected() const
 void vt340_state::release_dc323_post()
 {
 	m_dc323_post_mode = DC323_POST_INACTIVE;
-	m_bitmap_post_done = true;
+	m_dc323_post_done = true;
 	m_dc323->operational_w(1);
 }
 
 void vt340_state::cpu2_xdata_w(offs_t offset, u8 data)
 {
-	if (should_log_xdata(offset, m_cpu2_trace_events, m_cpu2_io_trace_events))
+	if ((VERBOSE & LOG_XDATA) && should_log_xdata(offset, m_cpu2_trace_events, m_cpu2_io_trace_events))
 		LOGMASKED(LOG_XDATA, "%s CPU2 XDATA W %04X=%02X (PC=%04X)\n", machine().describe_context(), offset, data, m_cpu2->pc());
 	if (m_dc323_post_mode == DC323_POST_RELEASE_PENDING)
 		release_dc323_post();
@@ -494,11 +474,6 @@ void vt340_state::cpu2_xdata_w(offs_t offset, u8 data)
 	if (dc323_post_bitmap_selected())
 	{
 		m_bitmap_ram[offset] = data;
-		// The second sweep reaches the last decoded bitmap address with 55 after
-		// the timing generator's reset interval.
-		if ((m_dc323_post_mode == DC323_POST_PATTERN_55) &&
-			(offset == 0xefff) && (data == 0x55))
-			m_adder_ready = true;
 		return;
 	}
 
@@ -519,7 +494,7 @@ void vt340_state::cpu2_xdata_w(offs_t offset, u8 data)
 
 	// Graphics initialization finishes its F072 control sequence with FF just
 	// before exercising the separately addressed bitmap store.
-	if (!m_bitmap_post_done && (offset == 0xf072) && (data == 0xff))
+	if (!m_dc323_post_done && (offset == 0xf072) && (data == 0xff))
 	{
 		m_dc323_post_mode = DC323_POST_ARMED;
 		if (m_dat9_bus_phase == DAT9_WAIT_DC323_RESET)
@@ -555,23 +530,7 @@ void vt340_state::cpu2_xdata_w(offs_t offset, u8 data)
 		unsigned const reg = offset & 0x3f;
 		u16 const value = (u16(m_cpu2_p1) << 8) | data;
 		LOGMASKED(LOG_XDATA, "%s DC323 W %02X=%04X (PC=%04X)\n", machine().describe_context(), reg, value, m_cpu2->pc());
-		if ((reg == dc323_device::REG_ID_DATA) && (u8(value >> 8) == u8(value)))
-		{
-			m_adder_test_data = u8(value);
-			m_adder_raster_test = false;
-		}
-		// The 00CF setup command starts the following address/plane tests with
-		// erased bitmap data.  Subsequent 0BC0 reads return that FF value.
-		if ((reg == dc323_device::REG_ID_DATA) && (value == 0x00cf))
-		{
-			m_adder_test_data = 0xff;
-			m_adder_raster_test = false;
-		}
-		if ((reg == dc323_device::REG_ID_DATA) && (value == 0x00c6))
-			m_adder_raster_test = true;
 		m_dc323->write(reg, value);
-		if ((reg == dc323_device::REG_INTERRUPT_ENABLE) && m_bitmap_post_done)
-			m_dc7051->frame_enable_w(value != 0);
 		return;
 	}
 
@@ -589,15 +548,6 @@ void vt340_state::cpu1_p3_w(u8 data)
 	// connection.  Feed the live port level to the keyboard so the ROM's
 	// native 4800-baud command stream is observed by the real device firmware.
 	m_keyboard->rx_w(BIT(data, 1));
-	// Retain a narrow T1 pulse only while CPU2 is actually in its 170E-1711
-	// rendezvous.  Earlier CPU1 diagnostic pulses are not queued by the real
-	// pin and must not satisfy a later handshake.
-	if (BIT(old, 5) && !BIT(data, 5))
-	{
-		bool const peer_waiting = (m_cpu2->pc() >= 0x1701) && (m_cpu2->pc() <= 0x1711);
-		if (peer_waiting && !m_cpu1_t1_pulses)
-			m_cpu1_t1_pulses = 1;
-	}
 	if (BIT(old, 5) != BIT(data, 5))
 		m_cpu1->abort_timeslice();
 }
@@ -635,15 +585,17 @@ u8 vt340_state::cpu1_p3_r()
 		data &= ~0x20;
 	if (dat9_device_low())
 		data &= ~0x20;
-	if ((m_cpu1->pc() == 0x3925) && m_cpu2_t1_pulse)
+	if (!machine().side_effects_disabled() &&
+		(m_cpu1->pc() == 0x3925) && m_cpu2_startup_pulse_pending)
 	{
-		// Preserve a CPU2 1701 handshake pulse until CPU1 samples it.  The real
-		// pulse overlaps CPU1's delay; this latch avoids losing that sub-ms
-		// overlap at an emulation timeslice boundary.
+		// Compatibility retention for the first CPU2 1701 pulse.  Without it,
+		// CPU2 releases DAT9 about 8.55 ms before CPU1 begins sampling at 3922;
+		// retain the event until the missing startup timing is understood.
 		data &= ~0x20;
-		m_cpu2_t1_pulse = false;
+		m_cpu2_startup_pulse_pending = false;
 	}
-	if ((m_cpu1->pc() == 0x3940) && m_cpu1_brd_strobe)
+	if (!machine().side_effects_disabled() &&
+		(m_cpu1->pc() == 0x3940) && m_cpu1_brd_strobe)
 	{
 		data &= ~0x10;
 		m_cpu1_brd_strobe = false;
@@ -692,31 +644,28 @@ u8 vt340_state::cpu2_p1_r()
 	// A port sample completes retained bus-turnaround phases.  The returned
 	// value is from the phase that owned DAT9 for this sample; ownership changes
 	// take effect on the resolved net after the read.
-	u16 const pc = m_cpu2->pc();
-	if ((pc == 0x1711) && m_cpu1_t1_pulses)
+	if (!machine().side_effects_disabled())
 	{
-		data &= ~0x02;
-		m_cpu1_t1_pulses--;
+		switch (m_dat9_bus_phase)
+		{
+		case DAT9_BRD_READ_LOW:
+			m_dat9_bus_phase = DAT9_WAIT_STARTUP_PULSE;
+			break;
+		case DAT9_STARTUP_RESPONSE_LOW:
+			m_dat9_bus_phase = DAT9_WAIT_DC323_RESET;
+			break;
+		case DAT9_DC323_STATUS_HIGH:
+			m_dat9_bus_phase = DAT9_DC323_STATUS_LOW;
+			break;
+		case DAT9_DC323_STATUS_LOW:
+			m_dat9_bus_phase = DAT9_RESOLVED_PORTS;
+			m_board_status = true;
+			break;
+		default:
+			break;
+		}
+		update_dat9_input();
 	}
-	switch (m_dat9_bus_phase)
-	{
-	case DAT9_BRD_READ_LOW:
-		m_dat9_bus_phase = DAT9_WAIT_STARTUP_PULSE;
-		break;
-	case DAT9_STARTUP_RESPONSE_LOW:
-		m_dat9_bus_phase = DAT9_WAIT_DC323_RESET;
-		break;
-	case DAT9_DC323_STATUS_HIGH:
-		m_dat9_bus_phase = DAT9_DC323_STATUS_LOW;
-		break;
-	case DAT9_DC323_STATUS_LOW:
-		m_dat9_bus_phase = DAT9_RESOLVED_PORTS;
-		m_board_status = true;
-		break;
-	default:
-		break;
-	}
-	update_dat9_input();
 	if (m_video_test_select == 0x70)
 	{
 		// E15/PAL board logic selects one DC7051 diagnostic output onto P1.0.
@@ -736,7 +685,7 @@ void vt340_state::cpu2_p1_w(u8 data)
 	if ((m_dat9_bus_phase == DAT9_WAIT_STARTUP_PULSE) && !BIT(old, 1) && BIT(data, 1))
 		m_dat9_bus_phase = DAT9_STARTUP_RESPONSE_LOW;
 	if (BIT(old, 1) && !BIT(data, 1) && (m_cpu2->pc() == 0x1703))
-		m_cpu2_t1_pulse = true;
+		m_cpu2_startup_pulse_pending = true;
 	// P1.1 is the board's P2 DAT9/STATUS H net and is wired directly to
 	// processor 1's external T1 pin.  MAME input-line ASSERT means that the
 	// active-low external pin is being pulled low.
@@ -822,7 +771,8 @@ void vt340_state::machine_start()
 	// observed for this unimplemented location on the target processor.
 	m_cpu1->space(MCS51_SFR_SPACE).install_read_handler(0xc2, 0xc2,
 		read8smo_delegate(*this, FUNC(vt340_state::cpu1_reserved_c2_r)));
-	machine().add_notifier(MACHINE_NOTIFY_EXIT, machine_notify_delegate(&vt340_state::trace_exit, this));
+	if (VERBOSE & LOG_PORTS)
+		machine().add_notifier(MACHINE_NOTIFY_EXIT, machine_notify_delegate(&vt340_state::trace_exit, this));
 
 	save_item(NAME(m_cpu1_p3));
 	save_item(NAME(m_cpu2_p3));
@@ -833,15 +783,11 @@ void vt340_state::machine_start()
 	save_item(NAME(m_board_status));
 	save_item(NAME(m_video_test_select));
 	save_item(NAME(m_cpu1_brd_strobe));
-	save_item(NAME(m_cpu2_t1_pulse));
+	save_item(NAME(m_cpu2_startup_pulse_pending));
 	save_item(NAME(m_keyboard_rxd));
-	save_item(NAME(m_cpu1_t1_pulses));
-	save_item(NAME(m_adder_ready));
 	save_item(NAME(m_dc323_post_mode));
-	save_item(NAME(m_bitmap_post_done));
+	save_item(NAME(m_dc323_post_done));
 	save_item(NAME(m_bitmap_test_reads));
-	save_item(NAME(m_adder_test_data));
-	save_item(NAME(m_adder_raster_test));
 	save_item(NAME(m_palette_rg));
 	save_item(NAME(m_palette_gb));
 	save_item(NAME(m_palette_rg_valid));
@@ -855,18 +801,19 @@ void vt340_state::machine_start()
 void vt340_state::trace_exit()
 {
 	LOGMASKED(LOG_PORTS, "VT340 stop: CPU1 PC=%04X IE=%02X TCON=%02X B=%02X ERR=%02X; "
-		"CPU2 PC=%04X IE=%02X TCON=%02X A=%02X B=%02X R2=%02X R3=%02X ROM=%s bitmap=%u/%u video=%02X pulses=%u\n",
+		"CPU2 PC=%04X IE=%02X TCON=%02X A=%02X B=%02X R2=%02X R3=%02X ROM=%s bitmap=%u/%u video=%02X\n",
 		m_cpu1->pc(), m_cpu1->state_int(MCS51_IE), m_cpu1->state_int(MCS51_TCON),
 		m_cpu1->state_int(MCS51_B), m_cpu1->space(MCS51_IDATA_SPACE).read_byte(0x42),
 		m_cpu2->pc(), m_cpu2->state_int(MCS51_IE), m_cpu2->state_int(MCS51_TCON),
 		m_cpu2->state_int(MCS51_ACC), m_cpu2->state_int(MCS51_B),
 		m_cpu2->state_int(MCS51_R2), m_cpu2->state_int(MCS51_R3),
 		BIT(m_cpu2->state_int(MCS51_P3), 3) ? "E4" : "E5", dc323_post_bitmap_selected(),
-		m_bitmap_test_reads, m_video_test_select, m_cpu1_t1_pulses);
+		m_bitmap_test_reads, m_video_test_select);
 }
 
 void vt340_state::machine_reset()
 {
+	apply_startup_rom_patch();
 	m_cpu1_p3 = 0xff;
 	m_cpu2_p3 = 0xff;
 	m_cpu1_p1 = 0xff;
@@ -876,15 +823,11 @@ void vt340_state::machine_reset()
 	m_board_status = true;
 	m_video_test_select = 0;
 	m_cpu1_brd_strobe = false;
-	m_cpu2_t1_pulse = false;
+	m_cpu2_startup_pulse_pending = false;
 	m_keyboard_rxd = true;
-	m_cpu1_t1_pulses = 0;
-	m_adder_ready = false;
 	m_dc323_post_mode = DC323_POST_INACTIVE;
-	m_bitmap_post_done = false;
+	m_dc323_post_done = false;
 	m_bitmap_test_reads = 0;
-	m_adder_test_data = 0;
-	m_adder_raster_test = false;
 	m_palette_rg.fill(0);
 	m_palette_gb.fill(0);
 	m_palette_rg_valid = 0;
@@ -913,6 +856,28 @@ void vt340_state::machine_reset()
 	m_printer_uart->dcd_w(0);
 	m_cpu2->set_input_line(MCS51_INT0_LINE, CLEAR_LINE);
 	LOGMASKED(LOG_PORTS, "VT340 reset: CPU1 E1/E2, CPU2 E3/E4 selected\n");
+}
+
+void vt340_state::apply_startup_rom_patch()
+{
+	u8 *const rom = memregion("cpu1low")->base();
+
+	// The original firmware writes pending value 10, then waits for a transient
+	// zero checkpoint at 3A18.  With the available V1.1 ROM set, CPU2 publishes
+	// that zero before CPU1 installs the sentinel, so the terminal takes the
+	// 100.8-second fallback loop.  This optional ROM patch writes zero at the
+	// same decision point instead.  The following 3A31 loop still waits for
+	// CPU2's genuine nonzero result and 3A3A still requires success value 80.
+	if (BIT(m_startup->read(), 0))
+		rom[0x3a0c] = 0x00; // MOV A,00 at 3A0B
+	else
+		rom[0x3a0c] = 0x10; // MOV A,10 at 3A0B
+
+	// Preserve the native rotate/XOR ROM checksum after either selection.
+	u8 checksum = 0x07;
+	for (u32 address = 0; address < 0x7fff; address++)
+		checksum = u8((rom[address] << 1) | (rom[address] >> 7)) ^ checksum;
+	rom[0x7fff] = u8((checksum >> 1) | (checksum << 7));
 }
 
 void vt340_state::vt340(machine_config &config)
@@ -988,7 +953,7 @@ void vt340_state::vt340(machine_config &config)
 	// horizontal output to CPU2 T0 and its frame event to the DC323.
 	DC7051(config, m_dc7051, XTAL(dc7051_device::DOT_CLOCK));
 	m_dc7051->hsync_handler().set_inputline(m_cpu2, MCS51_T0_LINE);
-	m_dc7051->frame_handler().set(m_dc323, FUNC(dc323_device::vsync_w));
+	m_dc7051->set_frame_event_callback("dc323", FUNC(dc323_device::frame_event));
 	// Y1 clocks the DC7051.  Its 32.3174 MHz rate divided by the programmed
 	// 1026 clocks and 526 lines gives the measured 31.5 kHz / 59.89 Hz raster.
 	// The 800x500 visible area includes the terminal's 25th status line.
@@ -1000,6 +965,10 @@ void vt340_state::vt340(machine_config &config)
 
 
 static INPUT_PORTS_START(vt340)
+	PORT_START("STARTUP")
+	PORT_CONFNAME(0x01, 0x00, "Startup Checkpoint Workaround")
+	PORT_CONFSETTING(0x00, "Original ROM Wait (~120 Seconds)")
+	PORT_CONFSETTING(0x01, "Skip Missed Checkpoint")
 INPUT_PORTS_END
 
 

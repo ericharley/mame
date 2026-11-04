@@ -39,9 +39,11 @@
 - [x] Render the first genuine firmware text (`Wait`) from E49 at its DC323 destination.
 - [x] Retain Viper logic-function loads and render the proven text path into four independent bitmap planes.
 - [x] Generalize normal source/destination rasterops across E49 and four-plane bitmap sources.
-- [ ] Add destination-only/source-2 operations, fill modes, and scrolling.
+- [x] Implement frame-boundary erase and hardware text scrolling, including
+  edge-mask handling for the leftmost column.
+- [ ] Add source-2 operations and remaining fill/non-normal raster modes.
 - [x] Decode E51/E52 palette apertures and separate destructive POST writes from operational entries.
-- [ ] Observe and display the first post-POST firmware-programmed 12-bit RGB entry.
+- [x] Decode and display all post-POST firmware-programmed 12-bit RGB entries.
 - [x] Decode the `7e00` command ring and repair corrupted E4 byte `12ff`
   (`92ff` in CPU space), restoring the native packet-length store and
   indirect handler dispatch without a synthetic stack frame.
@@ -51,11 +53,11 @@
   the upper indirect RAM the ROM demonstrably uses through address `8c`.
 - [x] Trace the stable loop's `0ec0` glyph stream and confirm that its final
   blank-glyph/logic-`81` sweep intentionally clears all four visible planes.
-- [ ] Reach the documented successful power-up display (`VT340 OK`, firmware
+- [x] Reach the documented successful power-up display (`VT340 OK`, firmware
   revision, and copyright message) rather than treating a black idle screen as
   the expected POST result.
-- [x] Display the first persistent post-POST firmware-written pixel; the full
-  startup message is not yet present.
+- [x] Display persistent post-POST firmware output through the complete
+  startup success panel.
 - [x] Prove the missing `VT340 OK` banner is not an ignored operational
   rasterop, PBT transfer, or nonzero DC323 scanout offset/index/scroll state.
 - [x] Hold unconnected SCN2681 and SCN2641 receive inputs at the serial marking

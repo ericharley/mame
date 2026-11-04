@@ -1,5 +1,9 @@
 # DC7051 extraction and timing-equivalence report
 
+> Historical extraction baseline: the interrupt-enable-controlled frame timer
+> described below has since been replaced by continuous frame timing. See
+> `dc7051-continuous-frame-report.md` for the controlled A/B and current result.
+
 ## Pre-extraction baseline
 
 Immediately before the DC7051 work, the complete DC323 extraction regression
@@ -24,9 +28,11 @@ not host wall-clock measurements.
 
 The new `dc7051_device` owns both 16-entry register halves, horizontal and
 frame timers, output state, the diagnostic waveform, and save-state fields.
-The VT340 board routes its horizontal callback to CPU2 T0 and its frame callback
-to `dc323_device::vsync_w`. The board retains F0E0 selection and samples the
-device output only when selector value `70` is active.
+The VT340 board routes its horizontal callback to CPU2 T0 and its completed-
+frame event to `dc323_device::frame_event`. The board retains F0E0 selection
+and samples the device output only when selector value `70` is active. The
+explicit event interface supersedes the extraction's original one-sided line
+callback; see `dc7051-stage4-state-report.md`.
 
 The fixed MAME screen and diagnostic waveform remain separate compatibility
 definitions. This avoids mixing a structural extraction with an unverified
@@ -43,17 +49,20 @@ unit-test system and runs it unthrottled. It verifies:
 - 27 us diagnostic high time and 16,698 us repetition;
 - horizontal polarity alternation and first-event phase;
 - first frame phase and periodic stability;
-- exactly 1,052 horizontal transitions per compatibility frame;
+- stable horizontal compatibility transitions across the Y1-clock frame;
 - 2,000 frames without missing or duplicate events;
 - no accumulated horizontal/frame timer drift;
-- clean frame disable; and
-- timing/register reinitialization on reset.
+- real two-process save/load continuation and output restoration; and
+- timing/register reinitialization from reset at nonzero emulation time.
 
 Observed result:
 
 ```text
-DC7051 firmware-free timing regression passed: 2104000 horizontal transitions, 2000 frames
+DC7051 firmware-free timing/save-state regression passed: 2104104 horizontal transitions, 2000 frames
 ```
+
+The event count reflects the later screen-raster unification and Stage 4 state
+test; the extraction-era gated frame interface is no longer present.
 
 ## VT340 verification boundary
 

@@ -27,58 +27,57 @@ that compatibility model toward a coherent timing generator.
   contents, or VT340-specific diagnostic selector values.
 - Diagnostic logging is disabled by default and bounded when enabled.
 - The firmware-free test covers reset, retained storage, inherited timing
-  rates, enable/disable behavior, and long-run timer stability.
+  rates, continuous frame behavior, and long-run timer stability.
 
 ### Remaining compatibility behavior
 
-The implementation presently has three independent vertical timing paths:
+The implementation now has one authoritative frame raster and one provisional
+POST waveform:
 
 | Path | Current definition | Effective rate |
 | --- | --- | ---: |
-| DC323 frame-service event | 526 lines at 31,500 Hz | 59.8859 Hz |
-| MAME screen raster | 32.3174 MHz / 1026 / 526 | 59.8830 Hz |
+| Screen and DC323 frame service | 32.3174 MHz / 1026 / 526 | 59.8830 Hz |
 | Diagnostic waveform | 27 us high every 16,698 us | 59.8874 Hz |
 
-The compatibility frame period is approximately 0.827 us shorter than the
-screen frame period. Their phases separate by one screen scanline after about
-38 frames and by one full frame after about 337 seconds.
+The earlier compatibility frame period was approximately 0.827 us shorter than
+the screen period and accumulated a full-frame phase error after roughly 337
+seconds. Both frame consumers now share the screen-clock period and reset
+epoch. The diagnostic pulse remains separate pending physical mux decoding.
 
 Other unresolved behavior includes:
 
-- A DC323 interrupt-enable write starts or stops the DC7051 frame timer. Each
-  enable transition establishes a new raster phase, although physical video
-  timing should normally continue independently of interrupt masking.
+- The former coupling between DC323 interrupt-enable writes and the DC7051
+  frame timer has been removed. A controlled trace proved that it stopped or
+  rephased the raster 84 times during startup. Frame timing now runs
+  continuously from reset while DC323 reset suppresses pre-operational service.
 - The CPU2 T0 input receives a 31.5 kHz, 50-percent-duty square wave made from
   63,000 transitions per second. The physical signal, relevant edge, polarity,
   pulse width, and phase have not yet been established.
-- The configured 32.3174 MHz device clock is not used to schedule either
-  timer.
-- The frame callback is declared as a line callback but emits only a high
-  event and never a corresponding low state.
+- The configured 32.3174 MHz device clock schedules frame service. CPU2 T0 and
+  the diagnostic pulse still use compatibility constants.
+- The DC323-facing callback is explicitly an event. DC323 consumes only the
+  occurrence of a completed frame; no physical line level or pulse width is
+  implied by this interface.
 - The diagnostic waveform is derived from absolute machine time rather than a
   device or raster phase.
 - Low and high raw arrays remain as unconnected extraction residue. They no
   longer have a claimed CPU aperture and should either be removed or connected
   only after an authentic DC7051 programming interface is identified.
-- Internal state is registered for save states, but output-line restoration
-  and an actual save/load execution cycle are not covered by regression tests.
+- Save/load restores active timer phase, retained registers, counters, and the
+  persistent horizontal output. A frame event is not replayed on load.
 
-## Working hypothesis
+## Resolved hypothesis
 
-The highest-risk scheduling flaw is the coupling between DC323 interrupt
-enable and DC7051 frame phase. A physical raster should continue running while
-the DC323 independently decides whether a resulting service condition may
-raise an interrupt. Restarting the frame period on an interrupt-enable write
-can move pause-complete or scroll-service activity relative to the visible
-raster and is a plausible contributor to remaining scrolling synchronization
-problems.
-
-This is a hypothesis to test, not a justification for immediately changing
-timing. The first divergence must be measured before adopting new behavior.
+The DC323 interrupt-enable/DC7051 frame-phase coupling was a scheduling flaw.
+The baseline produced 696 DC7051 events over 1,198 screen frames and multiple
+zero-event screen intervals after interrupt masking. With continuous timing,
+all 1,198 screen frames have one DC7051 event. POST, PBT, graphics erase, Set-Up
+return, and device regressions pass. The provisional rates and waveform remain
+separate follow-up work.
 
 ## Planned work
 
-### Stage 1: establish a synchronized trace baseline
+### Stage 1: establish a synchronized trace baseline — complete
 
 Add a bounded, timestamped trace that records:
 
@@ -102,12 +101,13 @@ The baseline deliverable is an event table identifying phase relationships at
 the first DC323 enable, subsequent enable changes, and the first incorrect or
 missing scroll transition.
 
-### Stage 2: controlled interrupt-enable decoupling experiment
+### Stage 2: controlled interrupt-enable decoupling experiment — complete
 
-Run the DC7051 raster continuously from a documented reset or initialization
-epoch while allowing the DC323 interrupt-enable state to gate only interrupt
-delivery. Do not change the horizontal rate, frame rate, diagnostic waveform,
-register interpretation, or scroll logic in the same experiment.
+The retained implementation runs the DC7051 raster continuously from reset.
+DC323 ignores frame service while non-operational and continues to gate IRQ
+delivery through its own interrupt-enable register. Horizontal rate, frame
+rate, diagnostic waveform, register interpretation, and scroll logic were not
+changed in this experiment.
 
 Compare the experiment with the baseline at:
 
@@ -122,26 +122,20 @@ If continuous raster operation fixes a failure, retain it only after the trace
 shows that the corrected event ordering follows physical device ownership. If
 it does not, revert the experiment and preserve the trace as negative evidence.
 
-### Stage 3: select one authoritative raster
+### Stage 3: select one authoritative raster — complete
 
-Until DC7051 register semantics are known, use one fixed-timing authority for
-the screen and all raster-derived service events. Two acceptable implementation
-directions are:
+The fixed screen raster is now the interim timing authority for both visible
+output and DC323 frame service. DC7051 derives the period from its configured
+Y1 clock and the shared 1026-by-526 totals. The screen and device timers start
+from the same reset epoch.
 
-1. Synchronize DC7051 compatibility events to MAME screen positions. This is
-   the lowest-risk interim approach because the visible raster already has a
-   stable dot clock and geometry.
-2. Derive the DC7051 timers from `clock()`, horizontal total, and vertical
-   total, align them to a common epoch, and have the screen consume the same
-   timing definition.
-
-Do not retain separate 31,500 Hz, 16,698 us, and screen-clock epochs after this
-stage. The selected approach must define reset phase, frame phase, and the
-relationship between any diagnostic output and the raster.
+CPU2 T0 is intentionally unchanged because its physical source is a separate
+Stage 5 question. The diagnostic waveform is also unchanged because selector
+`70` has not yet been mapped to a proven DC7051 output.
 
 Dynamic screen reconfiguration is outside this stage.
 
-### Stage 4: correct interface and save-state semantics
+### Stage 4: correct interface and save-state semantics — complete
 
 - Decide whether the DC323-facing frame callback represents an event or a
   physical line. Use an event callback if only an occurrence is meaningful; if
@@ -153,6 +147,15 @@ Dynamic screen reconfiguration is outside this stage.
 
 These changes should not alter firmware-visible timing unless a separately
 measured defect requires it.
+
+The DC323 interface is now a zero-argument event delegate named
+`frame_event`; the horizontal CPU2 T0 compatibility output remains a line.
+`device_post_load` re-drives only the saved horizontal level. A two-process
+autosave regression checkpoints on a known low level, resumes the active
+timers and counters, and reaches 2,000 total frame events without loss,
+duplication, or rephasing. The same test resets the device after 2,000 frames
+and proves that the first new horizontal transition and frame event use a
+fresh epoch. See `../traces/dc7051-stage4-state-report.md`.
 
 ### Stage 5: identify the physical CPU2 T0 signal
 
@@ -225,8 +228,7 @@ not merely restate the current compatibility constants.
 
 ## Recommended immediate work item
 
-Implement Stage 1, then perform the isolated Stage 2 experiment. The first
-decision point is whether a continuously running raster with DC323-only
-interrupt gating produces the correct firmware event ordering. That result
-will determine whether the next implementation task is timing unification or
-further investigation of DC323 pause/scroll semantics.
+Proceed to Stage 5: identify the physical signal feeding CPU2 T0, including
+its source, polarity, edge semantics, pulse width, and raster phase. Do not
+infer that signal from the current 63,000-transition compatibility waveform
+or change selector-`70` timing in the same experiment.

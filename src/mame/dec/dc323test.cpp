@@ -100,9 +100,48 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	reg_w(0x30, 0xa55a);
 	require(m_dc323->register_r(0x30) == 0xa55a, "16-bit register retention");
 	require(m_dc323->read(0x30) == 0x5a, "low data-bus readback");
+	m_dc323->frame_event();
+	require((m_dc323->status_r() &
+		(dc323_device::STATUS_PAUSE_COMPLETE | dc323_device::STATUS_SCROLL_SERVICE)) == 0,
+		"frame service is suppressed while reset holds the device non-operational");
 	m_dc323->operational_w(1);
+	require((m_dc323->status_r() & dc323_device::STATUS_RASTEROP_MASK) ==
+		dc323_device::STATUS_RASTEROP_MASK, "idle command engines report complete");
+	require((m_dc323->status_r() & dc323_device::STATUS_ID_DATA_READY) == 0,
+		"idle I/D receive FIFO is not ready");
+
+	// Diagnostic 0BC0 reads use the retained I/D test source while following
+	// the ordinary one-byte FIFO completion path.
+	reg_w(dc323_device::REG_WIDTH, 8);
+	reg_w(dc323_device::REG_HEIGHT, 1);
+	reg_w(dc323_device::REG_ID_DATA, 0x00c6);
+	reg_w(dc323_device::REG_SOURCE_X, 0);
+	reg_w(dc323_device::REG_COMMAND, 0x0bc0);
+	require(m_dc323->read(dc323_device::REG_ID_DATA) == 0xaa,
+		"raster diagnostic low address pattern");
+	require((m_dc323->status_r() & dc323_device::STATUS_ADDRESS_COMPLETE) != 0 &&
+		(m_dc323->status_r() & dc323_device::STATUS_ID_DATA_READY) == 0,
+		"diagnostic read completes I/D address output");
+	reg_w(dc323_device::REG_SOURCE_X, 8);
+	reg_w(dc323_device::REG_COMMAND, 0x0bc0);
+	require(m_dc323->read(dc323_device::REG_ID_DATA) == 0x55,
+		"raster diagnostic high address pattern");
+	reg_w(dc323_device::REG_ID_DATA, 0x00cf);
+	reg_w(dc323_device::REG_COMMAND, 0x0bc0);
+	require(m_dc323->read(dc323_device::REG_ID_DATA) == 0xff,
+		"retained diagnostic all-ones pattern");
+	reg_w(dc323_device::REG_WIDTH, 16);
+	reg_w(dc323_device::REG_HEIGHT, 2);
+	reg_w(dc323_device::REG_COMMAND, 0x0bc0);
+	require((m_dc323->status_r() & dc323_device::STATUS_ID_DATA_READY) != 0,
+		"multi-byte diagnostic transfer becomes ready");
+	reg_w(dc323_device::REG_COMMAND, 0x0000);
+	require((m_dc323->status_r() & dc323_device::STATUS_ID_DATA_READY) == 0 &&
+		(m_dc323->status_r() & dc323_device::STATUS_ADDRESS_COMPLETE) != 0,
+		"zero command aborts transfer into completed idle state");
+
 	reg_w(dc323_device::REG_INTERRUPT_ENABLE, 0x0003);
-	m_dc323->vsync_w(1);
+	m_dc323->frame_event();
 	require((m_dc323->status_r() & 0x0003) == 0x0003, "frame status generation");
 	require(m_irq, "enabled frame status asserts IRQ");
 	reg_w(dc323_device::REG_STATUS, 0x0000);
@@ -379,7 +418,7 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	reg_w(dc323_device::REG_SCROLL_Y, 1);
 	require(m_dc323->scroll_pending(), "scroll scheduled");
 	expect_pixel(0, 10, true, "scroll deferred until frame");
-	m_dc323->vsync_w(1);
+	m_dc323->frame_event();
 	require(!m_dc323->scroll_pending(), "scroll consumed at frame");
 	expect_pixel(0, 10, false, "up scroll first row");
 	expect_pixel(0, 11, true, "up scroll copied row");
@@ -398,7 +437,7 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	reg_w(dc323_device::REG_SCROLL_Y_MIN, 40);
 	reg_w(dc323_device::REG_SCROLL_Y_MAX, 42);
 	reg_w(dc323_device::REG_SCROLL_Y, 1);
-	m_dc323->vsync_w(1);
+	m_dc323->frame_event();
 	expect_pixel(0, 40, true, "left scroll mask preservation");
 	expect_pixel(1, 40, true, "left scroll edge preservation");
 	expect_pixel(2, 40, false, "unaligned scroll first pixel");
@@ -417,16 +456,16 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	reg_w(dc323_device::REG_SCROLL_Y_MIN, 20);
 	reg_w(dc323_device::REG_SCROLL_Y_MAX, 23);
 	reg_w(dc323_device::REG_SCROLL_Y, 0x1001);
-	m_dc323->vsync_w(1);
+	m_dc323->frame_event();
 	expect_pixel(0, 20, false, "down scroll fill row");
 	expect_pixel(0, 21, true, "down scroll copied row");
 	reg_w(dc323_device::REG_STATUS, 0x0000);
 	reg_w(dc323_device::REG_SCROLL_Y, 0x0000);
-	m_dc323->vsync_w(1);
+	m_dc323->frame_event();
 	expect_pixel(0, 21, true, "zero-distance scroll preservation");
 	reg_w(dc323_device::REG_STATUS, 0x0000);
 	reg_w(dc323_device::REG_SCROLL_Y, 0x0fff);
-	m_dc323->vsync_w(1);
+	m_dc323->frame_event();
 	for (unsigned y = 20; y < 23; y++)
 		expect_pixel(0, y, false, "saturated scroll fills region");
 	reg_w(dc323_device::REG_STATUS, 0x0000);
@@ -437,7 +476,7 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	reg_w(dc323_device::REG_SCROLL_Y_MIN, 100);
 	reg_w(dc323_device::REG_SCROLL_Y_MAX, 140);
 	reg_w(dc323_device::REG_SCROLL_Y, 20);
-	m_dc323->vsync_w(1);
+	m_dc323->frame_event();
 	expect_pixel(0, 100, true, "character-height scroll copy");
 	expect_pixel(0, 120, false, "character-height scroll fill");
 	reg_w(dc323_device::REG_STATUS, 0x0000);
@@ -446,7 +485,7 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	reg_w(dc323_device::REG_SCROLL_Y_MAX, 23);
 	viper_w(0x0b, 0xffff);
 	reg_w(dc323_device::REG_SCROLL_Y, 0x2000);
-	m_dc323->vsync_w(1);
+	m_dc323->frame_event();
 	for (unsigned y = 20; y < 23; y++)
 		expect_pixel(0, y, true, "erase mode fill");
 	reg_w(dc323_device::REG_STATUS, 0x0000);
@@ -460,7 +499,7 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	reg_w(dc323_device::REG_SCROLL_Y_MAX, 2);
 	reg_w(dc323_device::REG_SCROLL_Y_OFFSET, 2047);
 	reg_w(dc323_device::REG_SCROLL_Y, 1);
-	m_dc323->vsync_w(1);
+	m_dc323->frame_event();
 	expect_pixel(0, 2047, true, "Y-offset wrapped source row");
 	expect_pixel(0, 0, false, "Y-offset wrapped fill row");
 	reg_w(dc323_device::REG_STATUS, 0x0000);
@@ -472,7 +511,7 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	reg_w(dc323_device::REG_SCROLL_Y_MAX, 34);
 	reg_w(dc323_device::REG_SCROLL_Y, 1);
 	reg_w(dc323_device::REG_SCROLL_Y, 2);
-	m_dc323->vsync_w(1);
+	m_dc323->frame_event();
 	expect_pixel(0, 30, false, "repeated scroll uses last distance row zero");
 	expect_pixel(0, 31, false, "repeated scroll uses last distance row one");
 	reg_w(dc323_device::REG_STATUS, 0x0000);
@@ -480,7 +519,7 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	// Repeated frame/acknowledgement cycles must neither lose nor stick IRQ.
 	for (unsigned frame = 0; frame < 1000; frame++)
 	{
-		m_dc323->vsync_w(1);
+		m_dc323->frame_event();
 		require(m_irq, "repeated frame IRQ assertion");
 		reg_w(dc323_device::REG_STATUS, 0x0000);
 		require(!m_irq, "repeated frame IRQ acknowledgement");

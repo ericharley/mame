@@ -22,12 +22,15 @@ Start here:
 
 - `PROJECT_SUMMARY.md` describes the current architecture and engineering
   approach.
-- `SPRINT_STATUS.md` records the `Wait` to `VT340 OK` sprint result, tests,
-  remaining blocker, and recommended next work.
+- `SPRINT_STATUS.md` records the successful `Wait` to `VT340 OK` path, tests,
+  remaining fast-start blocker, and recommended next work.
 - `PHASE3_CLOSEOUT.md` records the completed dispatcher and execution-integrity
   audit.
-- `PHASE4_PLAN.md` defines the active DAT9/mailbox synchronization
-  investigation and its acceptance criteria.
+- `PHASE4_PLAN.md` defines the active `7ff2` fast-path synchronization
+  investigation and separates it from the completed functional boot path.
+- `traces/phase4-clock-ratio-summary.txt` and
+  `traces/phase4-initial-pulse-retention-summary.txt` record the latest
+  rejected clock-skew hypothesis and the newly bounded startup phasing issue.
 - `UPSTREAM_MAME_WORK.md` separates reusable serial-device and CPU-core
   corrections from VT340-specific work and defines focused upstream tasks.
 - `hardware/serial-ports.md` documents Comm 1/Comm 2 wiring, macOS PTY use,
@@ -43,7 +46,17 @@ Start here:
   firmware-free device-test results.
 - `traces/dc7051-extraction-report.md` records timing measurements,
   firmware-free test results, and VT340 verification boundaries.
+- `traces/dc7051-continuous-frame-report.md` records the controlled removal of
+  DC323 interrupt-mask control over DC7051 frame phase.
+- `traces/dc7051-raster-unification-report.md` records the screen-clock frame
+  unification and long-run phase result.
+- `traces/dc7051-stage4-state-report.md` records the explicit frame-event
+  interface, real save/load continuation, output restoration, and nonzero-time
+  reset results.
 - `BUILDING.md` contains the targeted build and debugger procedure.
+- `firmware/fast-start-patch.md` documents the optional, user-selectable ROM
+  workaround that skips the missed startup checkpoint while preserving native
+  result generation and validation.
 
 Raw debugger `.tr` streams, diagnostic `.log` files, and framebuffer `.png`
 captures are generated evidence and remain local rather than entering Git.

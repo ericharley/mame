@@ -55,6 +55,28 @@
   serial-service condition becomes decisive. The upper-stack observation
   remains an unresolved risk once startup progresses.
 
+## Initial DAT9 response phasing - unresolved
+
+- The reset-relative trace places CPU2's first `1701` DAT9 low at 6.478 ms,
+  release at 6.981 ms, and CPU1's first `3922` low-response sample at
+  15.534 ms: an 8.553 ms gap.
+- Removing the retained startup event makes CPU1 time out at `3933`; explicit
+  DAT9 resolution and timeslice handoff do not change the physical high level
+  during that wait.
+- CPU2 reaches the pulse through fixed initialization: explicit DC323 reset
+  delays, a 23-register table load, and a 4.31 ms internal-RAM test. There is
+  no firmware-visible ready poll in this path.
+- Schematic sheets 1-3 show CPU1 P1.0 connected directly to CPU2 RST and CPU2
+  receiving the ungated 12 MHz CPUBCLK. There is no shown reset-delay circuit
+  or slower CPU2 clock that could provide the missing interval.
+- The compatibility retention at CPU1 `3925` remains, but is now identified as
+  masking a startup phase/timing mismatch rather than a scheduler-slice loss.
+  The opposite CPU1-to-CPU2 retention at `1711` proved redundant and is gone.
+- This does not directly reverse the later `7ff2` race because intervening
+  `1701` calls resynchronize the processors. It is evidence that an earlier
+  reset, clock, or bus-phase assumption still needs hardware justification.
+- See `../traces/phase4-initial-pulse-retention-summary.txt`.
+
 ## CPU2 graphics initialization and command-ring handoff - resolved for current path
 
 - Evidence: CPU1 posts `ff` at shared RAM `7ff1` and polls until CPU2 changes
@@ -77,7 +99,7 @@
 - Status: command processing is stable; completing the startup drawing path is
   the current visible-boot blocker.
 
-## Successful power-up banner - unresolved
+## Successful power-up banner - resolved; fast-path latency remains
 
 - Evidence: CPU2 writes `7ff2=80` from E3 `163c-163e`, proving its own POST
   success. CPU2 then draws `Wait` and sets `60bb=01`.
@@ -93,7 +115,7 @@
   waited because ring producer `7e7e` equaled consumer `7e7f`.
 - Controlled result: making one debugger-only ring slot visible at `dc02`
   takes the native carry branch to `dc18` and clears `60bb` at `dc1c`.
-- Current Phase 4 boundary: after full ROM reconstruction and correction of
+- Historical Phase 4 boundary: after full ROM reconstruction and correction of
   the MCS-51 SBUF latches, CPU2 writes the `7ff2=00` checkpoint before CPU1
   installs stale-zero guard `10`. CPU1 consequently overwrites the only zero
   checkpoint and loses the fast path. Its bounded wait expires at 119.955290 s
@@ -107,6 +129,13 @@
   the later completion event needed to take `dc18` and clear `60bb`.
   CPU2 has no read of `7ff2`, so that location is not a request/acknowledgement
   mailbox. See `traces/phase4-post-timeout-report.md`.
+- Resolution: E80 EEPROM behavior, both SCN2681 local-loopback channels, and
+  SCN2641 local loopback now pass. CPU1 submits result `00`; command 32 and the
+  E49 PBT path produce the original `VT340 OK` records. Frame-boundary erase
+  removes `Wait`, and the panel remains visible.
+- Remaining issue: this success still follows the firmware timeout at
+  119.955290 seconds because CPU1 misses the earlier `7ff2=00` checkpoint.
+  Banner generation is resolved; fast-path startup synchronization is not.
 
 ## CPU2 ROM bank polarity for the dumped cartridge - resolved
 

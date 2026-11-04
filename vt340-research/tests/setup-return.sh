@@ -2,11 +2,14 @@
 set -eu
 
 binary=${1:-./vt340}
+config_dir=$(mktemp -d -t vt340-setup-return-config.XXXXXX)
+nvram_dir=$(mktemp -d -t vt340-setup-return-nvram.XXXXXX)
 log=$(mktemp -t vt340-setup-return.XXXXXX)
 json=$(mktemp -t vt340-setup-return.XXXXXX)
-trap 'rm -f "$log" "$json"' EXIT HUP INT TERM
+trap 'rm -rf "$config_dir" "$nvram_dir"; rm -f "$log" "$json"' EXIT HUP INT TERM
 
 VT340_SETUP_RETURN_SIMPLE=1 "$binary" vt340 -rompath roms \
+	-cfg_directory "$config_dir" -nvram_directory "$nvram_dir" \
 	-video none -sound none -nothrottle -seconds_to_run 164 \
 	-autoboot_delay 0 \
 	-autoboot_script vt340-research/traces/setup-return-trace.lua \

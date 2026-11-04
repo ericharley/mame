@@ -9,6 +9,26 @@ change scheduler timing, or modify emulated hardware behavior.
 
 The reproducible script is `phase4-post-timeout-screen.lua`.
 
+## Current status
+
+This report preserves the historical trace that exposed CPU2 interrupt
+starvation after the timeout. The starvation described below was corrected by
+removing the PC-qualified DC323 bit-0 substitution; subsequent E80, SCN2681,
+SCN2641, PBT, and frame-erase work now produces persistent `VT340 OK` with
+POST result `00`.
+
+The timeout itself is still current. CPU2 publishes `7ff2=00` at 8.228779 s,
+CPU1 overwrites it with stale-zero guard `10` at 8.295773 s, and CPU1 does not
+advance until its bounded wait expires at 119.955290 s. The historical
+failure after that point is resolved; the missed fast checkpoint is not.
+
+The duration is now fully accounted for. The `3a18-3a1f` 24-bit loop has a
+bare 12 MHz instruction time of 100.794880 seconds, reproduced exactly when
+Timer 0 is masked only after loop entry. Normal timer service adds 10.850739
+seconds. The apparent 120-second delay is therefore the authentic fallback
+path plus prior startup, not an emulation slowdown. See
+`phase4-timeout-cost-summary.txt`.
+
 ## Result
 
 The terminal still displays `Wait`.  CPU1 does accept CPU2's authentic

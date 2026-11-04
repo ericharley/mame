@@ -8,6 +8,8 @@
 
 #include "emu.h"
 
+#include "emuopts.h"
+
 #include "video/dc7051.h"
 
 
@@ -29,7 +31,9 @@ private:
 	emu_timer *m_begin_timer = nullptr;
 	emu_timer *m_diag_low_timer = nullptr;
 	emu_timer *m_diag_high_timer = nullptr;
+	emu_timer *m_autosave_exit_timer = nullptr;
 	emu_timer *m_finish_timer = nullptr;
+	emu_timer *m_reset_verify_timer = nullptr;
 	u64 m_hsync_events = 0;
 	u64 m_frame_events = 0;
 	attotime m_first_hsync = attotime::never;
@@ -37,17 +41,22 @@ private:
 	attotime m_first_frame = attotime::never;
 	attotime m_last_frame = attotime::never;
 	bool m_hsync_state = true;
+	u32 m_seen_post_load_count = 0;
 	bool m_reset_check = false;
+	attotime m_reset_time = attotime::never;
+	attotime m_reset_first_frame = attotime::never;
 
 	virtual void machine_start() override ATTR_COLD;
 	virtual void machine_reset() override ATTR_COLD;
 	void require(bool condition, char const *message);
 	void hsync_w(int state);
-	void frame_w(int state);
+	void frame_event();
 	TIMER_CALLBACK_MEMBER(begin_tests);
 	TIMER_CALLBACK_MEMBER(check_diag_low);
 	TIMER_CALLBACK_MEMBER(check_diag_high);
+	TIMER_CALLBACK_MEMBER(exit_for_autosave);
 	TIMER_CALLBACK_MEMBER(finish_tests);
+	TIMER_CALLBACK_MEMBER(check_nonzero_reset);
 };
 
 
@@ -56,7 +65,18 @@ void dc7051_test_state::machine_start()
 	m_begin_timer = timer_alloc(FUNC(dc7051_test_state::begin_tests), this);
 	m_diag_low_timer = timer_alloc(FUNC(dc7051_test_state::check_diag_low), this);
 	m_diag_high_timer = timer_alloc(FUNC(dc7051_test_state::check_diag_high), this);
+	m_autosave_exit_timer = timer_alloc(FUNC(dc7051_test_state::exit_for_autosave), this);
 	m_finish_timer = timer_alloc(FUNC(dc7051_test_state::finish_tests), this);
+	m_reset_verify_timer = timer_alloc(FUNC(dc7051_test_state::check_nonzero_reset), this);
+
+	save_item(NAME(m_hsync_events));
+	save_item(NAME(m_frame_events));
+	save_item(NAME(m_first_hsync));
+	save_item(NAME(m_last_hsync));
+	save_item(NAME(m_first_frame));
+	save_item(NAME(m_last_frame));
+	save_item(NAME(m_hsync_state));
+	save_item(NAME(m_reset_check));
 }
 
 
@@ -76,6 +96,14 @@ void dc7051_test_state::require(bool condition, char const *message)
 void dc7051_test_state::hsync_w(int state)
 {
 	bool const asserted = bool(state);
+	// device_post_load deliberately re-drives the saved external level.  That
+	// callback restores pin state; it is not a new timing-generator edge.
+	if (m_dc7051->post_load_count() != m_seen_post_load_count)
+	{
+		m_seen_post_load_count = m_dc7051->post_load_count();
+		m_hsync_state = asserted;
+		return;
+	}
 	if (m_reset_check)
 	{
 		m_hsync_state = asserted;
@@ -96,9 +124,14 @@ void dc7051_test_state::hsync_w(int state)
 }
 
 
-void dc7051_test_state::frame_w(int state)
+void dc7051_test_state::frame_event()
 {
-	require(state == 1, "frame callback is a high event");
+	if (m_reset_check)
+	{
+		if (m_reset_first_frame.is_never())
+			m_reset_first_frame = machine().time();
+		return;
+	}
 	if (!m_frame_events)
 		m_first_frame = machine().time();
 	m_last_frame = machine().time();
@@ -119,12 +152,12 @@ TIMER_CALLBACK_MEMBER(dc7051_test_state::begin_tests)
 	require(m_dc7051->high_r(0x0f) == 0xa5, "high register byte and alias");
 	require(m_dc7051->diagnostic_vsync_r() == 1, "diagnostic pulse starts high");
 
-	m_dc7051->frame_enable_w(1);
-	require(m_dc7051->frame_enabled(), "compatibility frame scheduling enabled");
 	m_diag_low_timer->adjust(attotime::from_usec(27));
 	m_diag_high_timer->adjust(attotime::from_usec(16'698));
-	attotime const frame_period = attotime::from_ticks(dc7051_device::VERTICAL_TOTAL,
-		dc7051_device::HORIZONTAL_RATE);
+	attotime const frame_period = attotime::from_ticks(dc7051_device::FRAME_CLOCKS,
+		dc7051_device::DOT_CLOCK);
+	if (machine().options().autosave())
+		m_autosave_exit_timer->adjust(frame_period * 100 + attotime::from_usec(1));
 	m_finish_timer->adjust(frame_period * 2000 + attotime::from_nsec(1));
 }
 
@@ -141,34 +174,71 @@ TIMER_CALLBACK_MEMBER(dc7051_test_state::check_diag_high)
 }
 
 
+TIMER_CALLBACK_MEMBER(dc7051_test_state::exit_for_autosave)
+{
+	// Save at a known low horizontal level so the second process proves that
+	// device_post_load re-drives the restored output rather than retaining the
+	// reset-high level.
+	require(!m_dc7051->hsync_asserted(), "autosave checkpoint has low horizontal output");
+	machine().schedule_exit();
+}
+
+
 TIMER_CALLBACK_MEMBER(dc7051_test_state::finish_tests)
 {
 	constexpr u64 FRAMES = 2000;
-	constexpr u64 TOGGLES_PER_FRAME = dc7051_device::VERTICAL_TOTAL * 2;
+	constexpr u64 HORIZONTAL_EVENTS = FRAMES * dc7051_device::FRAME_CLOCKS *
+		dc7051_device::HORIZONTAL_TOGGLE_RATE / dc7051_device::DOT_CLOCK;
 	require(m_frame_events == FRAMES, "2,000 frame events without loss or duplication");
-	require(m_hsync_events == FRAMES * TOGGLES_PER_FRAME,
-		"horizontal and frame schedules retain the 1,052:1 relationship");
+	require(m_hsync_events == HORIZONTAL_EVENTS,
+		"horizontal compatibility output remains stable across screen-clock frames");
 	require(m_first_hsync == attotime::from_hz(dc7051_device::HORIZONTAL_TOGGLE_RATE),
 		"first horizontal transition phase");
-	require(m_first_frame == attotime::from_ticks(dc7051_device::VERTICAL_TOTAL,
-		dc7051_device::HORIZONTAL_RATE), "first frame phase");
+	require(m_first_frame == attotime::from_ticks(dc7051_device::FRAME_CLOCKS,
+		dc7051_device::DOT_CLOCK), "first frame phase follows the screen raster");
 	require((m_last_hsync - m_first_hsync) ==
 		attotime::from_hz(dc7051_device::HORIZONTAL_TOGGLE_RATE) * (m_hsync_events - 1),
 		"horizontal period has no accumulated drift");
 	require((m_last_frame - m_first_frame) ==
-		attotime::from_ticks(dc7051_device::VERTICAL_TOTAL, dc7051_device::HORIZONTAL_RATE) * (m_frame_events - 1),
+		attotime::from_ticks(dc7051_device::FRAME_CLOCKS, dc7051_device::DOT_CLOCK) * (m_frame_events - 1),
 		"frame period has no accumulated drift");
+	if (machine().options().autosave())
+	{
+		require(m_dc7051->post_load_count() == 1,
+			"autosave continuation executes one device post-load restoration");
+		require(!m_dc7051->post_load_hsync_asserted(),
+			"post-load restores the saved low horizontal output");
+		require(m_dc7051->low_r(0) == 0x05 && m_dc7051->high_r(0x0f) == 0xa5,
+			"post-load retains register values");
+	}
 
-	m_dc7051->frame_enable_w(0);
-	require(!m_dc7051->frame_enabled(), "frame scheduling disables cleanly");
 	m_reset_check = true;
+	m_reset_time = machine().time();
+	m_reset_first_frame = attotime::never;
 	m_dc7051->reset();
 	require(m_dc7051->low_r(0) == 0 && m_dc7051->high_r(0x0f) == 0,
 		"reset restores register values");
-	require(m_dc7051->hsync_asserted() && !m_dc7051->frame_enabled(),
-		"reset restores timing outputs and disables frames");
+	require(m_dc7051->hsync_asserted() && m_hsync_state,
+		"nonzero-time reset restores horizontal output");
+	require(m_dc7051->horizontal_transitions() == 0 && m_dc7051->frame_events() == 0,
+		"nonzero-time reset clears timing counters");
+	m_reset_verify_timer->adjust(attotime::from_ticks(dc7051_device::FRAME_CLOCKS,
+		dc7051_device::DOT_CLOCK) + attotime::from_nsec(1));
+}
 
-	osd_printf_info("DC7051 firmware-free timing regression passed: %llu horizontal transitions, %llu frames\n",
+
+TIMER_CALLBACK_MEMBER(dc7051_test_state::check_nonzero_reset)
+{
+	attotime const frame_period = attotime::from_ticks(dc7051_device::FRAME_CLOCKS,
+		dc7051_device::DOT_CLOCK);
+	constexpr u64 HORIZONTAL_EVENTS = u64(dc7051_device::FRAME_CLOCKS) *
+		dc7051_device::HORIZONTAL_TOGGLE_RATE / dc7051_device::DOT_CLOCK;
+	require(m_dc7051->frame_events() == 1 && m_reset_first_frame == m_reset_time + frame_period,
+		"nonzero-time reset establishes a fresh first-frame phase");
+	require(m_dc7051->horizontal_transitions() == HORIZONTAL_EVENTS,
+		"nonzero-time reset establishes a fresh horizontal phase");
+
+	osd_printf_info("DC7051 firmware-free timing/save-state regression passed: %llu horizontal transitions, %llu frames\n",
 		(unsigned long long)m_hsync_events, (unsigned long long)m_frame_events);
 	machine().schedule_exit();
 }
@@ -178,7 +248,7 @@ void dc7051_test_state::dc7051test(machine_config &config)
 {
 	DC7051(config, m_dc7051, XTAL(dc7051_device::DOT_CLOCK));
 	m_dc7051->hsync_handler().set(FUNC(dc7051_test_state::hsync_w));
-	m_dc7051->frame_handler().set(FUNC(dc7051_test_state::frame_w));
+	m_dc7051->set_frame_event_callback(FUNC(dc7051_test_state::frame_event));
 }
 
 
@@ -191,4 +261,4 @@ ROM_END
 } // anonymous namespace
 
 
-COMP(2026, dc7051test, 0, 0, dc7051test, dc7051test, dc7051_test_state, empty_init, "MAME", "DEC DC7051 device regression", MACHINE_NO_SOUND_HW)
+COMP(2026, dc7051test, 0, 0, dc7051test, dc7051test, dc7051_test_state, empty_init, "MAME", "DEC DC7051 device regression", MACHINE_NO_SOUND_HW | MACHINE_SUPPORTS_SAVE)
