@@ -24,6 +24,13 @@ profile metadata, hashes, provenance, and the local-library workflow are in
 `roms/`; the binary images remain under the ignored top-level `roms/` tree.
 See `BUILDING.md` for activation and verification commands.
 
+## Gallery
+
+See [`gallery/README.md`](gallery/README.md) for native cold-boot animation,
+the `VT340 OK` and Set-Up screens, full-color SIXEL output, ReGIS examples,
+and focused graphics-conformance scenes. Every tracked image is tied to a
+passing regression or reproducible capture script.
+
 ## Quick start
 
 From the MAME checkout root:

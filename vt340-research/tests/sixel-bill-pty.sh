@@ -61,12 +61,14 @@ if ! stty -f "$endpoint" raw -echo 2>/dev/null; then
 	stty -F "$endpoint" raw -echo
 fi
 if test "$byte_limit" -gt 0; then
-	dd if="$fixture" of="$endpoint" bs="$byte_limit" count=1 status=none
+	input="$run_dir/input.six"
+	dd if="$fixture" of="$input" bs="$byte_limit" count=1 status=none
 	expected_bytes=$byte_limit
 else
-	cat "$fixture" >"$endpoint"
+	input="$fixture"
 	expected_bytes=$(wc -c < "$fixture" | tr -d ' ')
 fi
+python3 "$root/vt340-research/tests/lib/serial_write.py" "$endpoint" "$input"
 wait "$pid"
 pid=
 
@@ -77,6 +79,8 @@ test "$(jq -r 'select(.event == "capture") | .received_mismatches' "$json")" -eq
 test "$(jq -s '[.[] | select(.event == "native_color_setup" and .config == "28" and .state == "38")] | length' "$json")" -eq 1
 test "$(jq -s '[.[] | select(.event == "palette" and .index == 11 and .rg == "AE" and .gb == "81")] | length' "$json")" -eq 1
 test "$(jq -s '[.[] | select(.event == "select_count" and .select == "F" and .count > 0)] | length' "$json")" -eq 1
+test "$(jq -s '[.[] | select(.event == "command_count" and .command == "07D1" and .count > 0)] | length' "$json")" -eq 1
+test "$(jq -s '[.[] | select(.event == "mode_count" and .mode == "00C2" and .count > 0)] | length' "$json")" -eq 1
 test "$(jq -r 'select(.event == "capture") | [.color_counts[] | select(. > 0)] | length' "$json")" -eq 16
 test -s "$snapshot"
 

@@ -40,6 +40,9 @@ run_case()
 	local expected_bytes_catalog=$5
 	local expected_hash=$6
 	local expected_nonzero=$7
+	local dc323_families=$8
+	local color_mode=$9
+	local expected_snapshot_sha=${10}
 	local case_root="$run_root/$case_id"
 	local config="$case_root/cfg"
 	local nvram="$case_root/nvram"
@@ -71,13 +74,26 @@ run_case()
 	# Darwin's slave PTY maps generated LF bytes to CRLF on the UART even
 	# after raw mode is requested. Give the observer the exact wire stream.
 	perl -0777 -pe 's/\n/\r\n/g' "$input" >"$expected"
+	local capture_time=50
+	local input_ready_time=17
+	local run_time=52
+	local select_color=0
+	if [[ "$color_mode" == "true" ]]; then
+		# Use the original firmware's Set-Up path to select VT340 color mode.
+		# The established key sequence completes at 270 seconds and releases
+		# host input at 280 seconds; no palette is injected by the harness.
+		capture_time=300
+		input_ready_time=280
+		run_time=302
+		select_color=1
+	fi
 
-	VT340_SIXEL_EXTERNAL=1 VT340_SIXEL_FILE="$expected" \
-		VT340_SIXEL_SNAPSHOT="$snapshot" VT340_SIXEL_CAPTURE_TIME=50 \
-		VT340_LEAVE_POST_TIME=15 VT340_INPUT_READY_TIME=17 \
+	VT340_SIXEL_EXTERNAL=1 VT340_SIXEL_FILE="$expected" VT340_SELECT_COLOR="$select_color" \
+		VT340_SIXEL_SNAPSHOT="$snapshot" VT340_SIXEL_CAPTURE_TIME="$capture_time" \
+		VT340_LEAVE_POST_TIME=15 VT340_INPUT_READY_TIME="$input_ready_time" \
 		"$binary" vt340 -rompath "$root/roms" -cfg_directory "$config" \
 		-nvram_directory "$nvram" -comm1 pty -video none -sound none \
-		-nothrottle -verbose -seconds_to_run 52 -autoboot_delay 0 \
+		-nothrottle -verbose -seconds_to_run "$run_time" -autoboot_delay 0 \
 		-autoboot_script "$root/vt340-research/traces/sixel-bill-trace.lua" \
 		>"$log" 2>&1 &
 	pid=$!
@@ -123,6 +139,23 @@ run_case()
 		echo "$case_id produced no graphics commands" >&2
 		exit 1
 	fi
+	if [[ "$color_mode" == "true" ]]; then
+		jq -e 'select(.event == "native_color_setup" and .config == "28" and .state == "38")' "$json" >/dev/null
+	fi
+	# Keep each declared integration claim tied to command evidence from this
+	# particular workload, rather than relying only on its final framebuffer.
+	for family in $(printf '%s' "$dc323_families" | tr ',' ' '); do
+		case "$family" in
+			raster.normal-constant)
+				jq -e 'select(.event == "command_count" and (.command | test("^06")) and .count > 0)' "$json" >/dev/null ;;
+			raster.normal-bitmap)
+				jq -e 'select(.event == "command_count" and (.command | test("^0E")) and .count > 0)' "$json" >/dev/null ;;
+			raster.linear-source1)
+				jq -e 'select(.event == "mode_count" and .mode == "00C2" and .count > 0)' "$json" >/dev/null ;;
+			transfer.processor-to-bitmap-x)
+				jq -e 'select(.event == "command_count" and .command == "07D1" and .count > 0)' "$json" >/dev/null ;;
+		esac
+	done
 	local observed_nonzero
 	observed_nonzero=$(jq -r 'select(.event == "capture") | .nonzero_pixels' "$json")
 	if [[ ! -s "$snapshot" ]]; then
@@ -131,6 +164,8 @@ run_case()
 	fi
 	local observed_hash
 	observed_hash=$(jq -r 'select(.event == "capture") | .bitmap_hash' "$json")
+	local observed_snapshot_sha
+	observed_snapshot_sha=$(shasum -a 256 "$snapshot" | awk '{print $1}')
 	if [[ ${VT340_UPDATE_BASELINE:-0} != 1 ]]; then
 		if [[ $observed_nonzero -ne $expected_nonzero ]]; then
 			echo "$case_id nonzero pixels: expected $expected_nonzero, observed $observed_nonzero" >&2
@@ -138,6 +173,10 @@ run_case()
 		fi
 		if [[ "$observed_hash" != "$expected_hash" ]]; then
 			echo "$case_id framebuffer hash: expected $expected_hash, observed $observed_hash" >&2
+			exit 1
+		fi
+		if [[ "$expected_snapshot_sha" != "-" && "$observed_snapshot_sha" != "$expected_snapshot_sha" ]]; then
+			echo "$case_id screenshot SHA-256: expected $expected_snapshot_sha, observed $observed_snapshot_sha" >&2
 			exit 1
 		fi
 	fi
@@ -150,16 +189,20 @@ run_case()
 		cp "$json" "$artifact_case/events.jsonl"
 		cp "$snapshot" "$artifact_case/screen.png"
 	fi
-	printf '%s hash=%s bytes=%s nonzero=%s\n' "$case_id" "$observed_hash" "$expected_bytes" \
-		"$observed_nonzero"
+	printf '%s hash=%s bytes=%s nonzero=%s screenshot=%s\n' "$case_id" "$observed_hash" \
+		"$expected_bytes" "$observed_nonzero" "$observed_snapshot_sha"
 }
 
-while IFS='|' read -r case_id source_path source_sha source_arg expected_bytes expected_hash expected_nonzero; do
+while IFS='|' read -r case_id source_path source_sha source_arg expected_bytes expected_hash expected_nonzero dc323_families color_mode expected_snapshot_sha; do
 	run_case "$case_id" "$source_path" "$source_sha" "$source_arg" \
-		"$expected_bytes" "$expected_hash" "$expected_nonzero"
-done < <(jq -r '.cases[] | [
+		"$expected_bytes" "$expected_hash" "$expected_nonzero" "$dc323_families" "$color_mode" "$expected_snapshot_sha"
+done < <(jq --arg case_filter "${VT340_CORPUS_CASE:-}" -r '.cases[] |
+	select($case_filter == "" or .id == $case_filter) | [
 	.id, .source, .source_sha256, (.argument // "-"),
 	(.expected_wire_bytes | tostring), .expected_bitmap_hash,
-	(.expected_nonzero_pixels | tostring)] | join("|")' "$cases_file")
+	(.expected_nonzero_pixels | tostring),
+	([.dc323_commands[].family] | join(",")),
+	(.color_mode // false | tostring),
+	(.expected_snapshot_sha256 // "-")] | join("|")' "$cases_file")
 
 echo "VT340 external conformance corpus regression passed"

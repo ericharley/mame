@@ -357,6 +357,17 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	expect_pixel(23, 22, true, "Bresenham final selected point");
 	expect_pixel(24, 22, false, "Bresenham excludes vector endpoint");
 
+	// Operation-2 diagnostic forms with the destination disabled must not
+	// modify bitmap memory even when the remaining raster state is drawable.
+	m_dc323->bitmap_clear();
+	reg_w(dc323_device::REG_X_CONTROL, 0x0080);
+	reg_w(dc323_device::REG_DESTINATION_X, 45);
+	reg_w(dc323_device::REG_DESTINATION_Y, 45);
+	reg_w(dc323_device::REG_WIDTH, 2);
+	reg_w(dc323_device::REG_HEIGHT, 2);
+	reg_w(dc323_device::REG_COMMAND, 0x02c0);
+	expect_pixel(45, 45, false, "destination-disabled raster does not draw");
+
 	// Mode 01 is reserved, not fill mode.
 	m_dc323->bitmap_clear();
 	reg_w(dc323_device::REG_X_CONTROL, 0x0081);
