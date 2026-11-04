@@ -16,6 +16,8 @@ local external_input = os.getenv("VT340_SIXEL_EXTERNAL") == "1"
 local select_color = os.getenv("VT340_SELECT_COLOR") == "1"
 local snapshot_path = os.getenv("VT340_SIXEL_SNAPSHOT") or "/tmp/vt340-sixel-bill.png"
 local capture_time = tonumber(os.getenv("VT340_SIXEL_CAPTURE_TIME")) or 360
+local leave_post_time = tonumber(os.getenv("VT340_LEAVE_POST_TIME")) or 130
+local input_ready_time = tonumber(os.getenv("VT340_INPUT_READY_TIME"))
 local bitbanger = nil
 local expected_file = assert(io.open(sixel_path, "rb"))
 local expected_stream = expected_file:read("*a")
@@ -428,7 +430,7 @@ end
 
 emu.register_frame_done(function()
 	local now = manager.machine.time:as_double()
-	if not left_post and now >= 130 then
+	if not left_post and now >= leave_post_time then
 		keyboard:post_coded("{TAB}")
 		left_post = true
 		print(string.format('VT340_SIXEL_JSON {"event":"leave_post","time":%.9f}', now))
@@ -472,7 +474,7 @@ emu.register_frame_done(function()
 				now, cpu1_xdata:read_u8(0x7b00), cpu1_xdata:read_u8(0x4c00)))
 		end
 	end
-	local load_time = select_color and 280 or 140
+	local load_time = input_ready_time or (select_color and 280 or 140)
 	if not loaded and now >= load_time then
 		loaded = true
 		-- Let the connector consume the terminal firmware's XON/XOFF bytes.
