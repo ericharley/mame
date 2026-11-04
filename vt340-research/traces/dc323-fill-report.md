@@ -44,6 +44,8 @@ the B-edge address generator and must not be enabled as a bitmap source.
 - X/Y baseline fill using the applicable source origin as the fixed baseline;
 - equal-duration X/Y edge-pair chains, retaining each edge endpoint as the
   next command's origin until a destination-origin load or mode change;
+- tiled and untiled source-2 patterns across ordinary and baseline fill spans;
+- signed Error 1/Error 2 initialization adjustments for edges A and B;
 - inclusion of both edge pixels in each fill scan; and
 - exclusion of each edge vector's endpoint, matching ordinary vector rules.
 
@@ -66,13 +68,11 @@ The following are not claimed by this round:
 
 - source-1-coupled hole filling, because the correct source address for an
   added destination pixel has not been established;
-- source-2 patterned polygon fills;
 - holding one edge after it expires while the other continues;
 - continuation when paired edges have unequal durations, which requires
   preserving partial generator state rather than just completed endpoints;
 - crossing-edge reversal behavior;
 - complement-mode doubling detection or firmware-directed tripling;
-- programmable Error 1/Error 2 offsets; or
 - proof that horizontal scanline gap repair exactly matches every DC323B
   internal hole-fill case.
 
@@ -96,7 +96,8 @@ rather than VT340-firmware-confirmed.
 ## Verification
 
 - The firmware-free `dc323test` build and regression pass with the new X/Y,
-  baseline, paired-edge chaining, restart, and hole-fill cases.
+  baseline, paired-edge chaining, restart, error-offset, source-2 pattern, and
+  hole-fill cases.
 - The VT340 target builds successfully.
 - The optional fast-start native boot regression passes.
 - The 130-second native graphics raster-command regression passes unchanged.

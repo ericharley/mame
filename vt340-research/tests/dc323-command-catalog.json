@@ -134,7 +134,7 @@
       "encoding": "op=2 S2=1",
       "status": "partial",
       "required_level": "direct",
-      "remaining": "Normal-mode source-2-only offset and tiled addressing are implemented; dual-source Viper routing and patterned fill remain."
+      "remaining": "Source-2-only addressing/fills and dual-source CSR routing are implemented; exact Viper word-pipeline, delay-register, and multiple-driver behavior remains."
     },
     {
       "id": "transfer.bitmap-to-processor-x",
