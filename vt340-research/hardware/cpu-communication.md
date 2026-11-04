@@ -13,8 +13,13 @@ reinspection corrected the direct CPU connection: P1.1 carries
 come from the 2681 and 2641 serial devices.  The driver latches CPU2 P1 for
 firmware readback and drives CPU1 T1 from P1.1.  The POST protocol is
 bidirectional: CPU2 pulses P1.1 in routine `1701`, while CPU1 acknowledges by
-pulling P3.5/T1 low in routines `3919` and `3b8e`.  Pulse latches preserve
-these sub-millisecond events across MAME timeslice boundaries.
+pulling P3.5/T1 low in routines `3919` and `3b8e`. DAT9 edge changes hand the
+timeslice to the peer CPU, so CPU2 now observes all six acknowledgements from
+the resolved pin without a PC-qualified retention latch. One initial CPU2
+pulse remains retained for CPU1's startup sample at `3925`. A controlled
+removal showed that CPU2 releases this low 8.552 ms before CPU1 starts its
+sample loop, so this is an explicit compatibility workaround for unresolved
+startup phasing, not an electrical latch or a simple scheduler-slice issue.
 
 DAT9 startup ownership is now explicit and independent of firmware addresses.
 The resolved level is low if CPU1 P3.5, CPU2 P1.1, or the selected board/DC323

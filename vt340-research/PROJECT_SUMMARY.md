@@ -9,10 +9,12 @@ machine. Terminal protocols, startup messages, and graphics operations must
 come from the ROMs; the driver must not replace firmware decisions with a
 high-level terminal implementation.
 
-The current driver boots both processors, completes the modeled destructive
-hardware tests, exchanges the CPU1/CPU2 startup handshakes, executes native
-graphics command packets, and displays the firmware-rendered `Wait` message.
-It does not yet reach the documented persistent `VT340 OK` display.
+The current driver boots both processors, passes native POST with result `00`,
+exchanges CPU1/CPU2 startup handshakes, executes native graphics commands,
+and displays a persistent firmware-rendered `VT340 OK` screen. It supports
+Set-Up with persistent NVRAM, interactive serial sessions, text scrolling,
+ReGIS, and color SIXEL. Startup still misses the fast `7ff2` checkpoint and
+reaches success through the firmware's approximately 120-second timeout.
 
 The board driver is `src/mame/dec/vt340.cpp`; the extracted Adder device is
 `src/devices/video/dc323.{h,cpp}`. Research notes, disassemblies, reproduction
@@ -110,15 +112,23 @@ The E15/P1 board wiring assembles each decoded Adder write and forwards it to
 the standalone `dc323_device`. The device owns the 64-word register file,
 status/IRQ state, command and transfer sequencing, retained Viper operation
 state, frame-synchronized scrolling, and bitmap planes. Firmware-address-
-specific POST mux/ready accommodations remain in the VT340 board driver and
-are not DC323 behavior. See `hardware/dc323-device.md`.
+independent diagnostic I/D readback, command-zero abort, and ready outputs now
+live in the DC323 device. The separate bitmap-memory POST aperture and board
+reset/DAT9 sequencing remain in the VT340 driver. See
+`hardware/dc323-device.md`.
 
 The standalone `dc7051_device` owns the preserved horizontal and frame timing
-approximations; callbacks drive CPU2 T0 and the DC323 frame input. The former
+approximations; a line callback drives CPU2 T0 and an explicit event callback
+services the DC323 at each completed frame. Frame timing
+now runs continuously from reset and is independent of DC323 interrupt-enable
+writes; DC323 suppresses frame service while held non-operational. The former
 `f080/f0a0` register assignment was disproven by the output-map schematic and
 native palette-loader trace, so no CPU-visible DC7051 register aperture is
 currently claimed. The external diagnostic multiplexer and fixed screen
-geometry remain board-owned. See `hardware/dc7051-device.md`.
+geometry remain board-owned. See `hardware/dc7051-device.md` and
+`traces/dc7051-continuous-frame-report.md`. Save states restore the active
+timer phase and persistent horizontal level without replaying a frame event;
+reset at nonzero emulation time establishes a fresh timing epoch.
 
 E80 is a CPU1-owned Xicor X2804 EEPROM. Its recovered 512-byte `23-001N2`
 image supplies the first-run default for MAME's persistent X2804 device,
@@ -237,15 +247,15 @@ Tracked Lua scripts and disassemblies make the important paths reproducible.
    immediately consumes the retained `80` in its terminal-result stage, and
    enters native startup routine `4551` at approximately 119.995547 s.
 8. After removal of the incorrect PC-qualified DC323 bit-0 inversion, CPU2
-   drains all startup packets. CPU1 completes both `7289` passes and submits
-   command 32 at 121.688120 s.
-9. CPU2 executes handler `db98` and reaches its completion-event wait at
-   `dc02` at 122.047438 s with producer and consumer both `66` and `60bb=01`.
-10. During command 32, CPU2 issues documented PBT command `0bc4` and reads
-    1,024 bytes of localized startup text from E49 into `cc00-cfff`. With the
-    register-7 FIFO modeled, the firmware replaces `Wait` with four specific
-    POST errors selected by CPU1's result byte. E80 and SCN2681 corrections
-    have reduced that byte from `63` to `40`.
+   drains all startup packets and CPU1 completes both `7289` passes.
+9. CPU1 completes the native peripheral diagnostics and submits command 32
+   with result `00` at approximately 123.960841 s.
+10. CPU2 executes handler `db98`. During command 32 it issues documented PBT
+    command `0bc4` and reads
+    1,024 bytes of localized startup text from E49 into `cc00-cfff`.
+11. Firmware submits `VT340 OK`, revision, and copyright records.
+12. The frame-boundary scroll erase clears the temporary `Wait` glyph before
+    the success panel, which remains visible while both processors continue.
 
 The older command-32/ring experiment remains valid Phase 2 control-flow
 evidence, but the corrected ROM baseline exposes this earlier Phase 4
@@ -262,15 +272,20 @@ never reads `7ff2`; `10` is a stale-zero guard, not a request notification.
 - The 512-byte E80 `23-001N2` dump supplies the factory default. Native
   firmware writes now persist through MAME's NVRAM storage and are restored
   on later cold boots.
-- Some graphics POST/ready behavior remains PC-qualified; the operational
-  DC323 interrupt status path is no longer PC-qualified.
-- Destination-only/source-2 operations, fill modes, scrolling, complete
-  palette initialization, and sound are incomplete.
+- DC323 register reads are no longer PC-qualified. Diagnostic `0bc0` data,
+  idle completion state, FIFO readiness, and command-zero abort are generated
+  by device state.
+- Source-2 operations, remaining fill/non-normal raster modes, exact command
+  timing, and sound are incomplete. Normal constant-source rasterops,
+  frame-boundary erase, text scrolling, and the 16-entry color map work.
 - Shared-memory arbitration timing is not modeled.
-- The firmware now exits `Wait`; E80, both SCN2681 channels, and the SCN2641
-  printer diagnostic all pass, and CPU1 submits POST result `00`. The original
-  `VT340 OK` panel is visible; clearing the old `Wait` glyph and stabilizing
-  the panel remain display-state work rather than POST work.
+- DC7051 frame service is continuous and shares the screen's Y1-clock raster.
+  CPU2 T0 and the provisional selector-`70` diagnostic pulse remain separate
+  inherited compatibility waveforms.
+- The firmware exits `Wait`; E80, both SCN2681 channels, and the SCN2641
+  printer diagnostic pass, CPU1 submits POST result `00`, and the original
+  `VT340 OK` panel is persistent. The unresolved startup issue is latency:
+  CPU1 misses the fast checkpoint and uses the native timeout fallback.
 
 ## Repository guide
 
@@ -278,7 +293,7 @@ never reads `7ff2`; `10` is a stale-zero guard, not a request notification.
 |---|---|
 | `src/mame/dec/vt340.cpp` | VT340 board wiring, compatibility adapter, and ROM declarations |
 | `src/devices/video/dc323.{h,cpp}` | Standalone DC323 register, command, IRQ, transfer, and graphics device |
-| `src/devices/video/dc7051.{h,cpp}` | Standalone DC7051 raw registers and compatibility timing device |
+| `src/devices/video/dc7051.{h,cpp}` | Standalone DC7051 raw storage and continuous compatibility timing device |
 | `vt340-research/firmware/` | Disassembly findings and firmware control flow |
 | `vt340-research/hardware/` | Hardware maps, video model, and open questions |
 | `vt340-research/traces/` | Reproduction scripts and concise trace summaries |

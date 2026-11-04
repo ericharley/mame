@@ -82,7 +82,7 @@ command paths.
 
 ### Frame status generation is provisional
 
-Each high `vsync_w()` call currently services a pending scroll and then sets
+Each `frame_event()` call currently services a pending scroll and then sets
 both Pause Complete and Scroll Service, even when no scroll is pending. This
 matches the firmware path that brought the terminal into stable operation, but
 the following physical semantics remain unresolved:

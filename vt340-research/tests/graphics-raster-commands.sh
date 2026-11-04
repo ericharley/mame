@@ -2,11 +2,14 @@
 set -eu
 
 binary=${1:-./vt340}
+config_dir=$(mktemp -d -t vt340-graphics-config.XXXXXX)
+nvram_dir=$(mktemp -d -t vt340-graphics-nvram.XXXXXX)
 log=$(mktemp -t vt340-graphics-raster.XXXXXX)
 json=$(mktemp -t vt340-graphics-raster.XXXXXX)
-trap 'rm -f "$log" "$json"' EXIT HUP INT TERM
+trap 'rm -rf "$config_dir" "$nvram_dir"; rm -f "$log" "$json"' EXIT HUP INT TERM
 
-"$binary" vt340 -rompath roms -video none -sound none -nothrottle \
+"$binary" vt340 -rompath roms -cfg_directory "$config_dir" \
+	-nvram_directory "$nvram_dir" -video none -sound none -nothrottle \
 	-seconds_to_run 130 -autoboot_delay 0 \
 	-autoboot_script vt340-research/traces/graphics-command-trace.lua \
 	>"$log" 2>&1

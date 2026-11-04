@@ -120,6 +120,8 @@ void dc323_device::device_start()
 	save_item(NAME(m_pbt_write_words_per_row));
 	save_item(NAME(m_pbt_write_index));
 	save_item(NAME(m_pbt_write_count));
+	save_item(NAME(m_diagnostic_data));
+	save_item(NAME(m_raster_diagnostic));
 	save_item(NAME(m_video_operational));
 	save_item(NAME(m_irq_state));
 }
@@ -144,6 +146,8 @@ void dc323_device::device_reset()
 	m_pbt_write_words_per_row = 0;
 	m_pbt_write_index = 0;
 	m_pbt_write_count = 0;
+	m_diagnostic_data = 0;
+	m_raster_diagnostic = false;
 	m_video_operational = false;
 	m_irq_state = false;
 	m_log_events = 0;
@@ -176,7 +180,25 @@ void dc323_device::write(offs_t offset, u16 data)
 		machine().time().to_string(), tag(), reg, data, m_status, m_registers[REG_INTERRUPT_ENABLE]);
 	m_registers[reg] = data;
 	if (reg == REG_ID_DATA)
+	{
+		// The board diagnostics use the DC323 I/D path as a retained test-data
+		// source. Equal-byte words test ordinary bus retention; 00CF selects the
+		// all-ones result and 00C6 selects the raster-address pattern returned by
+		// diagnostic bitmap-to-processor command 0BC0.
+		if (u8(data >> 8) == u8(data))
+		{
+			m_diagnostic_data = u8(data);
+			m_raster_diagnostic = false;
+		}
+		if (data == 0x00cf)
+		{
+			m_diagnostic_data = 0xff;
+			m_raster_diagnostic = false;
+		}
+		if (data == 0x00c6)
+			m_raster_diagnostic = true;
 		id_data_w(data);
+	}
 
 	if ((reg == REG_INTERRUPT_ENABLE) && m_operational)
 		update_interrupt("interrupt enable write");
@@ -264,6 +286,14 @@ void dc323_device::operational_w(int state)
 	if (m_operational == operational)
 		return;
 	m_operational = operational;
+	if (m_operational)
+	{
+		// Reset leaves the command and address engines idle.  Once the board
+		// releases the DC323 for normal accesses, their three completion outputs
+		// are therefore asserted until a command starts new work.  FIFO receive
+		// ready remains clear until a bitmap-to-processor transfer supplies data.
+		m_status |= STATUS_RASTEROP_MASK;
+	}
 	DC323_LOGMASKED(LOG_REGISTERS, "%s %s: operational=%u\n", machine().time().to_string(), tag(), m_operational);
 	update_interrupt("operational input");
 }
@@ -280,9 +310,12 @@ void dc323_device::viper_select_w(u8 data)
 }
 
 
-void dc323_device::vsync_w(int state)
+void dc323_device::frame_event()
 {
-	if (!state)
+	// Video timing runs continuously, but reset holds the command/status logic
+	// inactive.  Do not latch stale frame service before the board releases the
+	// DC323 into operational mode.
+	if (!m_operational)
 		return;
 
 	u16 const old_status = m_status;
@@ -308,7 +341,11 @@ u8 dc323_device::id_data_r()
 	u16 const source_y = source_origin_y + row;
 	u8 data = 0;
 
-	if (BIT(source_origin_y, 12))
+	if (m_raster_diagnostic && (m_pbt_read_command == 0x0bc0))
+		data = BIT(source_origin_x, 3) ? 0x55 : 0xaa;
+	else if (!m_raster_diagnostic && (m_pbt_read_command == 0x0bc0))
+		data = m_diagnostic_data;
+	else if (BIT(source_origin_y, 12))
 	{
 		u16 const rom_x = source_x & 0x00ff;
 		u16 const rom_y = source_y & 0x03ff;
@@ -363,6 +400,17 @@ void dc323_device::command_w(u16 command)
 		m_status |= STATUS_ID_DATA_TRANSMIT_READY;
 		m_pbt_read_active = false;
 		m_pbt_write_active = false;
+	}
+	else if (m_operational && (command == 0x0000))
+	{
+		// Command zero returns the command path to its idle state.  Firmware
+		// uses it to terminate a diagnostic I/D sequence before polling Address
+		// Output Complete.
+		m_pbt_read_active = false;
+		m_pbt_write_active = false;
+		m_status &= ~(STATUS_ID_DATA_READY | STATUS_ID_DATA_TRANSMIT_READY);
+		m_status |= STATUS_RASTEROP_MASK;
+		update_interrupt("command abort");
 	}
 
 	if ((command & 0xffe0) == 0x0180)

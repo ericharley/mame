@@ -43,7 +43,7 @@ DEFINE_DEVICE_TYPE(DC7051, dc7051_device, "dc7051", "DEC DC7051 Video Timing Gen
 dc7051_device::dc7051_device(machine_config const &mconfig, char const *tag, device_t *owner, u32 clock) :
 	device_t(mconfig, DC7051, tag, owner, clock),
 	m_hsync_handler(*this),
-	m_frame_handler(*this)
+	m_frame_event_callback(*this)
 {
 }
 
@@ -52,11 +52,11 @@ void dc7051_device::device_start()
 {
 	m_horizontal_timer = timer_alloc(FUNC(dc7051_device::horizontal_tick), this);
 	m_frame_timer = timer_alloc(FUNC(dc7051_device::frame_tick), this);
+	m_frame_event_callback.resolve_safe();
 
 	save_item(NAME(m_low));
 	save_item(NAME(m_high));
 	save_item(NAME(m_hsync_asserted));
-	save_item(NAME(m_frame_enabled));
 	save_item(NAME(m_horizontal_transitions));
 	save_item(NAME(m_frame_events));
 }
@@ -67,17 +67,31 @@ void dc7051_device::device_reset()
 	m_low.fill(0);
 	m_high.fill(0);
 	m_hsync_asserted = true;
-	m_frame_enabled = false;
 	m_horizontal_transitions = 0;
 	m_frame_events = 0;
 	m_log_events = 0;
 	m_hsync_handler(ASSERT_LINE);
 	m_horizontal_timer->adjust(attotime::from_hz(HORIZONTAL_TOGGLE_RATE), 0,
 		attotime::from_hz(HORIZONTAL_TOGGLE_RATE));
-	m_frame_timer->adjust(attotime::never);
+	// Use the same Y1 dot-clock epoch and raster totals as the visible screen.
+	// CPU2 T0 remains on its independently verified compatibility waveform
+	// until the physical horizontal output is identified.
+	attotime const frame_period = attotime::from_ticks(FRAME_CLOCKS, clock());
+	m_frame_timer->adjust(frame_period, 0, frame_period);
 	DC7051_LOGMASKED(LOG_RESET, "%s %s: reset clock=%u horizontal_toggle=%u frame_period=%s\n",
 		machine().time().to_string(), tag(), clock(), HORIZONTAL_TOGGLE_RATE,
-		attotime::from_ticks(VERTICAL_TOTAL, HORIZONTAL_RATE).to_string());
+		frame_period.to_string());
+}
+
+
+void dc7051_device::device_post_load()
+{
+	// Timers and counters are restored by the scheduler/save system.  Re-drive
+	// the one persistent external level; a frame is an event and must not be
+	// replayed merely because state was loaded.
+	++m_post_load_count;
+	m_post_load_hsync_asserted = m_hsync_asserted;
+	m_hsync_handler(m_hsync_asserted ? ASSERT_LINE : CLEAR_LINE);
 }
 
 
@@ -98,19 +112,6 @@ void dc7051_device::high_w(offs_t offset, u8 data)
 	m_high[reg] = data;
 	DC7051_LOGMASKED(LOG_REGISTERS, "%s %s: high W %X=%02X old=%02X\n",
 		machine().time().to_string(), tag(), reg, data, old);
-}
-
-
-void dc7051_device::frame_enable_w(int state)
-{
-	bool const enabled = bool(state);
-	if (m_frame_enabled == enabled)
-		return;
-	m_frame_enabled = enabled;
-	attotime const period = attotime::from_ticks(VERTICAL_TOTAL, HORIZONTAL_RATE);
-	m_frame_timer->adjust(enabled ? period : attotime::never, 0, enabled ? period : attotime::never);
-	DC7051_LOGMASKED(LOG_TIMING, "%s %s: compatibility frame enable=%u period=%s\n",
-		machine().time().to_string(), tag(), enabled, period.to_string());
 }
 
 
@@ -141,5 +142,5 @@ TIMER_CALLBACK_MEMBER(dc7051_device::frame_tick)
 	++m_frame_events;
 	DC7051_LOGMASKED(LOG_SYNC, "%s %s: signal=frame old=0 new=1 event=%llu register_context=compatibility\n",
 		machine().time().to_string(), tag(), (unsigned long long)m_frame_events);
-	m_frame_handler(1);
+	m_frame_event_callback();
 }

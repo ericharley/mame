@@ -1,0 +1,46 @@
+VT340 Phase 4 CPU clock-ratio experiment
+=========================================
+
+Question
+--------
+
+Could CPU2 legitimately run more slowly than CPU1, allowing CPU1 to install
+the 7FF2 pending sentinel before CPU2 publishes its checkpoint?
+
+Baseline
+--------
+
+The schematic and parts list specify the same 12 MHz Y2 source for both 8031
+processors.  On the normal 12 MHz configuration, the current trace reproduces:
+
+  8.220511  CPU2 enters configuration at 1325
+  8.222100  CPU1 accepts response 5
+  8.228779  CPU2 publishes checkpoint 7FF2=00
+  8.235679  CPU1 emits pulse 6
+
+The checkpoint therefore precedes pulse 6 by 6.900 ms.
+
+Controlled experiment
+---------------------
+
+CPU2 alone was temporarily configured at 8 MHz.  No firmware, RAM, device,
+or signal behavior was changed.  This was a diagnostic build only; the driver
+was restored to 12 MHz immediately afterward.
+
+Slowing CPU2 does not slide the checkpoint past CPU1's pulse.  CPU2 reaches
+its native horizontal-timing validation at 1364 with TL0=91, rather than the
+required 61, and loops at 1366.  The 91/61 ratio is exactly 12/8: the fixed
+CPU2 instruction interval spans 1.5 times as many DC7051 horizontal edges
+when its processor clock is reduced by that factor.
+
+Result
+------
+
+CPU2's pre-checkpoint routine is itself a clock-ratio check.  A uniform CPU2
+slowdown is rejected by original firmware before the checkpoint and cannot be
+a hardware-correct timeout fix.  The production configuration remains two
+schematic-correct 12 MHz I8031 processors.
+
+This also strengthens the remaining boundary: a valid correction must explain
+the final DAT9 response/mailbox order without changing either processor clock,
+shortening the LK201 pacing loop, or bypassing the T0 validation.
