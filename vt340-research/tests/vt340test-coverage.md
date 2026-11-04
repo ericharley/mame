@@ -34,9 +34,13 @@ the emulated Comm 1 PTY at a controlled rate, and checks:
 - the invoked source file's SHA-256;
 - generated wire-stream length;
 - exact bytes received by the firmware, with no omissions or substitutions;
-- execution of firmware-generated graphics commands;
+- execution of the DC323 command families claimed by that individual case;
 - a deterministic visible-framebuffer hash and whole-bitmap nonzero-pixel count; and
 - production of a screenshot and structured event trace.
+
+Color-sensitive cases may additionally pin the rendered PNG SHA-256. The RAF
+case uses this to distinguish its intended red/white/blue palette from the
+same correct bitmap indices displayed through a monochrome palette.
 
 The harness appends the six-byte DECTCEM “cursor off” control after each
 unmodified source stream. The suffix is included in the wire-byte assertion.

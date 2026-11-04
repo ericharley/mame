@@ -8,6 +8,7 @@
     "startup": "Firmware boot, POST, and interprocessor tests",
     "graphics": "Text, raster, Set-Up, color, and SIXEL behavior",
     "conformance": "External hardware-observed VT340 behavior corpus",
+    "gallery": "Tracked screenshots, animations, and provenance",
     "serial": "Serial device and connector diagnostics",
     "persistence": "Configuration and nonvolatile storage",
     "historical": "Sprint closeout and compatibility evidence",
@@ -62,6 +63,48 @@
       "accepts_binary": false,
       "requires": ["make", "rg"],
       "fixtures": [],
+      "dc323_commands": [
+        {"family": "command.abort", "level": "direct", "scope": "Aborts an active diagnostic transfer and asserts completed idle status."},
+        {"family": "viper.register-load", "level": "direct", "scope": "Loads independent per-plane Viper registers and verifies retained values and color indices."},
+        {"family": "raster.normal-constant", "level": "direct", "scope": "Checks constant fills, masks, clipping, signed vectors, scaling, and Bresenham pixels."},
+        {"family": "raster.normal-bitmap", "level": "direct", "scope": "Checks bitmap copies, overlap behavior, and 1:20 Set-Up restoration scaling."},
+        {"family": "raster.normal-hole-fill", "level": "direct", "scope": "Compares rotated broad vectors with hole filling off and on at exact interior pixels."},
+        {"family": "raster.destination-disabled", "level": "direct", "scope": "Verifies an operation-2 command with destination disabled leaves the target unchanged."},
+        {"family": "raster.reserved-mode", "level": "direct", "scope": "Verifies X-control mode 01 produces no drawing."},
+        {"family": "raster.linear-source1", "level": "direct", "scope": "Checks a rotated repeated bitmap pattern at exact destination pixels."},
+        {"family": "raster.fill-two-edge", "level": "direct", "scope": "Checks X-fill and Y-fill interiors, exteriors, and excluded endpoints."},
+        {"family": "raster.fill-baseline", "level": "direct", "scope": "Checks sloped X and Y edges against fixed baselines."},
+        {"family": "raster.fill-chained", "level": "direct", "scope": "Checks two-command X/Y diamonds and explicit origin restart."},
+        {"family": "transfer.bitmap-to-processor-x", "level": "direct", "scope": "Checks selected-plane packing, I/D readback, and completion status."},
+        {"family": "transfer.processor-to-bitmap-x", "level": "direct", "scope": "Checks aligned and unaligned writes, masks, CSR routing, and completion status."},
+        {"family": "scroll.frame-service", "level": "direct", "scope": "Checks deferred up/down scroll, erase, edge masks, offsets, and pending-command replacement."}
+      ],
+      "outputs": []
+    },
+    {
+      "id": "dc323-command-coverage",
+      "script": "dc323-command-coverage.sh",
+      "title": "DC323 implementation-to-test coverage matrix",
+      "kind": "atomic",
+      "suites": ["quick", "core", "device", "graphics"],
+      "estimated_seconds": 1,
+      "requires_roms": false,
+      "accepts_binary": false,
+      "requires": ["python3"],
+      "fixtures": ["tests/dc323-command-catalog.json", "tests/dc323-command-coverage.md", "tests/vt340test-cases.json"],
+      "outputs": []
+    },
+    {
+      "id": "gallery-assets",
+      "script": "gallery-assets.sh",
+      "title": "Tracked emulator gallery assets and provenance",
+      "kind": "atomic",
+      "suites": ["quick", "gallery"],
+      "estimated_seconds": 1,
+      "requires_roms": false,
+      "accepts_binary": false,
+      "requires": ["python3"],
+      "fixtures": ["gallery/README.md", "gallery/manifest.json"],
       "outputs": []
     },
     {
@@ -135,6 +178,9 @@
       "requires_roms": true,
       "requires": ["rg"],
       "fixtures": [],
+      "dc323_commands": [
+        {"family": "transfer.bitmap-to-processor-x", "level": "integration", "scope": "Requires native command 0BC4 to return the exact 1,024-byte E49 startup block."}
+      ],
       "outputs": ["mame.log"]
     },
     {
@@ -147,6 +193,11 @@
       "requires_roms": true,
       "requires": ["jq", "rg"],
       "fixtures": [],
+      "dc323_commands": [
+        {"family": "raster.normal-constant", "level": "integration", "scope": "Counts the six native late clear rasters and verifies their resulting screen regions."},
+        {"family": "raster.normal-e49", "level": "integration", "scope": "Verifies firmware-drawn Wait/status/VT340 OK regions through native character-ROM rasters."},
+        {"family": "scroll.frame-service", "level": "integration", "scope": "Requires the native frame-boundary 800x480 erase while preserving the status line."}
+      ],
       "outputs": ["mame.log", "events.jsonl", "graphics-115.png", "graphics-124.png", "graphics-130.png"]
     },
     {
@@ -171,6 +222,9 @@
       "requires_roms": true,
       "requires": ["jq", "rg"],
       "fixtures": [],
+      "dc323_commands": [
+        {"family": "raster.normal-bitmap", "level": "integration", "scope": "Requires the restored framebuffer to match before Set-Up after native 1:20 bitmap scaling."}
+      ],
       "outputs": ["mame.log", "events.jsonl", "setup-return-*.png"]
     },
     {
@@ -195,6 +249,10 @@
       "requires_roms": true,
       "requires": ["jq", "rg", "python3"],
       "fixtures": ["fixtures/bill-the-cat.six", "fixtures/bill-the-cat-16colors.png"],
+      "dc323_commands": [
+        {"family": "transfer.processor-to-bitmap-x", "level": "integration", "scope": "Requires native SIXEL staging to produce all sixteen framebuffer indices."},
+        {"family": "raster.linear-source1", "level": "integration", "scope": "Requires staged SIXEL patterns to reach the visible bitmap with all sixteen indices."}
+      ],
       "outputs": ["mame.log", "events.jsonl", "sixel-color-indices.png"]
     },
     {
@@ -207,6 +265,10 @@
       "requires_roms": true,
       "requires": ["jq", "rg", "python3"],
       "fixtures": ["fixtures/bill-the-cat.six", "fixtures/bill-the-cat-16colors.png"],
+      "dc323_commands": [
+        {"family": "transfer.processor-to-bitmap-x", "level": "integration", "scope": "Requires the full host SIXEL stream to stage into bitmap memory without receive mismatches."},
+        {"family": "raster.linear-source1", "level": "integration", "scope": "Requires the staged full-color Bill image to transfer into the visible framebuffer."}
+      ],
       "outputs": ["mame.log", "events.jsonl", "sixel-bill.png"]
     },
     {

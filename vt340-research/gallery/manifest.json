@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "description": "Curated native-firmware VT340 emulator gallery",
+  "assets": [
+    {
+      "path": "assets/boot-to-ok.gif",
+      "sha256": "4dbfa9e28024b6bea5008a3cb1acf732e7b30ec02f3ca55d5fa69145b699f1cf",
+      "width": 800,
+      "height": 500,
+      "frames": 67,
+      "source": "gallery/capture-boot.sh at two-second emulation intervals",
+      "git_revision": "7b4640dae0a95bb0c88a56751242a82475e22c3a"
+    },
+    {
+      "path": "assets/feature-tour.gif",
+      "sha256": "f0dcaf0332afded95dae1ce28955aa3c14dfc777125a2dc5747f69a7a1e2c34a",
+      "width": 800,
+      "height": 500,
+      "frames": 8,
+      "source": "gallery/tools/pngs_to_gif.py over the curated feature images",
+      "git_revision": "7b4640dae0a95bb0c88a56751242a82475e22c3a"
+    },
+    {
+      "path": "assets/wait.png",
+      "sha256": "caeee1f260df8cb0faf72127753b24817fec9dca3687bf9ff8265811cac87203",
+      "width": 800,
+      "height": 500,
+      "frames": 1,
+      "source": "graphics-raster-commands, run 20261104T220114Z-7b4640da, 115 seconds",
+      "git_revision": "7b4640dae0a95bb0c88a56751242a82475e22c3a"
+    },
+    {
+      "path": "assets/vt340-ok.png",
+      "sha256": "155ac26b174e0d1239f2975cbf532871ce6754018dd65fa838597922973f2b2f",
+      "width": 800,
+      "height": 500,
+      "frames": 1,
+      "source": "graphics-raster-commands, run 20261104T220114Z-7b4640da, 130 seconds",
+      "git_revision": "7b4640dae0a95bb0c88a56751242a82475e22c3a"
+    },
+    {
+      "path": "assets/setup-directory.png",
+      "sha256": "f9df12f572a909e8db313897a851dbb8b6b3c90843d0b8719dd0aaf7ca4a57b5",
+      "width": 800,
+      "height": 500,
+      "frames": 1,
+      "source": "setup-screen, run 20261104T205930Z-4bc6f52d",
+      "git_revision": "4bc6f52d"
+    },
+    {
+      "path": "assets/sixel-bill.png",
+      "sha256": "4db33c4b5a35a3bfd5be212c0083a6332fcd70d6462ff29584570bcd19c6e29c",
+      "width": 800,
+      "height": 500,
+      "frames": 1,
+      "source": "sixel-bill-pty, passing run 20261104T221212Z-7b4640da",
+      "git_revision": "7b4640dae0a95bb0c88a56751242a82475e22c3a"
+    },
+    {
+      "path": "assets/sixel-16-color.png",
+      "sha256": "af5a8d16fd655adb5435e7fadfea4c03eb19f8a8e01c6287b5c49d9330a1a09f",
+      "width": 800,
+      "height": 500,
+      "frames": 1,
+      "source": "sixel-color-indices, passing run 20261104T220226Z-7b4640da",
+      "git_revision": "7b4640dae0a95bb0c88a56751242a82475e22c3a"
+    },
+    {
+      "path": "assets/regis-grid.png",
+      "sha256": "ced570b0566ee1001edac979a9ce7f1f9ba3ab3c6eb08291b28c13facffdd4ee",
+      "width": 800,
+      "height": 500,
+      "frames": 1,
+      "source": "vt340test-corpus/regis-grid, passing run 20261104T214709Z-c24a1463",
+      "git_revision": "c24a1463187efe05117fd8c5e87cea24b4984377"
+    },
+    {
+      "path": "assets/regis-raf.png",
+      "sha256": "06cd289ddd932ac550eb71d6d3efacd1022132b7a911d283b9ae502e05b75c57",
+      "width": 800,
+      "height": 500,
+      "frames": 1,
+      "source": "vt340test-corpus/regis-raf in native color mode, passing run 20261104T222015Z-7b4640da",
+      "git_revision": "7b4640dae0a95bb0c88a56751242a82475e22c3a"
+    },
+    {
+      "path": "assets/sixel-overlap.png",
+      "sha256": "73e84dc720503447a6420a8b7985cfc0f7e1d89daa52dce727bf71250758cce5",
+      "width": 800,
+      "height": 500,
+      "frames": 1,
+      "source": "vt340test-corpus/sixel-overlap, passing run 20261104T214709Z-c24a1463",
+      "git_revision": "c24a1463187efe05117fd8c5e87cea24b4984377"
+    },
+    {
+      "path": "assets/sixel-editing.png",
+      "sha256": "0de0e6f6ae980fd7d16526fc87fdc55eb703634e492e0523530a369039f533e1",
+      "width": 800,
+      "height": 500,
+      "frames": 1,
+      "source": "vt340test-corpus/sixel-editing, passing run 20261104T214709Z-c24a1463",
+      "git_revision": "c24a1463187efe05117fd8c5e87cea24b4984377"
+    },
+    {
+      "path": "assets/sixel-scrolling.png",
+      "sha256": "d469b62d925ff90b3a1929f049562a31ad180c0c437aeabf25e647e8b76afc53",
+      "width": 800,
+      "height": 500,
+      "frames": 1,
+      "source": "vt340test-corpus/sixel-scrolling, passing run 20261104T214709Z-c24a1463",
+      "git_revision": "c24a1463187efe05117fd8c5e87cea24b4984377"
+    },
+    {
+      "path": "assets/sixel-line-attributes.png",
+      "sha256": "a2af7bcd71b26ced9ec66889c44579edb57baa5c2dd7362d533c70821619a9f4",
+      "width": 800,
+      "height": 500,
+      "frames": 1,
+      "source": "vt340test-corpus/sixel-line-attributes, passing run 20261104T214709Z-c24a1463",
+      "git_revision": "c24a1463187efe05117fd8c5e87cea24b4984377"
+    }
+  ]
+}

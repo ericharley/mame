@@ -160,6 +160,12 @@ functional color work without prematurely inventing a DC322 interface.
 
 #### Current command-coverage checkpoint (2026-11-04)
 
+The live, test-linked version of this checkpoint is
+`../tests/dc323-command-coverage.md`, generated from the canonical
+`../tests/dc323-command-catalog.json`. Update that catalog and the scoped test
+claims whenever implementation status changes; this narrative remains the
+architectural explanation rather than the coverage authority.
+
 The DC323 command register is a bitfield rather than a flat opcode.  Bits
 `9-8` select the operation; bit `10` enables the destination, bit `11` enables
 source 1, and bit `12` enables source 2.  Raster interpretation also depends

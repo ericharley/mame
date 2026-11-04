@@ -10,10 +10,16 @@
       "source": "regis/registest.sh",
       "source_sha256": "7aeacc4a9fd3296ebe7d89ed688eec0fd4c2c00d090953a258e835d25d602469",
       "argument": "raf",
+      "color_mode": true,
       "coverage": ["ReGIS", "circle", "color-index selection", "nested fill"],
+      "dc323_commands": [
+        {"family": "raster.normal-constant", "level": "integration", "scope": "The exact RAF framebuffer depends on native constant-source circle/fill spans."},
+        {"family": "raster.normal-bitmap", "level": "integration", "scope": "The exact RAF framebuffer covers native source-1 composition commands."}
+      ],
       "expected_wire_bytes": 103,
       "expected_bitmap_hash": "0269915F",
-      "expected_nonzero_pixels": 249550
+      "expected_nonzero_pixels": 249550,
+      "expected_snapshot_sha256": "06cd289ddd932ac550eb71d6d3efacd1022132b7a911d283b9ae502e05b75c57"
     },
     {
       "id": "regis-grid",
@@ -21,6 +27,11 @@
       "source_sha256": "7aeacc4a9fd3296ebe7d89ed688eec0fd4c2c00d090953a258e835d25d602469",
       "argument": "grid",
       "coverage": ["ReGIS", "vectors", "rotated text", "coordinate labels", "patterned lines"],
+      "dc323_commands": [
+        {"family": "raster.normal-constant", "level": "integration", "scope": "The exact grid framebuffer covers native constant-source vectors."},
+        {"family": "raster.normal-bitmap", "level": "integration", "scope": "The exact grid framebuffer covers native source-1 text and composition."},
+        {"family": "raster.linear-source1", "level": "integration", "scope": "The trace contains X-control mode 00C2 and the hash covers its patterned grid lines."}
+      ],
       "expected_wire_bytes": 1056,
       "expected_bitmap_hash": "EC71986B",
       "expected_nonzero_pixels": 230482
@@ -31,6 +42,10 @@
       "source_sha256": "e5b6976d77ab029d82fa7e9230a8dc7fafbbf534c67948ce14f559904d174d8f",
       "argument": null,
       "coverage": ["SIXEL", "repeat introducer", "missing count", "zero count", "edge clipping"],
+      "dc323_commands": [
+        {"family": "transfer.processor-to-bitmap-x", "level": "integration", "scope": "Exact UART and framebuffer checks cover native SIXEL column staging."},
+        {"family": "raster.linear-source1", "level": "integration", "scope": "The trace contains X-control mode 00C2 and the hash covers staged pattern placement."}
+      ],
       "expected_wire_bytes": 2192,
       "expected_bitmap_hash": "99A1544B",
       "expected_nonzero_pixels": 388453
@@ -41,6 +56,10 @@
       "source_sha256": "0d42da394ff8d909de7ff309a6e3cf181508b0345beaed7bee890ecbee51cd8f",
       "argument": null,
       "coverage": ["SIXEL", "DECGRA", "raster dimensions", "zero and omitted dimensions"],
+      "dc323_commands": [
+        {"family": "transfer.processor-to-bitmap-x", "level": "integration", "scope": "Exact UART and framebuffer checks cover raster-sized SIXEL staging."},
+        {"family": "raster.linear-source1", "level": "integration", "scope": "The trace contains X-control mode 00C2 and the hash covers raster-sized placement."}
+      ],
       "expected_wire_bytes": 2376,
       "expected_bitmap_hash": "5CE88D6B",
       "expected_nonzero_pixels": 327263
@@ -51,6 +70,10 @@
       "source_sha256": "d9ee033605a072614a6e36c5cf4e5a5c157fb169c95ab83aed96b6d380e00d7e",
       "argument": null,
       "coverage": ["SIXEL", "transparent background", "color introducer", "layered images"],
+      "dc323_commands": [
+        {"family": "transfer.processor-to-bitmap-x", "level": "integration", "scope": "Exact UART and framebuffer checks cover layered SIXEL staging."},
+        {"family": "raster.linear-source1", "level": "integration", "scope": "The trace contains X-control mode 00C2 and the hash covers transparent pattern composition."}
+      ],
       "expected_wire_bytes": 2687,
       "expected_bitmap_hash": "42077427",
       "expected_nonzero_pixels": 346539
@@ -61,6 +84,11 @@
       "source_sha256": "ed146642a6c0b9cee06f6fe3f06108246c6b2604ef54668ceed763f91f595523",
       "argument": null,
       "coverage": ["SIXEL", "insert/delete line", "insert/delete character", "bitmap movement"],
+      "dc323_commands": [
+        {"family": "transfer.processor-to-bitmap-x", "level": "integration", "scope": "Exact UART and framebuffer checks cover initial SIXEL staging."},
+        {"family": "raster.linear-source1", "level": "integration", "scope": "The trace contains X-control mode 00C2 and the hash covers staged image placement."},
+        {"family": "raster.normal-bitmap", "level": "integration", "scope": "The final hash covers native bitmap movement during insert/delete operations."}
+      ],
       "expected_wire_bytes": 2349,
       "expected_bitmap_hash": "D4FA5BC9",
       "expected_nonzero_pixels": 343140
@@ -71,6 +99,10 @@
       "source_sha256": "252d35229b9944f4f0f4521b1150fd3950aaa03098c8d50a1a54accc853577ae",
       "argument": null,
       "coverage": ["SIXEL", "scrolling", "DECSTBM margins", "graphic newline"],
+      "dc323_commands": [
+        {"family": "transfer.processor-to-bitmap-x", "level": "integration", "scope": "Exact UART and framebuffer checks cover SIXEL staging across scrolling operations."},
+        {"family": "raster.linear-source1", "level": "integration", "scope": "The trace contains X-control mode 00C2 and the final hash covers visible placement."}
+      ],
       "expected_wire_bytes": 2564,
       "expected_bitmap_hash": "9DD92CE5",
       "expected_nonzero_pixels": 293256
@@ -81,6 +113,11 @@
       "source_sha256": "4fc92696ea72865d2b1cc83cd8aa8d7894f0acea8665a494b62e03b0195318d8",
       "argument": null,
       "coverage": ["SIXEL", "DECDWL", "DECDHL", "text backing buffer", "line erasure"],
+      "dc323_commands": [
+        {"family": "transfer.processor-to-bitmap-x", "level": "integration", "scope": "Exact UART and framebuffer checks cover SIXEL staging on attributed lines."},
+        {"family": "raster.linear-source1", "level": "integration", "scope": "The trace contains X-control mode 00C2 and the hash covers attributed-line placement."},
+        {"family": "raster.normal-bitmap", "level": "integration", "scope": "The final hash covers backing-buffer restoration and line erasure copies."}
+      ],
       "expected_wire_bytes": 543,
       "expected_bitmap_hash": "AE1504AB",
       "expected_nonzero_pixels": 248029
