@@ -156,6 +156,57 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	reg_w(dc323_device::REG_FAST_SCALE, 0x1fff);
 	reg_w(dc323_device::REG_SLOW_SCALE, 0x1fff);
 
+	// Source and destination indexing independently add the same signed new
+	// index pair to their origins.  This is the update path used to keep a
+	// display list aligned with a region that has moved during scrolling.
+	m_dc323->bitmap_clear();
+	viper_w(0x04, 0x00ca);
+	fill(20, 24, 2, 1, true);
+	reg_w(dc323_device::REG_NEW_X_INDEX, 5);
+	reg_w(dc323_device::REG_NEW_Y_INDEX, 4);
+	reg_w(dc323_device::REG_SOURCE_X, 15);
+	reg_w(dc323_device::REG_SOURCE_Y, 20);
+	reg_w(dc323_device::REG_DESTINATION_X, 40);
+	reg_w(dc323_device::REG_DESTINATION_Y, 40);
+	reg_w(dc323_device::REG_WIDTH, 2);
+	reg_w(dc323_device::REG_HEIGHT, 1);
+	reg_w(dc323_device::REG_X_CONTROL, 0x00a0); // source index only
+	reg_w(dc323_device::REG_COMMAND, 0x0ec0);
+	expect_pixel(40, 40, true, "source indexing selects translated bitmap origin");
+	expect_pixel(45, 44, false, "source-only indexing does not move destination");
+
+	reg_w(dc323_device::REG_X_CONTROL, 0x00c0); // destination index only
+	reg_w(dc323_device::REG_SOURCE_X, 20);
+	reg_w(dc323_device::REG_SOURCE_Y, 24);
+	reg_w(dc323_device::REG_COMMAND, 0x0ec0);
+	expect_pixel(45, 44, true, "destination indexing translates raster origin");
+
+	reg_w(dc323_device::REG_NEW_X_INDEX, 0x3ffd); // -3
+	reg_w(dc323_device::REG_NEW_Y_INDEX, 0x3ffe); // -2
+	reg_w(dc323_device::REG_DESTINATION_X, 60);
+	reg_w(dc323_device::REG_DESTINATION_Y, 60);
+	reg_w(dc323_device::REG_COMMAND, 0x06c0);
+	expect_pixel(57, 58, true, "signed destination index translates toward origin");
+	expect_pixel(60, 60, false, "signed destination index leaves unindexed origin untouched");
+
+	// At each frame boundary, new becomes old before pending becomes new.
+	reg_w(dc323_device::REG_PENDING_X_INDEX, 9);
+	reg_w(dc323_device::REG_PENDING_Y_INDEX, 7);
+	m_dc323->frame_event();
+	require(m_dc323->register_r(dc323_device::REG_OLD_X_INDEX) == 0x3ffd &&
+		m_dc323->register_r(dc323_device::REG_OLD_Y_INDEX) == 0x3ffe,
+		"frame boundary retains prior new indexes as old");
+	require(m_dc323->register_r(dc323_device::REG_NEW_X_INDEX) == 9 &&
+		m_dc323->register_r(dc323_device::REG_NEW_Y_INDEX) == 7,
+		"frame boundary promotes pending indexes to new");
+	reg_w(dc323_device::REG_PENDING_X_INDEX, 0);
+	reg_w(dc323_device::REG_PENDING_Y_INDEX, 0);
+	reg_w(dc323_device::REG_NEW_X_INDEX, 0);
+	reg_w(dc323_device::REG_NEW_Y_INDEX, 0);
+	reg_w(dc323_device::REG_OLD_X_INDEX, 0);
+	reg_w(dc323_device::REG_OLD_Y_INDEX, 0);
+	reg_w(dc323_device::REG_X_CONTROL, 0x0080);
+
 	// Constant fill affects all planes and preserves pixels beyond the region.
 	m_dc323->bitmap_clear();
 	viper_w(0x04, 0x00ca);
@@ -368,6 +419,18 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	reg_w(dc323_device::REG_COMMAND, 0x02c0);
 	expect_pixel(45, 45, false, "destination-disabled raster does not draw");
 
+	// Dragon defines linear-pattern mode around an enabled first source.  The
+	// no-source encoding is an illegal combination, so preserve the bitmap
+	// rather than inventing constant-pattern behavior.
+	m_dc323->bitmap_clear();
+	reg_w(dc323_device::REG_X_CONTROL, 0x0082);
+	reg_w(dc323_device::REG_DESTINATION_X, 45);
+	reg_w(dc323_device::REG_DESTINATION_Y, 45);
+	reg_w(dc323_device::REG_WIDTH, 2);
+	reg_w(dc323_device::REG_HEIGHT, 2);
+	reg_w(dc323_device::REG_COMMAND, 0x06c0);
+	expect_pixel(45, 45, false, "illegal source-free linear pattern does not draw");
+
 	// Mode 01 is reserved, not fill mode.
 	m_dc323->bitmap_clear();
 	reg_w(dc323_device::REG_X_CONTROL, 0x0081);
@@ -559,8 +622,22 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	reg_w(dc323_device::REG_COMMAND, 0x0ec0);
 	for (unsigned x = 40; x < 44; x++)
 		expect_pixel(x, 40, true, "rotated linear-pattern destination");
+	fill(2, 103, 1, 1, true);
+	reg_w(dc323_device::REG_SOURCE_X, 0);
+	reg_w(dc323_device::REG_SOURCE_Y, 100);
+	reg_w(dc323_device::REG_DESTINATION_X, 50);
+	reg_w(dc323_device::REG_DESTINATION_Y, 50);
+	reg_w(dc323_device::REG_WIDTH, 1);
 	reg_w(dc323_device::REG_DESTINATION_FAST_DY, 0);
 	reg_w(dc323_device::REG_DESTINATION_SLOW_DX, 0);
+	reg_w(dc323_device::REG_HEIGHT, 1);
+	reg_w(dc323_device::REG_NEW_X_INDEX, 2);
+	reg_w(dc323_device::REG_NEW_Y_INDEX, 3);
+	reg_w(dc323_device::REG_X_CONTROL, 0x00e2); // index source and destination
+	reg_w(dc323_device::REG_COMMAND, 0x0ec0);
+	expect_pixel(52, 53, true, "linear pattern indexes source and destination");
+	reg_w(dc323_device::REG_NEW_X_INDEX, 0);
+	reg_w(dc323_device::REG_NEW_Y_INDEX, 0);
 	reg_w(dc323_device::REG_X_CONTROL, 0x0080);
 
 	// Bitmap-to-processor transfers use bit zero as the leftmost pixel and

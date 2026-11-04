@@ -338,6 +338,14 @@ void dc323_device::frame_event()
 
 	u16 const old_status = m_status;
 	bool const was_pending = m_scroll_pending;
+	// At the frame boundary the indexes for the region already moved become
+	// the old indexes, and the scroll process's pending values become the new
+	// indexes.  Our scroll backend moves the complete region atomically at this
+	// same boundary, so subsequent update operations use the new pair.
+	m_registers[REG_OLD_X_INDEX] = m_registers[REG_NEW_X_INDEX];
+	m_registers[REG_OLD_Y_INDEX] = m_registers[REG_NEW_Y_INDEX];
+	m_registers[REG_NEW_X_INDEX] = m_registers[REG_PENDING_X_INDEX];
+	m_registers[REG_NEW_Y_INDEX] = m_registers[REG_PENDING_Y_INDEX];
 	execute_scroll();
 	m_status |= STATUS_PAUSE_COMPLETE | STATUS_SCROLL_SERVICE;
 	DC323_LOGMASKED(LOG_SCROLL, "%s %s: frame pending=%u->%u status=%04X->%04X enable=%04X\n",
@@ -563,10 +571,6 @@ void dc323_device::execute_rasterop(u16 command)
 	bool const normal_mode = ((x_control & 0x0003) == 0) && BIT(x_control, 7);
 	bool const linear_pattern_mode = ((x_control & 0x0003) == 2) && BIT(x_control, 7);
 	bool const fill_mode = ((x_control & 0x0003) == 3) && BIT(x_control, 7);
-	bool const indexed = BIT(x_control, 5) || BIT(x_control, 6);
-	bool const zero_indexes = !(m_registers[REG_NEW_X_INDEX] |
-		m_registers[REG_NEW_Y_INDEX] | m_registers[REG_OLD_X_INDEX] |
-		m_registers[REG_OLD_Y_INDEX]);
 	if (!rasterop || !destination_enabled || source2_enabled)
 		return;
 	if (linear_pattern_mode && source1_enabled)
@@ -579,14 +583,24 @@ void dc323_device::execute_rasterop(u16 command)
 		execute_fill(command);
 		return;
 	}
-	if (!normal_mode || (indexed && !zero_indexes))
+	if (!normal_mode)
 		return;
 
-	int const source_x = m_registers[REG_SOURCE_X] & 0x3fff;
-	int const source_y = m_registers[REG_SOURCE_Y] & 0x1fff;
+	int source_x = m_registers[REG_SOURCE_X] & 0x3fff;
+	int source_y = m_registers[REG_SOURCE_Y] & 0x3fff;
+	int destination_x = m_registers[REG_DESTINATION_X] & 0x3fff;
+	int destination_y = m_registers[REG_DESTINATION_Y] & 0x3fff;
+	if (BIT(x_control, 5))
+	{
+		source_x = signed_14(source_x + m_registers[REG_NEW_X_INDEX]);
+		source_y = signed_14(source_y + m_registers[REG_NEW_Y_INDEX]);
+	}
+	if (BIT(x_control, 6))
+	{
+		destination_x = signed_14(destination_x + m_registers[REG_NEW_X_INDEX]);
+		destination_y = signed_14(destination_y + m_registers[REG_NEW_Y_INDEX]);
+	}
 	bool const source_is_e49 = source1_enabled && BIT(source_y, 12);
-	int const destination_x = m_registers[REG_DESTINATION_X] & 0x3fff;
-	int const destination_y = m_registers[REG_DESTINATION_Y] & 0x3fff;
 	int const destination_fast_dx = signed_14(m_registers[REG_WIDTH]);
 	int const destination_fast_dy = signed_14(m_registers[REG_DESTINATION_FAST_DY]);
 	int const destination_slow_dx = signed_14(m_registers[REG_DESTINATION_SLOW_DX]);
@@ -694,6 +708,11 @@ void dc323_device::execute_linear_pattern(u16 command)
 		u16 const raw = m_registers[reg] & 0x3fff;
 		return BIT(raw, 13) ? int(raw) - 0x4000 : int(raw);
 	};
+	auto const indexed_origin = [this](unsigned origin_reg, unsigned index_reg)
+	{
+		u16 const raw = (m_registers[origin_reg] + m_registers[index_reg]) & 0x3fff;
+		return BIT(raw, 13) ? int(raw) - 0x4000 : int(raw);
+	};
 
 	int const source_fast_dx = delta(REG_SOURCE_FAST_DX);
 	int const source_slow_dy = delta(REG_SOURCE_SLOW_DY);
@@ -714,14 +733,19 @@ void dc323_device::execute_linear_pattern(u16 command)
 		return;
 	int const source_x_step = source_fast_dx < 0 ? -1 : 1;
 	int const source_y_step = source_slow_dy < 0 ? -1 : 1;
-	int const source_origin_x = m_registers[REG_SOURCE_X] & 0x3fff;
-	int const source_origin_y = m_registers[REG_SOURCE_Y] & 0x1fff;
+	int source_origin_x = m_registers[REG_SOURCE_X] & 0x3fff;
+	int source_origin_y = m_registers[REG_SOURCE_Y] & 0x3fff;
 	int destination_origin_x = m_registers[REG_DESTINATION_X] & 0x3fff;
-	int destination_origin_y = m_registers[REG_DESTINATION_Y] & 0x1fff;
+	int destination_origin_y = m_registers[REG_DESTINATION_Y] & 0x3fff;
+	if (BIT(m_registers[REG_X_CONTROL], 5))
+	{
+		source_origin_x = indexed_origin(REG_SOURCE_X, REG_NEW_X_INDEX);
+		source_origin_y = indexed_origin(REG_SOURCE_Y, REG_NEW_Y_INDEX);
+	}
 	if (BIT(m_registers[REG_X_CONTROL], 6))
 	{
-		destination_origin_x += delta(REG_NEW_X_INDEX);
-		destination_origin_y += delta(REG_NEW_Y_INDEX);
+		destination_origin_x = indexed_origin(REG_DESTINATION_X, REG_NEW_X_INDEX);
+		destination_origin_y = indexed_origin(REG_DESTINATION_Y, REG_NEW_Y_INDEX);
 	}
 
 	DC323_LOGMASKED(LOG_RASTEROPS, "%s %s: linear pattern command=%04X src=%d,%d pattern=%ux%u dst=%d,%d size=%ux%u select=%X\n",
