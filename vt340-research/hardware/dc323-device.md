@@ -53,9 +53,9 @@ special registers are:
 | `03` | Operational status read and write-zero-to-clear acknowledgement |
 | `07` | Retained I/D value and active bitmap/character-ROM transfer reads |
 | `08` | Command decode, selected-Viper loads, transfer setup, and raster dispatch |
-| `09` | Raster X-control mode and indexed-operation qualification |
+| `09` | Raster X-control mode and independent source/destination indexing |
 | `0e-14` | Scroll bounds, offset, and frame-pending Y command |
-| `17-1a` | Indexed-operation values used by the existing zero-index qualification |
+| `15-1a` | Pending, new, and old X/Y index values and frame-boundary promotion |
 | `22-29` | Source, destination, width, and height parameters |
 
 Status bits remain sticky until acknowledged.  Raster command functions 2 and
@@ -84,6 +84,14 @@ selects its origin through, but not including, its endpoint. This supports
 rotated ReGIS vectors, text cells, and circle spans without protocol-specific
 rendering. Raster mode selection uses mode-register bits 0-1; hole-fill bit 4
 does not incorrectly reclassify normal mode as unsupported.
+
+Normal and linear-pattern source and destination origins independently honor
+the X-control indexing enables. The signed 14-bit new index pair is added to
+the selected origins. At a frame boundary, the previous new pair becomes old
+and the pending pair becomes new. Because the current scroll backend moves a
+whole region atomically at that boundary, post-frame drawing uses the new
+pair; selecting old versus new while a physical scan is partway through a
+scroll remains a timing-model boundary.
 
 Fill mode `11` now has bounded functional coverage. Basic X/Y two-edge fills
 use the destination slow generator as edge A and the source-1 generator as
@@ -136,7 +144,7 @@ control remains observable through the separate DUART/connector traces.
 - Whether the retained synchronous raster completion ordering is correct.
 - Whether the four retained per-plane Viper datapaths should become standalone
   DC322 subdevices after their remaining timing and pipeline behavior is known.
-- Source-2 behavior and nonzero indexed coordinate translation.
+- Source-2 behavior and raster-phase selection between old and new indexes.
 - Exact right-edge word and mask behavior when `SCROLL_X_MAX` is aligned.
 - Scroll request queuing or overwrite behavior when register `14` is loaded
   more than once before a frame event.
