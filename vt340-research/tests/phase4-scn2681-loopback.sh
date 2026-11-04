@@ -2,8 +2,10 @@
 set -eu
 
 binary=${1:-./vt340}
+test_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "$test_dir/lib/artifacts.sh"
 log=$(mktemp -t vt340-phase4-scn2681.XXXXXX)
-trap 'rm -f "$log"' EXIT HUP INT TERM
+trap 'vt340_artifact_copy "$log" "mame.log"; rm -f "$log"' EXIT HUP INT TERM
 
 "$binary" vt340 -rompath roms -video none -sound none -nothrottle \
 	-seconds_to_run 126 -debug -debugger none -autoboot_delay 0 \

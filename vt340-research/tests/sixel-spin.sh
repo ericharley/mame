@@ -3,6 +3,7 @@ set -eu
 
 binary=${1:-./vt340}
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
+. "$root/vt340-research/tests/lib/artifacts.sh"
 animation="$root/../sources/vt340test/sixeltests/animation.sh"
 run_dir=$(mktemp -d -t vt340-sixel-spin.XXXXXX)
 generated_script="$run_dir/animation-initial.sh"
@@ -11,8 +12,8 @@ shifted_input="$run_dir/shifted-input.six"
 palette_shift="$run_dir/palette-shift.six"
 initial_expected="$run_dir/initial-expected.six"
 shifted_expected="$run_dir/shifted-expected.six"
-initial_snapshot=${VT340_SPIN_PHASE1_SNAPSHOT:-/tmp/vt340-spin-phase1.png}
-shifted_snapshot=${VT340_SPIN_PHASE2_SNAPSHOT:-/tmp/vt340-spin-phase2.png}
+initial_snapshot=${VT340_SPIN_PHASE1_SNAPSHOT:-$(vt340_artifact_path /tmp/vt340-spin-phase1.png spin-initial.png)}
+shifted_snapshot=${VT340_SPIN_PHASE2_SNAPSHOT:-$(vt340_artifact_path /tmp/vt340-spin-phase2.png spin-shifted.png)}
 pid=
 
 cleanup()
@@ -22,6 +23,12 @@ cleanup()
 		kill "$pid" 2>/dev/null || true
 		wait "$pid" 2>/dev/null || true
 	fi
+	vt340_artifact_copy "$run_dir/initial.log" "initial.log"
+	vt340_artifact_copy "$run_dir/initial.json" "initial.jsonl"
+	vt340_artifact_copy "$run_dir/shifted.log" "shifted.log"
+	vt340_artifact_copy "$run_dir/shifted.json" "shifted.jsonl"
+	vt340_artifact_copy "$initial_input" "initial-input.six"
+	vt340_artifact_copy "$palette_shift" "palette-shift.six"
 	if test "$status" -eq 0; then
 		rm -rf "$run_dir"
 	else

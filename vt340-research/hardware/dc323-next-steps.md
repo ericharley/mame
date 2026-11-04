@@ -158,6 +158,71 @@ functional color work without prematurely inventing a DC322 interface.
 
 ### Raster coverage is intentionally incomplete
 
+#### Current command-coverage checkpoint (2026-11-04)
+
+The DC323 command register is a bitfield rather than a flat opcode.  Bits
+`9-8` select the operation; bit `10` enables the destination, bit `11` enables
+source 1, and bit `12` enables source 2.  Raster interpretation also depends
+on X-control register `09`, particularly its low two mode bits.  The following
+matrix describes the behavior in `dc323.cpp` as of this checkpoint:
+
+| Command family or mode | Coverage | Current behavior / missing work |
+| --- | --- | --- |
+| Viper register load, `0180-019f` | Implemented | Loads the selected per-plane Viper register from the DC323 I/D register |
+| Operation 2, normal mode (`X-control[1:0] = 00`), destination enabled, source 1 | Implemented | Bitmap and E49 character-ROM sources, signed vectors, scaling, clipping, masks, and Boolean functions |
+| Operation 2, normal mode, destination enabled, source 1 disabled | Implemented | Uses the Viper source constant |
+| Operation 2 with source 2 enabled (`S2E`, command bit 12) | Unsupported | Rejected before raster execution; source-2 selection and combination semantics remain unknown |
+| Operation 2 with destination disabled | No drawing | Currently rejected; observed instances have been diagnostic forms rather than proven missing visible work |
+| X-control mode `01` | Reserved | No drawing behavior should be inferred without contrary hardware evidence |
+| Linear-pattern mode (`X-control[1:0] = 10`) with source 1 | Partial | Repeats a bitmap pattern using signed source/destination vectors |
+| Linear-pattern mode without source 1 | Unsupported | Constant-source and other input forms are rejected |
+| Fill mode (`X-control[1:0] = 11`) | Partial | Basic and baseline X/Y fills execute; equal-duration paired edges chain from retained endpoints, while independent vector expiration and crossing edges remain |
+| Operation 3, source 1 enabled and destination disabled | Partial | X-mode bitmap-to-processor transfer works; exact FIFO/timing and Z mode are missing |
+| Operation 3, source 1 disabled and destination enabled | Partial | X-mode processor-to-bitmap transfer works; exact FIFO/timing and Z mode are missing |
+| Other operation-3 source/destination combinations | Unsupported | Ignored unless evidence establishes a defined transfer form |
+
+Some accepted commands still have incomplete semantics:
+
+- Hole-fill qualification no longer causes normal commands to be rejected.
+  Destination-only/constant-source broad parallelograms repair holes between
+  occupied scanline endpoints; source-coupled hole pixels and exact silicon
+  edge cases remain unresolved.
+- Normal-mode indexed commands execute only when all old/new index registers
+  are zero. Nonzero indexed-coordinate translation is rejected.
+- Linear-pattern mode applies the new destination index when selected, but
+  source/old-index behavior and the complete index rules are missing.
+- Programmable Bresenham initial/error offsets are ignored; only the currently
+  reconstructed vector endpoints and steps affect traversal.
+- Overlapping bitmap copies always traverse top-to-bottom and left-to-right,
+  which may not match command-controlled hardware scan direction.
+- PTB/PBT completion is functional but synchronous and does not reproduce the
+  documented six-entry I/D FIFO occupancy or intermediate busy states.
+
+#### Raster implementation priority
+
+Use firmware provenance and visible/read-back effects to choose work, in this
+order unless a trace establishes a different dependency:
+
+1. **Complete fill and hole-fill behavior.** Extend the verified paired-edge
+   vector strings to independent edge expiration, source-coupled hole pixels,
+   crossing edges, and complement-mode corrections only as firmware traces
+   constrain them. The
+   current ReGIS `F(V...)` probe uses normal spans and does not validate DC323
+   fill mode.
+2. **Nonzero indexing and programmable raster error offsets.** These affect
+   placement and oblique-vector accuracy in otherwise supported commands.
+3. **Complete linear-pattern semantics.** Add constant/source selection,
+   scaling, and index behavior only after identifying the firmware paths that
+   request them.
+4. **Source 2.** Reconstruct and implement it when a destination-enabled use
+   is observed; the historical cold boot contained none.
+5. **Z-mode transfers and exact FIFO/timing.** Treat functional transfer
+   expansion separately from the later asynchronous command-timing work.
+
+For each item, use `traces/dc323-command-provenance.lua` to record the emitting
+PC, active descriptor handler, return stack, raw command, and X-control value.
+This avoids treating POST register patterns as missing visible operations.
+
 The historical cold-boot command inventory that motivated the current raster
 work contained:
 
@@ -174,14 +239,10 @@ Many commands may be POST, initialization, or off-screen operations. Classify
 them by mode, destination, extent, function, and visible intersection before
 implementing additional behavior.
 
-Known unimplemented areas include:
-
-- source 2;
-- nonzero indexed-coordinate translation;
-- fill mode, hole filling, and remaining linear-pattern semantics;
-- programmable Bresenham error offsets;
-- exact six-entry I/D FIFO occupancy and asynchronous transfer timing; and
-- Z-mode processor/bitmap transfers.
+The matrix above supersedes the earlier shorthand list of unimplemented
+areas. Retain these historical counts as evidence, not as a current dropped-
+command count: linear-pattern support was added after the inventory was
+captured, and the old classifier grouped all non-normal modes together.
 
 ### Save-state output restoration needs coverage
 

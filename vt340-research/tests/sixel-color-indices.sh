@@ -9,5 +9,9 @@ root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 # framebuffer indices to become visible through the native firmware path.
 export VT340_SIXEL_BYTE_LIMIT=4096
 export VT340_SIXEL_CAPTURE_TIME=340
-export VT340_SIXEL_SNAPSHOT=${VT340_SIXEL_SNAPSHOT:-/tmp/vt340-sixel-color-indices.png}
+if test -n "${VT340_TEST_ARTIFACT_DIR:-}"; then
+	export VT340_SIXEL_SNAPSHOT=${VT340_SIXEL_SNAPSHOT:-$VT340_TEST_ARTIFACT_DIR/sixel-color-indices.png}
+else
+	export VT340_SIXEL_SNAPSHOT=${VT340_SIXEL_SNAPSHOT:-/tmp/vt340-sixel-color-indices.png}
+fi
 exec "$root/vt340-research/tests/sixel-bill-pty.sh" "$binary"

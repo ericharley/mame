@@ -458,7 +458,8 @@ checkpoint without relying on the ROM's long timeout fallback.
   startup `7289` calls, and native entry to command-32 handler `db98`.
 - `tests/rom-boundary-audit.sh` verifies all recoverable page-final bytes and
   the reconstructed checksum tails for E1-E5.
-- MAME reports only the expected `e80.bin` `NO_DUMP` warning.
+- MAME verifies the recovered E80 image and all program/character ROMs with
+  the hashes declared by the driver.
 
 Run the closeout regression from the MAME root with:
 

@@ -2,10 +2,12 @@
 set -eu
 
 binary=${1:-./vt340}
+test_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "$test_dir/lib/artifacts.sh"
 config_dir=$(mktemp -d -t vt340-phase4-pbt-config.XXXXXX)
 nvram_dir=$(mktemp -d -t vt340-phase4-pbt-nvram.XXXXXX)
 log=$(mktemp -t vt340-phase4-pbt.XXXXXX)
-trap 'rm -rf "$config_dir" "$nvram_dir"; rm -f "$log"' EXIT HUP INT TERM
+trap 'vt340_artifact_copy "$log" "mame.log"; rm -rf "$config_dir" "$nvram_dir"; rm -f "$log"' EXIT HUP INT TERM
 
 "$binary" vt340 -rompath roms -cfg_directory "$config_dir" \
 	-nvram_directory "$nvram_dir" -video none -sound none -nothrottle \

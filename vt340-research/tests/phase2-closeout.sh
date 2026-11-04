@@ -2,8 +2,10 @@
 set -eu
 
 binary=${1:-./vt340}
+test_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "$test_dir/lib/artifacts.sh"
 normal_log=$(mktemp -t vt340-phase2-normal.XXXXXX)
-trap 'rm -f "$normal_log"' EXIT HUP INT TERM
+trap 'vt340_artifact_copy "$normal_log" "mame.log"; rm -f "$normal_log"' EXIT HUP INT TERM
 
 vt340-research/tests/smoke.sh "$binary"
 

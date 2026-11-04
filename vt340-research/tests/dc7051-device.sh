@@ -2,10 +2,12 @@
 set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
+. "$root/vt340-research/tests/lib/artifacts.sh"
 jobs=${JOBS:-4}
+mame_build_path=${MAME_BUILD_PATH:-/opt/homebrew/bin}
 state_dir=$(mktemp -d -t vt340-dc7051-state.XXXXXX)
 first_log=$(mktemp -t vt340-dc7051-save.XXXXXX)
-trap 'rm -rf "$state_dir"; rm -f "$first_log"' EXIT HUP INT TERM
+trap 'vt340_artifact_copy "$first_log" "save-pass.log"; rm -rf "$state_dir"; rm -f "$first_log"' EXIT HUP INT TERM
 
 cd "$root"
 
@@ -14,7 +16,7 @@ if rg -n 'frame_enable_w' src/devices/video/dc7051.* src/mame/dec/vt340.cpp; the
 	exit 1
 fi
 
-PATH="/opt/homebrew/bin:$PATH" make -j"$jobs" REGENIE=1 USE_LIBSDL=1 \
+PATH="$mame_build_path:$PATH" make -j"$jobs" REGENIE=1 USE_LIBSDL=1 \
 	SUBTARGET=dc7051test SOURCES=src/mame/dec/dc7051test.cpp
 
 ./dc7051test dc7051test -video none -sound none -nothrottle -autosave \

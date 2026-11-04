@@ -85,6 +85,18 @@ rotated ReGIS vectors, text cells, and circle spans without protocol-specific
 rendering. Raster mode selection uses mode-register bits 0-1; hole-fill bit 4
 does not incorrectly reclassify normal mode as unsupported.
 
+Fill mode `11` now has bounded functional coverage. Basic X/Y two-edge fills
+use the destination slow generator as edge A and the source-1 generator as
+edge B, while baseline mode locks edge B to the applicable source origin.
+Equal-duration edge pairs retain both endpoints across commands, allowing a
+polygon chain to continue until a destination-origin load or fill-mode change
+starts a new string. Independent edge expiration is not yet modeled.
+Destination-only broad parallelograms with hole-fill enabled retain their
+ordinary writes and add missing pixels between occupied scanline endpoints.
+The implementation deliberately does not infer source pixels for added holes,
+continue a partially expired edge, or correct complement-mode doubling.
+See `../traces/dc323-fill-report.md` for the evidence boundary and tests.
+
 The `bitmap_planes` memory share retains its root tag so existing debugger
 traces continue to inspect exactly the same 1024 by 2048 by four-plane layout.
 

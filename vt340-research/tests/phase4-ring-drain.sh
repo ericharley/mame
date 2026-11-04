@@ -2,8 +2,10 @@
 set -eu
 
 binary=${1:-./vt340}
+test_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "$test_dir/lib/artifacts.sh"
 log=$(mktemp -t vt340-phase4-ring-drain.XXXXXX)
-trap 'rm -f "$log"' EXIT HUP INT TERM
+trap 'vt340_artifact_copy "$log" "mame.log"; rm -f "$log"' EXIT HUP INT TERM
 
 if rg -n 'pc == 0x0047.*|data &= ~0x01' src/mame/dec/vt340.cpp; then
 	echo "PC-qualified DC323 status inversion found in production driver" >&2

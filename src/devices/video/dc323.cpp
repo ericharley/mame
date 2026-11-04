@@ -123,6 +123,11 @@ void dc323_device::device_start()
 	save_item(NAME(m_diagnostic_data));
 	save_item(NAME(m_raster_diagnostic));
 	save_item(NAME(m_video_operational));
+	save_item(NAME(m_fill_position_valid));
+	save_item(NAME(m_fill_a_x));
+	save_item(NAME(m_fill_a_y));
+	save_item(NAME(m_fill_b_x));
+	save_item(NAME(m_fill_b_y));
 	save_item(NAME(m_irq_state));
 }
 
@@ -149,6 +154,11 @@ void dc323_device::device_reset()
 	m_diagnostic_data = 0;
 	m_raster_diagnostic = false;
 	m_video_operational = false;
+	m_fill_position_valid = false;
+	m_fill_a_x = 0;
+	m_fill_a_y = 0;
+	m_fill_b_x = 0;
+	m_fill_b_y = 0;
 	m_irq_state = false;
 	m_log_events = 0;
 	bitmap_clear();
@@ -176,9 +186,17 @@ u8 dc323_device::read(offs_t offset)
 void dc323_device::write(offs_t offset, u16 data)
 {
 	unsigned const reg = offset & 0x3f;
+	u16 const old_data = m_registers[reg];
 	DC323_LOGMASKED(LOG_REGISTERS, "%s %s: W %02X=%04X status=%04X enable=%04X\n",
 		machine().time().to_string(), tag(), reg, data, m_status, m_registers[REG_INTERRUPT_ENABLE]);
 	m_registers[reg] = data;
+	if ((reg == REG_DESTINATION_X) || (reg == REG_DESTINATION_Y) ||
+		((reg == REG_X_CONTROL) && ((old_data ^ data) & 0x000f)))
+	{
+		// Loading either destination origin starts a new fill position.  A
+		// mode/axis/baseline change also terminates any active vector string.
+		m_fill_position_valid = false;
+	}
 	if (reg == REG_ID_DATA)
 	{
 		// The board diagnostics use the DC323 I/D path as a retained test-data
@@ -544,6 +562,7 @@ void dc323_device::execute_rasterop(u16 command)
 	u16 const x_control = m_registers[REG_X_CONTROL];
 	bool const normal_mode = ((x_control & 0x0003) == 0) && BIT(x_control, 7);
 	bool const linear_pattern_mode = ((x_control & 0x0003) == 2) && BIT(x_control, 7);
+	bool const fill_mode = ((x_control & 0x0003) == 3) && BIT(x_control, 7);
 	bool const indexed = BIT(x_control, 5) || BIT(x_control, 6);
 	bool const zero_indexes = !(m_registers[REG_NEW_X_INDEX] |
 		m_registers[REG_NEW_Y_INDEX] | m_registers[REG_OLD_X_INDEX] |
@@ -553,6 +572,11 @@ void dc323_device::execute_rasterop(u16 command)
 	if (linear_pattern_mode && source1_enabled)
 	{
 		execute_linear_pattern(command);
+		return;
+	}
+	if (fill_mode && !source1_enabled)
+	{
+		execute_fill(command);
 		return;
 	}
 	if (!normal_mode || (indexed && !zero_indexes))
@@ -575,6 +599,16 @@ void dc323_device::execute_rasterop(u16 command)
 	int const source_y_step = BIT(m_registers[REG_SOURCE_SLOW_DY], 13) ? -1 : 1;
 	auto const fast_samples = scaled_axis(width, m_registers[REG_FAST_SCALE]);
 	auto const slow_samples = scaled_axis(height, m_registers[REG_SLOW_SCALE]);
+	bool const fill_holes = BIT(x_control, 4) && !source1_enabled;
+	std::vector<bool> selected;
+	std::array<int, BITMAP_HEIGHT> row_min;
+	std::array<int, BITMAP_HEIGHT> row_max;
+	if (fill_holes)
+	{
+		selected.resize(BITMAP_PLANE_SIZE);
+		row_min.fill(BITMAP_WIDTH);
+		row_max.fill(-1);
+	}
 	unsigned const function = (command >> 4) & 3;
 	u8 const logic0 = u8(m_viper_registers[0][VIPER_REG_LOGIC_BASE + function]);
 	DC323_LOGMASKED(LOG_RASTEROPS, "%s %s: raster command=%04X src=%d,%d dst=%d,%d size=%ux%u select=%X logic0=%02X s1=%u s2=%u\n",
@@ -596,6 +630,12 @@ void dc323_device::execute_rasterop(u16 command)
 			int const source_pixel_x = source_x + fast.source * source_x_step;
 			if (pixel_x < 0 || pixel_x >= BITMAP_WIDTH || pixel_y < 0 || pixel_y >= BITMAP_HEIGHT)
 				continue;
+			if (fill_holes)
+			{
+				selected[pixel_y * BITMAP_WIDTH + pixel_x] = true;
+				row_min[pixel_y] = std::min(row_min[pixel_y], pixel_x);
+				row_max[pixel_y] = std::max(row_max[pixel_y], pixel_x);
+			}
 			u16 const rom_x = source_pixel_x & 0x00ff;
 			u16 const rom_y = source_pixel_y & 0x03ff;
 			u8 const rom_source = source_is_e49 ? m_chargen_rom[(rom_y << 5) | (rom_x >> 3)] : 0;
@@ -618,6 +658,31 @@ void dc323_device::execute_rasterop(u16 command)
 				write_viper_pixel(plane, pixel_x, pixel_y, command, source_bit);
 			}
 		}
+	}
+
+	// Hole fill modifies destination scanning so a broad parallelogram does
+	// not retain gaps between independently generated fast-vector scans.  Keep
+	// every original write (including duplicates important to complement
+	// operations), then add only the missing pixels in each occupied scanline.
+	// Source-coupled hole pixels require an address-generation rule that has
+	// not yet been established, so this first bounded implementation applies
+	// only to destination-only/constant-source operations.
+	if (fill_holes)
+	{
+		for (unsigned y = 0; y < BITMAP_HEIGHT; y++)
+			for (int x = row_min[y]; x <= row_max[y]; x++)
+			{
+				if (selected[y * BITMAP_WIDTH + x])
+					continue;
+				for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
+				{
+					if (!BIT(m_viper_select, plane))
+						continue;
+					auto const &viper = m_viper_registers[plane];
+					write_viper_pixel(plane, x, y, command,
+						BIT(viper[VIPER_REG_SOURCE], unsigned(x) & 15));
+				}
+			}
 	}
 }
 
@@ -686,6 +751,104 @@ void dc323_device::execute_linear_pattern(u16 command)
 						m_bitmap_planes[bitmap_plane_address(plane, source_x, source_y)]);
 		}
 	}
+}
+
+
+void dc323_device::execute_fill(u16 command)
+{
+	auto const delta = [this](unsigned reg)
+	{
+		u16 const raw = m_registers[reg] & 0x3fff;
+		return BIT(raw, 13) ? int(raw) - 0x4000 : int(raw);
+	};
+
+	u16 const x_control = m_registers[REG_X_CONTROL];
+	bool const y_fill = BIT(x_control, 2);
+	bool const baseline = BIT(x_control, 3);
+	if (!m_fill_position_valid)
+	{
+		m_fill_a_x = m_registers[REG_DESTINATION_X] & 0x3fff;
+		m_fill_a_y = m_registers[REG_DESTINATION_Y] & 0x1fff;
+		m_fill_b_x = y_fill ? m_fill_a_x : int(m_registers[REG_SOURCE_X] & 0x3fff);
+		m_fill_b_y = y_fill ? int(m_registers[REG_SOURCE_Y] & 0x1fff) : m_fill_a_y;
+		m_fill_position_valid = true;
+	}
+	int const a_origin_x = m_fill_a_x;
+	int const a_origin_y = m_fill_a_y;
+	int const b_origin_x = m_fill_b_x;
+	int const b_origin_y = m_fill_b_y;
+	int const a_dx = delta(REG_DESTINATION_SLOW_DX);
+	int const a_dy = delta(REG_HEIGHT);
+	int const b_dx = delta(REG_SOURCE_FAST_DX);
+	int const b_dy = delta(REG_SOURCE_SLOW_DY);
+	auto const a_path = raster_vector(a_dx, a_dy, BITMAP_HEIGHT);
+	auto const b_path = raster_vector(b_dx, b_dy, BITMAP_HEIGHT);
+
+	DC323_LOGMASKED(LOG_RASTEROPS, "%s %s: fill command=%04X axis=%c baseline=%u A=%d,%d points=%zu B=%d,%d points=%zu select=%X\n",
+		machine().time().to_string(), tag(), command, y_fill ? 'Y' : 'X', baseline,
+		a_origin_x, a_origin_y, a_path.size(), b_origin_x, b_origin_y, b_path.size(), m_viper_select);
+
+	auto const write_span = [this, command, y_fill](int fixed, int first, int last)
+	{
+		if (first > last)
+			std::swap(first, last);
+		for (int position = first; position <= last; position++)
+		{
+			int const x = y_fill ? fixed : position;
+			int const y = y_fill ? position : fixed;
+			if (x < 0 || x >= BITMAP_WIDTH || y < 0 || y >= BITMAP_HEIGHT)
+				continue;
+			for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
+			{
+				if (!BIT(m_viper_select, plane))
+					continue;
+				auto const &viper = m_viper_registers[plane];
+				write_viper_pixel(plane, x, y, command,
+					BIT(viper[VIPER_REG_SOURCE], unsigned(x) & 15));
+			}
+		}
+	};
+
+	if (baseline)
+	{
+		int const fixed_baseline = y_fill ? b_origin_y : b_origin_x;
+		for (raster_point const a : a_path)
+		{
+			int const a_x = a_origin_x + a.x;
+			int const a_y = a_origin_y + a.y;
+			write_span(y_fill ? a_x : a_y, y_fill ? a_y : a_x, fixed_baseline);
+		}
+		m_fill_a_x += a_dx;
+		m_fill_a_y += a_dy;
+		return;
+	}
+
+	// In an ordinary two-edge fill both generators must advance on the same
+	// perpendicular scan coordinate.  Equal-duration edge pairs may continue
+	// across commands using the retained endpoints below.  Independent edge
+	// expiration is deliberately left for later rather than inventing hold or
+	// partial-generator behavior here.
+	if (a_path.size() != b_path.size())
+		return;
+	unsigned const points = a_path.size();
+	for (unsigned position = 0; position < points; position++)
+		if ((!y_fill && (a_path[position].y != b_path[position].y)) ||
+			(y_fill && (a_path[position].x != b_path[position].x)))
+			return;
+	for (unsigned position = 0; position < points; position++)
+	{
+		raster_point const a = a_path[position];
+		raster_point const b = b_path[position];
+		int const a_x = a_origin_x + a.x;
+		int const a_y = a_origin_y + a.y;
+		int const b_x = b_origin_x + b.x;
+		int const b_y = b_origin_y + b.y;
+		write_span(y_fill ? a_x : a_y, y_fill ? a_y : a_x, y_fill ? b_y : b_x);
+	}
+	m_fill_a_x += a_dx;
+	m_fill_a_y += a_dy;
+	m_fill_b_x += b_dx;
+	m_fill_b_y += b_dy;
 }
 
 
