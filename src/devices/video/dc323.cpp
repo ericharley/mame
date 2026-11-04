@@ -571,7 +571,15 @@ void dc323_device::execute_rasterop(u16 command)
 	bool const normal_mode = ((x_control & 0x0003) == 0) && BIT(x_control, 7);
 	bool const linear_pattern_mode = ((x_control & 0x0003) == 2) && BIT(x_control, 7);
 	bool const fill_mode = ((x_control & 0x0003) == 3) && BIT(x_control, 7);
-	if (!rasterop || !destination_enabled || source2_enabled)
+	if (!rasterop || !destination_enabled)
+		return;
+	// Combining both bitmap sources also depends on the command-selected Viper
+	// I/D routing.  Keep that form outside this source-2-only implementation.
+	if (source1_enabled && source2_enabled)
+		return;
+	// Patterned polygon fills use source 2 as well, but require coupling the
+	// source-2 data path to the fill generators.  This slice is normal mode.
+	if (source2_enabled && !normal_mode)
 		return;
 	if (linear_pattern_mode && source1_enabled)
 	{
@@ -588,8 +596,10 @@ void dc323_device::execute_rasterop(u16 command)
 
 	int source_x = m_registers[REG_SOURCE_X] & 0x3fff;
 	int source_y = m_registers[REG_SOURCE_Y] & 0x3fff;
-	int destination_x = m_registers[REG_DESTINATION_X] & 0x3fff;
-	int destination_y = m_registers[REG_DESTINATION_Y] & 0x3fff;
+	int const unindexed_destination_x = m_registers[REG_DESTINATION_X] & 0x3fff;
+	int const unindexed_destination_y = m_registers[REG_DESTINATION_Y] & 0x3fff;
+	int destination_x = unindexed_destination_x;
+	int destination_y = unindexed_destination_y;
 	if (BIT(x_control, 5))
 	{
 		source_x = signed_14(source_x + m_registers[REG_NEW_X_INDEX]);
@@ -613,7 +623,11 @@ void dc323_device::execute_rasterop(u16 command)
 	int const source_y_step = BIT(m_registers[REG_SOURCE_SLOW_DY], 13) ? -1 : 1;
 	auto const fast_samples = scaled_axis(width, m_registers[REG_FAST_SCALE]);
 	auto const slow_samples = scaled_axis(height, m_registers[REG_SLOW_SCALE]);
-	bool const fill_holes = BIT(x_control, 4) && !source1_enabled;
+	bool const fill_holes = BIT(x_control, 4) && !source1_enabled && !source2_enabled;
+	u16 const source2_size = m_registers[REG_SOURCE2_SIZE];
+	bool const source2_tiled = !BIT(source2_size, 7);
+	unsigned const source2_width = 1U << ((source2_size & 0x0007) + 2);
+	unsigned const source2_height = 1U << (((source2_size >> 4) & 0x0007) + 2);
 	std::vector<bool> selected;
 	std::array<int, BITMAP_HEIGHT> row_min;
 	std::array<int, BITMAP_HEIGHT> row_max;
@@ -625,9 +639,11 @@ void dc323_device::execute_rasterop(u16 command)
 	}
 	unsigned const function = (command >> 4) & 3;
 	u8 const logic0 = u8(m_viper_registers[0][VIPER_REG_LOGIC_BASE + function]);
-	DC323_LOGMASKED(LOG_RASTEROPS, "%s %s: raster command=%04X src=%d,%d dst=%d,%d size=%ux%u select=%X logic0=%02X s1=%u s2=%u\n",
+	DC323_LOGMASKED(LOG_RASTEROPS, "%s %s: raster command=%04X src=%d,%d s2=%04X,%04X tile=%u/%ux%u dst=%d,%d size=%ux%u select=%X logic0=%02X s1=%u s2=%u\n",
 		machine().time().to_string(), tag(), command, source_x, source_y,
-		destination_x, destination_y, width, height, m_viper_select, logic0, source1_enabled, source2_enabled);
+		m_registers[REG_SOURCE2_X], m_registers[REG_SOURCE2_Y], source2_tiled,
+		source2_width, source2_height, destination_x, destination_y, width, height,
+		m_viper_select, logic0, source1_enabled, source2_enabled);
 	if (source_is_e49 && (destination_x < 800) && (destination_y < 500) &&
 		(width == 10) && (height == 20) && m_viper_select)
 		m_video_operational = true;
@@ -639,9 +655,15 @@ void dc323_device::execute_rasterop(u16 command)
 		for (axis_sample const fast : fast_samples)
 		{
 			raster_point const fast_point = fast_path[fast.destination];
+			int const unindexed_pixel_x = unindexed_destination_x + slow_point.x + fast_point.x;
+			int const unindexed_pixel_y = unindexed_destination_y + slow_point.y + fast_point.y;
 			int const pixel_x = destination_x + slow_point.x + fast_point.x;
 			int const pixel_y = destination_y + slow_point.y + fast_point.y;
 			int const source_pixel_x = source_x + fast.source * source_x_step;
+			int const source2_pixel_x = signed_14(m_registers[REG_SOURCE2_X] +
+				(source2_tiled ? (unindexed_pixel_x & (source2_width - 1)) : unindexed_pixel_x));
+			int const source2_pixel_y = signed_14(m_registers[REG_SOURCE2_Y] +
+				(source2_tiled ? (unindexed_pixel_y & (source2_height - 1)) : unindexed_pixel_y));
 			if (pixel_x < 0 || pixel_x >= BITMAP_WIDTH || pixel_y < 0 || pixel_y >= BITMAP_HEIGHT)
 				continue;
 			if (fill_holes)
@@ -660,7 +682,11 @@ void dc323_device::execute_rasterop(u16 command)
 					continue;
 				auto const &viper = m_viper_registers[plane];
 				bool source_bit;
-				if (!source1_enabled)
+				if (source2_enabled)
+					source_bit = (source2_pixel_x >= 0) && (source2_pixel_x < BITMAP_WIDTH) &&
+						(source2_pixel_y >= 0) && (source2_pixel_y < BITMAP_HEIGHT) &&
+						m_bitmap_planes[bitmap_plane_address(plane, source2_pixel_x, source2_pixel_y)];
+				else if (!source1_enabled)
 					source_bit = BIT(viper[VIPER_REG_SOURCE], word_bit);
 				else if (source_is_e49)
 					source_bit = BIT(rom_source, rom_x & 7);
