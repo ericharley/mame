@@ -49,7 +49,7 @@ struct raster_point
 };
 
 
-std::vector<raster_point> raster_vector(int dx, int dy, unsigned limit)
+std::vector<raster_point> raster_vector(int dx, int dy, int error_adjustment, unsigned limit)
 {
 	unsigned const abs_dx = unsigned(std::abs(dx));
 	unsigned const abs_dy = unsigned(std::abs(dy));
@@ -64,7 +64,7 @@ std::vector<raster_point> raster_vector(int dx, int dy, unsigned limit)
 	unsigned const minor = x_major ? abs_dy : abs_dx;
 	int const x_step = (dx > 0) - (dx < 0);
 	int const y_step = (dy > 0) - (dy < 0);
-	int error = -int(major);
+	int error = -int(major) + error_adjustment;
 	int x = 0;
 	int y = 0;
 	for (unsigned position = 0; position < length; position++)
@@ -615,8 +615,10 @@ void dc323_device::execute_rasterop(u16 command)
 	int const destination_fast_dy = signed_14(m_registers[REG_DESTINATION_FAST_DY]);
 	int const destination_slow_dx = signed_14(m_registers[REG_DESTINATION_SLOW_DX]);
 	int const destination_slow_dy = signed_14(m_registers[REG_HEIGHT]);
-	auto const fast_path = raster_vector(destination_fast_dx, destination_fast_dy, BITMAP_HEIGHT);
-	auto const slow_path = raster_vector(destination_slow_dx, destination_slow_dy, BITMAP_HEIGHT);
+	auto const fast_path = raster_vector(destination_fast_dx, destination_fast_dy,
+		signed_14(m_registers[REG_ERROR_2]), BITMAP_HEIGHT);
+	auto const slow_path = raster_vector(destination_slow_dx, destination_slow_dy,
+		signed_14(m_registers[REG_ERROR_1]), BITMAP_HEIGHT);
 	unsigned const width = fast_path.size();
 	unsigned const height = slow_path.size();
 	int const source_x_step = BIT(m_registers[REG_SOURCE_FAST_DX], 13) ? -1 : 1;
@@ -751,8 +753,10 @@ void dc323_device::execute_linear_pattern(u16 command)
 
 	unsigned const source_width = unsigned(std::abs(source_fast_dx));
 	unsigned const source_height = unsigned(std::abs(source_slow_dy));
-	auto const fast_path = raster_vector(destination_fast_dx, destination_fast_dy, BITMAP_HEIGHT);
-	auto const slow_path = raster_vector(destination_slow_dx, destination_slow_dy, BITMAP_HEIGHT);
+	auto const fast_path = raster_vector(destination_fast_dx, destination_fast_dy,
+		delta(REG_ERROR_2), BITMAP_HEIGHT);
+	auto const slow_path = raster_vector(destination_slow_dx, destination_slow_dy,
+		delta(REG_ERROR_1), BITMAP_HEIGHT);
 	unsigned const destination_width = fast_path.size();
 	unsigned const destination_height = slow_path.size();
 	if (!destination_width || !destination_height)
@@ -831,8 +835,8 @@ void dc323_device::execute_fill(u16 command)
 	int const a_dy = delta(REG_HEIGHT);
 	int const b_dx = delta(REG_SOURCE_FAST_DX);
 	int const b_dy = delta(REG_SOURCE_SLOW_DY);
-	auto const a_path = raster_vector(a_dx, a_dy, BITMAP_HEIGHT);
-	auto const b_path = raster_vector(b_dx, b_dy, BITMAP_HEIGHT);
+	auto const a_path = raster_vector(a_dx, a_dy, delta(REG_ERROR_1), BITMAP_HEIGHT);
+	auto const b_path = raster_vector(b_dx, b_dy, delta(REG_ERROR_2), BITMAP_HEIGHT);
 
 	DC323_LOGMASKED(LOG_RASTEROPS, "%s %s: fill command=%04X axis=%c baseline=%u A=%d,%d points=%zu B=%d,%d points=%zu select=%X\n",
 		machine().time().to_string(), tag(), command, y_fill ? 'Y' : 'X', baseline,

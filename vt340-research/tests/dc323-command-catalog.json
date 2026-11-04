@@ -30,7 +30,7 @@
       "encoding": "op=2 D=1 S1=0 S2=0, X-control mode 00",
       "status": "implemented",
       "required_level": "direct",
-      "remaining": "Programmable error offsets and exact traversal controls remain."
+      "remaining": "Exact traversal direction controls remain."
     },
     {
       "id": "raster.normal-bitmap",
@@ -38,7 +38,7 @@
       "encoding": "op=2 D=1 S1=1 S2=0, X-control mode 00, bitmap source",
       "status": "implemented",
       "required_level": "direct",
-      "remaining": "Overlap traversal direction and programmable error offsets remain."
+      "remaining": "Overlap traversal direction remains."
     },
     {
       "id": "raster.normal-e49",
@@ -63,6 +63,14 @@
       "status": "partial",
       "required_level": "direct",
       "remaining": "The atomic frame model uses new indexes after frame service; raster-phase selection between old and new indexes remains."
+    },
+    {
+      "id": "raster.error-offsets",
+      "title": "Programmable Bresenham error offsets",
+      "encoding": "register 2F offsets destination slow/edge A; register 30 offsets destination fast/edge B",
+      "status": "implemented",
+      "required_level": "direct",
+      "remaining": "Extreme adjustment overflow behavior has not been compared with physical silicon."
     },
     {
       "id": "raster.destination-disabled",
