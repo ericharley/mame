@@ -43,7 +43,8 @@ DEFINE_DEVICE_TYPE(DC7051, dc7051_device, "dc7051", "DEC DC7051 Video Timing Gen
 dc7051_device::dc7051_device(machine_config const &mconfig, char const *tag, device_t *owner, u32 clock) :
 	device_t(mconfig, DC7051, tag, owner, clock),
 	m_hsync_handler(*this),
-	m_frame_event_callback(*this)
+	m_frame_event_callback(*this),
+	m_scanline_event_callback(*this)
 {
 }
 
@@ -51,8 +52,10 @@ dc7051_device::dc7051_device(machine_config const &mconfig, char const *tag, dev
 void dc7051_device::device_start()
 {
 	m_horizontal_timer = timer_alloc(FUNC(dc7051_device::horizontal_tick), this);
+	m_scanline_timer = timer_alloc(FUNC(dc7051_device::scanline_tick), this);
 	m_frame_timer = timer_alloc(FUNC(dc7051_device::frame_tick), this);
 	m_frame_event_callback.resolve_safe();
+	m_scanline_event_callback.resolve_safe();
 
 	save_item(NAME(m_low));
 	save_item(NAME(m_high));
@@ -73,6 +76,8 @@ void dc7051_device::device_reset()
 	m_hsync_handler(ASSERT_LINE);
 	m_horizontal_timer->adjust(attotime::from_hz(HORIZONTAL_TOGGLE_RATE), 0,
 		attotime::from_hz(HORIZONTAL_TOGGLE_RATE));
+	m_scanline_timer->adjust(attotime::zero, 0,
+		attotime::from_ticks(HORIZONTAL_TOTAL, clock()));
 	// Use the same Y1 dot-clock epoch and raster totals as the visible screen.
 	// CPU2 T0 remains on its independently verified compatibility waveform
 	// until the physical horizontal output is identified.
@@ -144,6 +149,16 @@ TIMER_CALLBACK_MEMBER(dc7051_device::horizontal_tick)
 	DC7051_LOGMASKED(LOG_SYNC, "%s %s: signal=hsync old=%u new=%u transition=%llu\n",
 		machine().time().to_string(), tag(), old, m_hsync_asserted,
 		(unsigned long long)m_horizontal_transitions);
+}
+
+
+TIMER_CALLBACK_MEMBER(dc7051_device::scanline_tick)
+{
+	// Scroll and pause comparisons use the video generator's dot-clock raster,
+	// not the provisional 63 kHz compatibility waveform on the external
+	// horizontal output.  Keeping this event on the exact 1026-dot cadence also
+	// prevents phase drift at the frame boundary.
+	m_scanline_event_callback(raster_line_r());
 }
 
 

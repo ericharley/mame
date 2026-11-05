@@ -105,7 +105,11 @@ The DC323-facing interface is explicitly event-oriented. Save/load restores
 timer phase, counters, retained registers, and re-drives the saved horizontal
 level, but does not synthesize a frame occurrence. A two-process autosave test
 also verifies a fresh timing epoch after reset at nonzero emulation time. See
-`../traces/dc7051-stage4-state-report.md`.
+`../traces/dc7051-stage4-state-report.md`. DC323 scanline events run on the
+exact 1026-dot raster cadence; they are intentionally separate from the
+provisional 63 kHz external horizontal compatibility waveform so the two
+clocks cannot drift at a frame boundary.
 
-Dynamic timing, screen resolution changes, and the smooth-scroll freeze are
-deliberately outside this structural extraction.
+Dynamic timing and screen resolution changes remain outside this structural
+extraction. Sustained VT340 smooth scrolling now verifies the fixed raster
+cadence through pause coordinate 500 and progressive DC323 row movement.

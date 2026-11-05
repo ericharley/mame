@@ -79,22 +79,17 @@ command paths.
 
 ## Remaining architectural issues
 
-### Frame status generation is provisional
+### Frame and pause status generation
 
-Each `frame_event()` call currently services a pending scroll and then sets
-both Pause Complete and Scroll Service, even when no scroll is pending. This
-matches the firmware path that brought the terminal into stable operation, but
-the following physical semantics remain unresolved:
+Scroll Service is generated at the frame boundary. Pause Complete is separate:
+register `12` is latched for the following frame and an exact DC7051 raster
+match queues the event. Two crossings may be retained, and a write-zero status
+acknowledgement removes one event at a time. The sustained smooth-scroll trace
+programs pause coordinate 500, just below the 480-line scroll region, and now
+releases the firmware redraw at that point rather than at frame start.
 
-- whether Pause Complete is periodic or conditional on a pause request;
-- whether Scroll Service is periodic, interval-controlled, or request-driven;
-- whether loading the scroll register changes either event;
-- whether both status bits arise on the same vertical edge; and
-- how acknowledgement near an edge interacts with a newly arriving event.
-
-These questions must be answered in conjunction with the DC7051 raster-phase
-work. Changing status generation before establishing the real event ordering
-could reintroduce CPU2 interrupt starvation.
+The remaining boundary question is the documented suppression rule for pause
+values beyond half-end-vertical when programmable DC7051 timing is modeled.
 
 ### Command timing is functional but not cycle-exact
 
@@ -193,7 +188,7 @@ Some accepted commands still have incomplete semantics:
 - Normal and linear-pattern commands select old/new index pairs independently
   for each enabled source and destination address using the live DC7051 raster
   line. Frame service promotes new values to old and pending values to new;
-  the backing bitmap scroll remains atomic rather than scanline-progressive.
+  upward bitmap movement advances behind the same raster boundary.
 - Programmable signed Bresenham error offsets now initialize destination fast
   and slow vectors and fill edges B and A, respectively. Extreme overflow
   behavior has not been compared with physical silicon.
@@ -215,13 +210,10 @@ order unless a trace establishes a different dependency:
    constrain them. The
    current ReGIS `F(V...)` probe uses normal spans and does not validate DC323
    fill mode.
-2. **Raster/scroll phase coupling.** Old/new index selection now follows the
-   DC7051 raster boundary. Replace the remaining atomic bitmap move only when
-   a scanline-progressive scroll test can constrain intermediate memory state.
-3. **Linear-pattern silicon comparison.** Scaling, retained slow phase,
+2. **Linear-pattern silicon comparison.** Scaling, retained slow phase,
    pen-up advancement, and origin reset are implemented. Compare only exact
    sampling artifacts; do not invent behavior for the illegal source-free form.
-4. **Complete source 2 timing.** Dual-source commands now perform the two
+3. **Complete source 2 timing.** Dual-source commands now perform the two
    documented Viper source cycles through either CSR bank, including local
    Source/Mask loads and cross-plane I/D-bus broadcast. Reconstruct the exact
    word-level barrel-shifter delay behavior and invalid multiple-driver case
@@ -301,8 +293,9 @@ Use a common emulation-time trace for:
 - CPU2 interrupt entry/exit.
 
 Trace cold boot, Setup, ordinary terminal output, repeated full-screen
-scrolling, and the known smooth-scroll failure if reproducible. Establish the
-first incorrect or missing event before changing frame-status semantics.
+scrolling, and sustained smooth scrolling. The November 2026 trace established
+the former failure as premature Pause Complete plus an atomic bitmap move; the
+corrected path now provides exact-raster pause and progressive upward movement.
 
 ### Stage 4: add save/load output restoration
 

@@ -36,6 +36,9 @@ private:
 	emu_timer *m_reset_verify_timer = nullptr;
 	u64 m_hsync_events = 0;
 	u64 m_frame_events = 0;
+	u64 m_scanline_events = 0;
+	u64 m_pause_line_events = 0;
+	u16 m_last_scanline = 0xffff;
 	attotime m_first_hsync = attotime::never;
 	attotime m_last_hsync = attotime::never;
 	attotime m_first_frame = attotime::never;
@@ -51,6 +54,7 @@ private:
 	void require(bool condition, char const *message);
 	void hsync_w(int state);
 	void frame_event();
+	void scanline_event(u16 line);
 	TIMER_CALLBACK_MEMBER(begin_tests);
 	TIMER_CALLBACK_MEMBER(check_diag_low);
 	TIMER_CALLBACK_MEMBER(check_diag_high);
@@ -71,6 +75,9 @@ void dc7051_test_state::machine_start()
 
 	save_item(NAME(m_hsync_events));
 	save_item(NAME(m_frame_events));
+	save_item(NAME(m_scanline_events));
+	save_item(NAME(m_pause_line_events));
+	save_item(NAME(m_last_scanline));
 	save_item(NAME(m_first_hsync));
 	save_item(NAME(m_last_hsync));
 	save_item(NAME(m_first_frame));
@@ -139,6 +146,22 @@ void dc7051_test_state::frame_event()
 }
 
 
+void dc7051_test_state::scanline_event(u16 line)
+{
+	if (m_reset_check)
+		return;
+	if (!m_scanline_events)
+		require(line == 0, "scanline raster starts at device coordinate zero");
+	else
+		require(line == ((m_last_scanline + 1) % dc7051_device::VERTICAL_TOTAL),
+			"scanline raster advances without skips or duplicates");
+	m_last_scanline = line;
+	++m_scanline_events;
+	if (line == 500)
+		++m_pause_line_events;
+}
+
+
 TIMER_CALLBACK_MEMBER(dc7051_test_state::begin_tests)
 {
 	for (unsigned reg = 0; reg < 16; reg++)
@@ -190,6 +213,10 @@ TIMER_CALLBACK_MEMBER(dc7051_test_state::finish_tests)
 	constexpr u64 HORIZONTAL_EVENTS = FRAMES * dc7051_device::FRAME_CLOCKS *
 		dc7051_device::HORIZONTAL_TOGGLE_RATE / dc7051_device::DOT_CLOCK;
 	require(m_frame_events == FRAMES, "2,000 frame events without loss or duplication");
+	require(m_scanline_events == FRAMES * dc7051_device::VERTICAL_TOTAL + 1,
+		"exactly one scanline event per raster line plus the initial origin");
+	require(m_pause_line_events == FRAMES,
+		"device coordinate 500 occurs exactly once per completed frame");
 	require(m_hsync_events == HORIZONTAL_EVENTS,
 		"horizontal compatibility output remains stable across screen-clock frames");
 	require(m_first_hsync == attotime::from_hz(dc7051_device::HORIZONTAL_TOGGLE_RATE),
@@ -249,6 +276,7 @@ void dc7051_test_state::dc7051test(machine_config &config)
 	DC7051(config, m_dc7051, XTAL(dc7051_device::DOT_CLOCK));
 	m_dc7051->hsync_handler().set(FUNC(dc7051_test_state::hsync_w));
 	m_dc7051->set_frame_event_callback(FUNC(dc7051_test_state::frame_event));
+	m_dc7051->set_scanline_event_callback(FUNC(dc7051_test_state::scanline_event));
 }
 
 
