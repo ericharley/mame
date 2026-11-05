@@ -48,6 +48,7 @@ by established wiring:
 | device clock | input | DC7051 | Schematic-backed Y1 source |
 | `hsync_handler` | output | CPU2 external T0 | Preserved active-low 63 kHz toggle model; exact physical pulse width/phase unresolved |
 | `frame_event_callback` | event output | DC323 `frame_event` | Completed-frame occurrence; deliberately has no asserted/deasserted line state |
+| `raster_line_r` | sampled output | DC323 old/new index selector | Current line derived from the authoritative fixed frame timer; used only for the documented above/below-refresh index choice |
 | `diagnostic_vsync_r` | sampled output | external VT340 test mux, then CPU2 P1.0 | Preserved 27 us POST waveform; physical source/mux input unresolved |
 
 No HBLANK, VBLANK, display-enable, field, or interlace callbacks are exposed

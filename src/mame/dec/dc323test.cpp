@@ -34,10 +34,12 @@ private:
 	required_device<dc323_device> m_dc323;
 	emu_timer *m_test_timer = nullptr;
 	bool m_irq = false;
+	u16 m_raster_line = 0;
 
 	virtual void machine_start() override ATTR_COLD;
 	virtual void machine_reset() override ATTR_COLD;
 	void irq_w(int state) { m_irq = bool(state); }
+	u16 raster_line_r() { return m_raster_line; }
 	void require(bool condition, char const *message);
 	void reg_w(unsigned reg, u16 value) { m_dc323->write(reg, value); }
 	void viper_w(unsigned reg, u16 value);
@@ -235,6 +237,46 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	require(m_dc323->register_r(dc323_device::REG_NEW_X_INDEX) == 9 &&
 		m_dc323->register_r(dc323_device::REG_NEW_Y_INDEX) == 7,
 		"frame boundary promotes pending indexes to new");
+
+	// During a scrolling frame, addresses above the refresh/scroll boundary
+	// use the new indexes while addresses below it retain the old pair.
+	m_dc323->bitmap_clear();
+	fill(110, 50, 1, 1, true);
+	fill(100, 60, 1, 1, true);
+	reg_w(dc323_device::REG_NEW_X_INDEX, 0);
+	reg_w(dc323_device::REG_NEW_Y_INDEX, 0);
+	reg_w(dc323_device::REG_PENDING_X_INDEX, 10);
+	reg_w(dc323_device::REG_PENDING_Y_INDEX, 10);
+	reg_w(dc323_device::REG_SCROLL_Y, 0);
+	m_raster_line = 50;
+	m_dc323->frame_event();
+	reg_w(dc323_device::REG_X_CONTROL, 0x00c0); // destination index only
+	reg_w(dc323_device::REG_DESTINATION_X, 20);
+	reg_w(dc323_device::REG_DESTINATION_Y, 40);
+	reg_w(dc323_device::REG_WIDTH, 1);
+	reg_w(dc323_device::REG_HEIGHT, 1);
+	reg_w(dc323_device::REG_COMMAND, 0x06c0);
+	expect_pixel(30, 50, true, "raster phase uses new destination index above refresh");
+	reg_w(dc323_device::REG_DESTINATION_Y, 60);
+	reg_w(dc323_device::REG_COMMAND, 0x06c0);
+	expect_pixel(20, 60, true, "raster phase uses old destination index below refresh");
+
+	reg_w(dc323_device::REG_X_CONTROL, 0x00a0); // source index only
+	reg_w(dc323_device::REG_SOURCE_X, 100);
+	reg_w(dc323_device::REG_SOURCE_Y, 40);
+	reg_w(dc323_device::REG_DESTINATION_X, 200);
+	reg_w(dc323_device::REG_DESTINATION_Y, 100);
+	reg_w(dc323_device::REG_COMMAND, 0x0ec0);
+	expect_pixel(200, 100, true, "raster phase uses new source index above refresh");
+	reg_w(dc323_device::REG_SOURCE_Y, 60);
+	reg_w(dc323_device::REG_DESTINATION_X, 201);
+	reg_w(dc323_device::REG_COMMAND, 0x0ec0);
+	expect_pixel(201, 100, true, "raster phase uses old source index below refresh");
+
+	// A following frame with no index transition collapses back to the new
+	// pair for the entire update region.
+	m_dc323->frame_event();
+	m_raster_line = 0;
 	reg_w(dc323_device::REG_PENDING_X_INDEX, 0);
 	reg_w(dc323_device::REG_PENDING_Y_INDEX, 0);
 	reg_w(dc323_device::REG_NEW_X_INDEX, 0);
@@ -464,6 +506,37 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	for (unsigned row = 0; row < 6; row++)
 		expect_pixel(8, 10 + row, !BIT(row, 0), "PTB 1x6 source data");
 
+	// The processor-facing FIFO accepts exactly six words. A longer transfer
+	// deasserts transmit-ready at that depth until the asynchronous bitmap side
+	// consumes an entry; cancel clears the queued words and restores readiness.
+	reg_w(dc323_device::REG_DESTINATION_X, 16);
+	reg_w(dc323_device::REG_DESTINATION_Y, 10);
+	reg_w(dc323_device::REG_WIDTH, 8);
+	reg_w(dc323_device::REG_HEIGHT, 8);
+	reg_w(dc323_device::REG_COMMAND, 0x07d1);
+	for (unsigned word = 0; word < 6; word++)
+		reg_w(dc323_device::REG_ID_DATA, word);
+	require((m_dc323->status_r() & dc323_device::STATUS_ID_DATA_TRANSMIT_READY) == 0,
+		"six-entry I/D FIFO applies processor back-pressure when full");
+	require((m_dc323->status_r() & dc323_device::STATUS_ADDRESS_COMPLETE) == 0,
+		"full PTB FIFO does not imply transfer completion");
+	reg_w(dc323_device::REG_COMMAND, 0x0000);
+	require((m_dc323->status_r() & dc323_device::STATUS_ID_DATA_TRANSMIT_READY) != 0 &&
+		(m_dc323->status_r() & dc323_device::STATUS_ID_DATA_READY) == 0,
+		"cancel clears I/D FIFO and restores transmit readiness");
+
+	// Raster command status no longer completes in the command-register write.
+	// Initialization and completion are asserted by separate device timers.
+	reg_w(dc323_device::REG_DESTINATION_X, 24);
+	reg_w(dc323_device::REG_DESTINATION_Y, 10);
+	reg_w(dc323_device::REG_WIDTH, 1);
+	reg_w(dc323_device::REG_HEIGHT, 1);
+	reg_w(dc323_device::REG_X_CONTROL, 0x0080);
+	reg_w(dc323_device::REG_COMMAND, 0x06c0);
+	require((m_dc323->status_r() & dc323_device::STATUS_RASTEROP_MASK) == 0,
+		"raster command completion is asynchronous");
+	reg_w(dc323_device::REG_COMMAND, 0x0000);
+
 	// An unaligned rectangle consumes the leading and trailing bus words but
 	// masks pixels outside the requested destination extent.
 	m_dc323->bitmap_clear();
@@ -498,6 +571,50 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	for (unsigned x = 0; x < 4; x++)
 		expect_pixel(x, 30, BIT(0x0005, x), "PTB mask data routing");
 	viper_w(0x11, 0x0001);
+
+	// Z-mode transfers exchange one pixel from multiple planes in each I/D
+	// word. Each Viper contributes the bit selected by its plane address.
+	m_dc323->bitmap_clear();
+	constexpr std::array<unsigned, 4> plane_addresses{ 0, 2, 5, 7 };
+	for (unsigned plane = 0; plane < plane_addresses.size(); plane++)
+	{
+		m_dc323->viper_select_w(1U << plane);
+		viper_w(0x03, plane_addresses[plane]);
+	}
+	m_dc323->viper_select_w(0x0f);
+	viper_w(0x06, 0x004f); // function 2 forces foreground selection
+	viper_w(0x08, 0xffff);
+	viper_w(0x09, 0xffff);
+	reg_w(dc323_device::REG_X_CONTROL, 0x0080);
+	reg_w(dc323_device::REG_DESTINATION_X, 300);
+	reg_w(dc323_device::REG_DESTINATION_Y, 300);
+	reg_w(dc323_device::REG_WIDTH, 2);
+	reg_w(dc323_device::REG_HEIGHT, 1);
+	reg_w(dc323_device::REG_COMMAND, 0x07a4); // PTB Z, foreground, block 0
+	reg_w(dc323_device::REG_ID_DATA, 0x0021); // plane addresses 0 and 5
+	reg_w(dc323_device::REG_ID_DATA, 0x0084); // plane addresses 2 and 7
+	for (unsigned plane = 0; plane < plane_addresses.size(); plane++)
+	{
+		require(bool(m_dc323->pixel_r(plane, 300, 300)) == BIT(0x21, plane_addresses[plane]),
+			"PTB Z first pixel unpacks plane-addressed color");
+		require(bool(m_dc323->pixel_r(plane, 301, 300)) == BIT(0x84, plane_addresses[plane]),
+			"PTB Z second pixel unpacks plane-addressed color");
+	}
+	require((m_dc323->status_r() & dc323_device::STATUS_ADDRESS_COMPLETE) != 0,
+		"PTB Z completes after one word per pixel");
+
+	reg_w(dc323_device::REG_SOURCE_X, 300);
+	reg_w(dc323_device::REG_SOURCE_Y, 300);
+	reg_w(dc323_device::REG_SOURCE_FAST_DX, 1);
+	reg_w(dc323_device::REG_SOURCE_SLOW_DY, 1);
+	reg_w(dc323_device::REG_COMMAND, 0x0bd8); // BTP Z, block 0
+	require(m_dc323->read(dc323_device::REG_ID_DATA) == 0x21,
+		"BTP Z first pixel packs plane-addressed color");
+	require(m_dc323->read(dc323_device::REG_ID_DATA) == 0x84,
+		"BTP Z second pixel packs plane-addressed color");
+	require((m_dc323->status_r() & dc323_device::STATUS_ADDRESS_COMPLETE) != 0,
+		"BTP Z completes after packed pixel words are drained");
+	viper_w(0x0f, 0xffff);
 
 	// Raster masks and bitmap clipping retain the established orientation.
 	m_dc323->bitmap_clear();
@@ -772,6 +889,42 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	expect_pixel(105, 104, false, "chained fill lower right exterior");
 	expect_pixel(100, 108, false, "chained fill excludes final endpoint");
 
+	// If one edge expires first, the other generator retains its position and
+	// Bresenham phase. Reloading only edge A resumes against the unexpired
+	// remainder of edge B rather than restarting B from its origin.
+	m_dc323->bitmap_clear();
+	reg_w(dc323_device::REG_DESTINATION_X, 140);
+	reg_w(dc323_device::REG_DESTINATION_Y, 140);
+	reg_w(dc323_device::REG_SOURCE_X, 146);
+	reg_w(dc323_device::REG_DESTINATION_SLOW_DX, 0);
+	reg_w(dc323_device::REG_HEIGHT, 2);
+	reg_w(dc323_device::REG_SOURCE_FAST_DX, 4);
+	reg_w(dc323_device::REG_SOURCE_SLOW_DY, 4);
+	reg_w(dc323_device::REG_COMMAND, 0x06c0);
+	reg_w(dc323_device::REG_DESTINATION_SLOW_DX, 0); // reload only expired A
+	reg_w(dc323_device::REG_HEIGHT, 2);
+	reg_w(dc323_device::REG_COMMAND, 0x06c0);
+	expect_pixel(148, 142, true, "unequal fill retains unexpired B edge position");
+	expect_pixel(149, 143, true, "unequal fill resumes unexpired B edge phase");
+	expect_pixel(150, 143, false, "unequal fill excludes retained B endpoint");
+
+	// Crossing edges do not terminate a fill or clamp its direction. Each scan
+	// continues from A to B, reversing the span after the intersection.
+	m_dc323->bitmap_clear();
+	reg_w(dc323_device::REG_DESTINATION_X, 160);
+	reg_w(dc323_device::REG_DESTINATION_Y, 160);
+	reg_w(dc323_device::REG_SOURCE_X, 166);
+	reg_w(dc323_device::REG_DESTINATION_SLOW_DX, 6);
+	reg_w(dc323_device::REG_HEIGHT, 6);
+	reg_w(dc323_device::REG_SOURCE_FAST_DX, 0x3ffa); // -6
+	reg_w(dc323_device::REG_SOURCE_SLOW_DY, 6);
+	reg_w(dc323_device::REG_COMMAND, 0x06c0);
+	expect_pixel(163, 163, true, "crossing fill includes intersection");
+	expect_pixel(162, 164, true, "crossing fill reverses scan direction left");
+	expect_pixel(164, 164, true, "crossing fill reverses scan direction right");
+	expect_pixel(161, 164, false, "crossing fill preserves left exterior");
+	expect_pixel(165, 164, false, "crossing fill preserves right exterior");
+
 	// Loading a destination origin terminates the prior vector string and
 	// initializes both edge positions for a new fill.
 	reg_w(dc323_device::REG_DESTINATION_X, 120);
@@ -915,8 +1068,101 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	reg_w(dc323_device::REG_X_CONTROL, 0x00e2); // index source and destination
 	reg_w(dc323_device::REG_COMMAND, 0x0ec0);
 	expect_pixel(52, 53, true, "linear pattern indexes source and destination");
+
+	// Fast scaling restarts for every destination fast vector, while the
+	// source pattern wraps independently of the destination length. A 1:2
+	// up-scale therefore repeats each bit of this two-pixel pattern twice.
+	m_dc323->bitmap_clear();
+	fill(200, 200, 1, 1, true);
+	reg_w(dc323_device::REG_SOURCE_X, 200);
+	reg_w(dc323_device::REG_SOURCE_Y, 200);
+	reg_w(dc323_device::REG_SOURCE_FAST_DX, 2);
+	reg_w(dc323_device::REG_SOURCE_SLOW_DY, 1);
+	reg_w(dc323_device::REG_DESTINATION_X, 100);
+	reg_w(dc323_device::REG_DESTINATION_Y, 100);
+	reg_w(dc323_device::REG_WIDTH, 8);
+	reg_w(dc323_device::REG_DESTINATION_FAST_DY, 0);
+	reg_w(dc323_device::REG_DESTINATION_SLOW_DX, 0);
+	reg_w(dc323_device::REG_HEIGHT, 1);
+	reg_w(dc323_device::REG_FAST_SCALE, 0x0fff); // up-scale by two
+	reg_w(dc323_device::REG_SLOW_SCALE, 0x1fff);
+	reg_w(dc323_device::REG_X_CONTROL, 0x0082);
+	reg_w(dc323_device::REG_COMMAND, 0x0ec0);
+	for (unsigned x : { 100U, 101U, 104U, 105U })
+		expect_pixel(x, 100, true, "linear fast up-scaling repeats set pattern bit");
+	for (unsigned x : { 102U, 103U, 106U, 107U })
+		expect_pixel(x, 100, false, "linear fast up-scaling repeats clear pattern bit");
+
+	// Down scaling computes multiple source samples for each destination. The
+	// later sample therefore supplies the final copy-mode value at each pixel.
+	m_dc323->bitmap_clear();
+	fill(201, 210, 1, 1, true);
+	fill(203, 210, 1, 1, true);
+	reg_w(dc323_device::REG_SOURCE_X, 200);
+	reg_w(dc323_device::REG_SOURCE_Y, 210);
+	reg_w(dc323_device::REG_SOURCE_FAST_DX, 4);
+	reg_w(dc323_device::REG_DESTINATION_X, 110);
+	reg_w(dc323_device::REG_DESTINATION_Y, 100);
+	reg_w(dc323_device::REG_WIDTH, 2);
+	reg_w(dc323_device::REG_FAST_SCALE, 0x2fff); // down-scale by two
+	reg_w(dc323_device::REG_COMMAND, 0x0ec0);
+	expect_pixel(110, 100, true, "linear fast down-scaling retains later first sample");
+	expect_pixel(111, 100, true, "linear fast down-scaling retains later second sample");
+
+	// The source slow position and fractional scale accumulator survive a new
+	// destination command. With a half-step scale, the first source row is used
+	// by two one-row commands before the pattern advances to its clear row.
+	m_dc323->bitmap_clear();
+	fill(120, 120, 3, 1, true);
+	fill(220, 220, 1, 1, true);
+	reg_w(dc323_device::REG_SOURCE_X, 220);
+	reg_w(dc323_device::REG_SOURCE_Y, 220);
+	reg_w(dc323_device::REG_SOURCE_FAST_DX, 1);
+	reg_w(dc323_device::REG_SOURCE_SLOW_DY, 2);
+	reg_w(dc323_device::REG_WIDTH, 1);
+	reg_w(dc323_device::REG_HEIGHT, 1);
+	reg_w(dc323_device::REG_FAST_SCALE, 0x1fff);
+	reg_w(dc323_device::REG_SLOW_SCALE, 0x0fff); // up-scale by two
+	reg_w(dc323_device::REG_X_CONTROL, 0x0082);
+	for (unsigned x = 120; x < 123; x++)
+	{
+		reg_w(dc323_device::REG_DESTINATION_X, x);
+		reg_w(dc323_device::REG_DESTINATION_Y, 120);
+		reg_w(dc323_device::REG_COMMAND, 0x0ec0);
+	}
+	expect_pixel(120, 120, true, "linear retained phase first fractional command");
+	expect_pixel(121, 120, true, "linear retained phase carries accumulator");
+	expect_pixel(122, 120, false, "linear retained phase advances source row");
+
+	// A pen-up command advances the retained source scan without touching its
+	// destination. Loading either source origin then resets both scan and scale.
+	m_dc323->bitmap_clear();
+	fill(131, 120, 1, 1, true);
+	fill(220, 220, 1, 1, true);
+	reg_w(dc323_device::REG_SOURCE_X, 220); // reset retained phase
+	reg_w(dc323_device::REG_SOURCE_Y, 220);
+	reg_w(dc323_device::REG_SOURCE_FAST_DX, 1);
+	reg_w(dc323_device::REG_SOURCE_SLOW_DY, 2);
+	reg_w(dc323_device::REG_FAST_SCALE, 0x1fff);
+	reg_w(dc323_device::REG_SLOW_SCALE, 0x1fff);
+	reg_w(dc323_device::REG_DESTINATION_X, 130);
+	reg_w(dc323_device::REG_DESTINATION_Y, 120);
+	reg_w(dc323_device::REG_X_CONTROL, 0x0002); // linear pattern, pen up
+	reg_w(dc323_device::REG_COMMAND, 0x0ec0);
+	expect_pixel(130, 120, false, "linear pen-up command suppresses destination write");
+	reg_w(dc323_device::REG_DESTINATION_X, 131);
+	reg_w(dc323_device::REG_X_CONTROL, 0x0082);
+	reg_w(dc323_device::REG_COMMAND, 0x0ec0);
+	expect_pixel(131, 120, false, "linear pen-up command advances retained source row");
+	reg_w(dc323_device::REG_SOURCE_X, 220); // reset to the set first row
+	reg_w(dc323_device::REG_DESTINATION_X, 132);
+	reg_w(dc323_device::REG_COMMAND, 0x0ec0);
+	expect_pixel(132, 120, true, "linear source-origin load resets retained phase");
+
 	reg_w(dc323_device::REG_NEW_X_INDEX, 0);
 	reg_w(dc323_device::REG_NEW_Y_INDEX, 0);
+	reg_w(dc323_device::REG_FAST_SCALE, 0x1fff);
+	reg_w(dc323_device::REG_SLOW_SCALE, 0x1fff);
 	reg_w(dc323_device::REG_X_CONTROL, 0x0080);
 
 	// Bitmap-to-processor transfers use bit zero as the leftmost pixel and
@@ -1075,6 +1321,7 @@ void dc323_test_state::dc323test(machine_config &config)
 	DC323(config, m_dc323, 0);
 	m_dc323->set_chargen_tag("^chargen");
 	m_dc323->irq_handler().set(FUNC(dc323_test_state::irq_w));
+	m_dc323->raster_line_handler().set(FUNC(dc323_test_state::raster_line_r));
 }
 
 

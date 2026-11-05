@@ -9,10 +9,11 @@ register file, command engine, status/interrupt state, save-state ownership,
 diagnostics, and frame-event input.
 
 The extraction is not a claim that every retained behavior is confirmed
-DC323 silicon behavior.  In particular, raster operations are still executed
-synchronously and the retained Viper register/bitmap model remains inside the
-device as a transitional graphics backend.  Viper extraction and timing
-correction are separate later work.
+DC323 silicon behavior. Raster pixels are still committed functionally during
+command dispatch, while externally visible initialization/completion status
+and PBT FIFO service advance on emulation-time timers. The retained Viper
+register/bitmap model remains inside the device as a transitional graphics
+backend; Viper extraction and exact arbitration timing are separate later work.
 
 ## External interface
 
@@ -73,7 +74,20 @@ and scanline. Each word is routed through the command-selected CSR external
 load field to the Viper source or mask registers before the destination
 read-modify-write cycle. Unaligned rectangles consume their leading and
 trailing bus words while edge masking preserves pixels outside the extent;
-Address Complete is asserted after the final expected word.
+Address Complete is asserted after the final expected word. The processor side
+now uses the documented six-entry FIFO: transmit-ready falls at six queued
+words, bitmap service consumes entries asynchronously, and cancel clears the
+queue. Bitmap-to-processor commands prefetch into the same queue, assert
+receive-ready while it is nonempty, and defer Address Complete until the last
+prefetched word is read.
+
+Z-mode transfers consume one I/D word per pixel. Each selected Viper's plane
+address chooses its bit in the word and its two high address bits select the Z
+block. PTBZ implicitly loads the command-selected foreground or background
+register before the function-2 destination write; BTPZ packs the selected
+bitmap planes back into their addressed word bits. The VT340 processor exposes
+only the low I/D byte, and low-resolution Viper subplane expansion remains a
+separate fidelity boundary.
 
 Each of the four planes now retains its own Viper registers. A raster logic
 result selects that plane's foreground or background word; the selected bit
@@ -87,13 +101,20 @@ rotated ReGIS vectors, text cells, and circle spans without protocol-specific
 rendering. Raster mode selection uses mode-register bits 0-1; hole-fill bit 4
 does not incorrectly reclassify normal mode as unsupported.
 
-Normal and linear-pattern source and destination origins independently honor
-the X-control indexing enables. The signed 14-bit new index pair is added to
-the selected origins. At a frame boundary, the previous new pair becomes old
-and the pending pair becomes new. Because the current scroll backend moves a
-whole region atomically at that boundary, post-frame drawing uses the new
-pair; selecting old versus new while a physical scan is partway through a
-scroll remains a timing-model boundary.
+Linear-pattern mode applies the ordinary fast and slow scale accumulators to
+the independently programmed source pattern. Fast scale and pattern position
+restart for every destination fast vector. Source slow position and fractional
+slow-scale phase survive subsequent destination commands, including pen-up
+commands, until either Source 1 origin component is loaded. Source vectors wrap
+at their programmed signed extents.
+
+Normal and linear-pattern source and destination addresses independently honor
+the X-control indexing enables. At a frame boundary, the previous new pair
+becomes old and the pending pair becomes new. During a scrolling frame, each
+address above the live DC7051 raster boundary uses the new pair and each
+address below it uses the old pair; outside a pending transition the new pair
+applies throughout. The backing bitmap scroll itself remains an atomic
+frame-service operation rather than a scanline-progressive memory move.
 
 Normal-mode source-2-only rasters derive their source address from the
 unindexed destination address plus the source-2 origin. With tiling enabled,
@@ -123,13 +144,15 @@ slope or endpoints.
 Fill mode `11` now has bounded functional coverage. Basic X/Y two-edge fills
 use the destination slow generator as edge A and the source-1 generator as
 edge B, while baseline mode locks edge B to the applicable source origin.
-Equal-duration edge pairs retain both endpoints across commands, allowing a
-polygon chain to continue until a destination-origin load or fill-mode change
-starts a new string. Independent edge expiration is not yet modeled.
+Each ordinary edge retains its own vector origin, Bresenham error adjustment,
+and progress. When one edge expires, firmware may load only that side and the
+other resumes from its partial vector; crossing edges reverse the fast scan
+without terminating the chain. A destination-origin load or fill-mode change
+starts a new string.
 Destination-only broad parallelograms with hole-fill enabled retain their
 ordinary writes and add missing pixels between occupied scanline endpoints.
 The implementation deliberately does not infer source pixels for added holes,
-continue a partially expired edge, or correct complement-mode doubling.
+or correct complement-mode vertex doubling.
 See `../traces/dc323-fill-report.md` for the evidence boundary and tests.
 
 The `bitmap_planes` memory share retains its root tag so existing debugger
@@ -149,9 +172,11 @@ The following is not DC323 device behavior:
 
 Diagnostic I/D readback and ready status are device-owned and independent of
 firmware addresses. The DC323 retains diagnostic selectors `00cf`/`00c6`,
-routes command `0bc0` through the normal FIFO completion path, initializes
+routes command `0bc0` through the six-entry FIFO completion path, initializes
 idle completion outputs when made operational, and returns to idle on command
-zero. See `../traces/dc323-post-shim-cleanup-report.md`.
+zero. Raster/PBT initialization and completion status are delivered by
+separate emulation-time timers rather than being asserted in the command
+write. See `../traces/dc323-post-shim-cleanup-report.md`.
 
 ## Diagnostic logging
 
@@ -167,13 +192,16 @@ control remains observable through the separate DUART/connector traces.
 
 ## Remaining hardware questions
 
-- Exact asynchronous command completion timing and FIFO depth/flow.
-- Whether the retained synchronous raster completion ordering is correct.
+- Exact memory-arbitration-dependent command duration; initialization,
+  completion, one-microsecond PBT service, and six-word flow control are now
+  asynchronous but use bounded functional timing.
 - Whether the four retained per-plane Viper datapaths should become standalone
   DC322 subdevices after their remaining timing and pipeline behavior is known.
 - Exact word-level Viper barrel-shifter/delay-register behavior and electrical
   contention when more than one selected Viper drives the I/D bus.
-- Raster-phase selection between old and new indexes.
+- Scanline-progressive bitmap movement matching the raster-phase index choice;
+  the current scroll copy remains atomic at frame service.
+- Low-resolution Viper subplane behavior during Z-mode transfers.
 - Exact right-edge word and mask behavior when `SCROLL_X_MAX` is aligned.
 - Scroll request queuing or overwrite behavior when register `14` is loaded
   more than once before a frame event.

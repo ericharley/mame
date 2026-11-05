@@ -192,15 +192,17 @@ continues through `f000-ffff` before it is cleared.
 
 DC323 status bits 2, 3, and 4 report Rasterop Initialization Complete,
 Rasterop Complete, and Address Output Complete.  Loading a rasterop or
-processor/bitmap transfer clears these conditions.  Since the current raster
-engine completes a command synchronously, all three become asserted when a
-rasterop returns.  This lets the native status-line drawing loop finish rather
-than leaving CPU2 at `ef11` and CPU1 at the shared `4be5` barrier.
+processor/bitmap transfer clears these conditions. Initialization and command
+completion are now asserted by separate emulation-time timers; raster pixels
+remain functionally committed at dispatch. This preserves the native
+status-line drawing loop while exposing intermediate busy states without a
+firmware-PC exception.
 
-Status bit 5 follows the documented I/D Data Receive Ready condition.  A
-bitmap-to-processor transfer supplies sequential eight-pixel bytes through
-register 7 from either E49 or ordinary bitmap memory.  The final FIFO read
-clears Data Receive Ready and asserts Address Output Complete.  The off-screen
+Status bits 5 and 6 follow the documented six-entry I/D FIFO occupancy. A
+bitmap-to-processor transfer prefetches sequential eight-pixel bytes through
+register 7 from either E49 or ordinary bitmap memory; processor-to-bitmap
+traffic is back-pressured when all six entries are occupied. The final BTP FIFO
+read clears Data Receive Ready and asserts Address Output Complete. The off-screen
 bitmap transfer used while entering Set-Up therefore follows the same device
 path as the earlier E49 startup-string transfer.  See
 `../traces/setup-screen-report.md`.

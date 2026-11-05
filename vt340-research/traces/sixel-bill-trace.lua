@@ -301,13 +301,14 @@ sixel_dc323_write_tap = cpu2_xdata:install_write_tap(
 			elseif post_pbt_commands > 0 then
 				post_pbt_commands = post_pbt_commands - 1
 				print(string.format(
-					'VT340_SIXEL_JSON {"event":"post_ptb_command","time":%.9f,"command":"%04X","source":[%d,%d],"destination":[%d,%d],"source_extent":["%04X","%04X"],"destination_vectors":["%04X","%04X","%04X","%04X"],"indexes":["%04X","%04X","%04X","%04X"],"mode":"%04X","select":"%X","logic":["%02X","%02X","%02X","%02X"]}',
+					'VT340_SIXEL_JSON {"event":"post_ptb_command","time":%.9f,"command":"%04X","source":[%d,%d],"destination":[%d,%d],"source_extent":["%04X","%04X"],"destination_vectors":["%04X","%04X","%04X","%04X"],"scale":["%04X","%04X"],"indexes":["%04X","%04X","%04X","%04X"],"mode":"%04X","select":"%X","logic":["%02X","%02X","%02X","%02X"]}',
 					manager.machine.time:as_double(), command,
 					(dc323_regs[0x22] or 0) & 0x3fff, (dc323_regs[0x23] or 0) & 0x1fff,
 					(dc323_regs[0x24] or 0) & 0x3fff, (dc323_regs[0x25] or 0) & 0x3fff,
 					dc323_regs[0x20] or 0, dc323_regs[0x21] or 0,
 					dc323_regs[0x26] or 0, dc323_regs[0x27] or 0,
 					dc323_regs[0x28] or 0, dc323_regs[0x29] or 0,
+					dc323_regs[0x2a] or 0, dc323_regs[0x2b] or 0,
 					dc323_regs[0x17] or 0, dc323_regs[0x18] or 0,
 					dc323_regs[0x19] or 0, dc323_regs[0x1a] or 0,
 					dc323_mode, viper_select,
