@@ -4,10 +4,9 @@
 
     Digital Equipment Corporation DC323 Adder
 
-    This device currently preserves the operational model first developed in
-    the VT340 driver.  It includes the retained Viper register values and the
-    bitmap operations needed by that model; the Viper chips remain candidates
-    for a later, separate extraction.
+    Models the Adder command engine, processor/bitmap transfers, retained
+    per-plane Viper state, bitmap memory, and frame-serviced scrolling.  The
+    Viper datapaths remain candidates for a later, separate extraction.
 
 ***************************************************************************/
 
@@ -135,6 +134,7 @@ private:
 	u16 fifo_pop();
 	void update_fifo_status();
 	void schedule_pbt_service();
+	void stop_command_activity();
 	void command_w(u16 command);
 	void execute_rasterop(u16 command);
 	void execute_linear_pattern(u16 command);
