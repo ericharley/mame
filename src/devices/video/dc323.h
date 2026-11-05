@@ -5,7 +5,7 @@
     Digital Equipment Corporation DC323 Adder
 
     Models the Adder command engine, processor/bitmap transfers, retained
-    per-plane Viper state, bitmap memory, and frame-serviced scrolling.  The
+    per-plane Viper state, bitmap memory, and raster-synchronous scrolling. The
     Viper datapaths remain candidates for a later, separate extraction.
 
 ***************************************************************************/
@@ -30,6 +30,7 @@ public:
 		REG_SCROLL_X_MAX = 0x0f,
 		REG_SCROLL_Y_MIN = 0x10,
 		REG_SCROLL_Y_MAX = 0x11,
+		REG_PAUSE = 0x12,
 		REG_SCROLL_Y_OFFSET = 0x13,
 		REG_SCROLL_Y = 0x14,
 		REG_PENDING_X_INDEX = 0x15,
@@ -87,6 +88,7 @@ public:
 	void operational_w(int state);
 	void viper_select_w(u8 data);
 	void frame_event();
+	void scanline_event(u16 line);
 
 	// Board compatibility and video-backend accessors.  These expose state,
 	// but never CPU identity or firmware addresses, so policy remains outside.
@@ -139,7 +141,9 @@ private:
 	void execute_rasterop(u16 command);
 	void execute_linear_pattern(u16 command);
 	void execute_fill(u16 command);
-	void execute_scroll();
+	void begin_scroll();
+	void finish_scroll();
+	void execute_scroll_line(u16 device_y);
 	void route_source_cycle(unsigned csr, unsigned destination_x, std::array<bool, BITMAP_PLANES> const &source_bits);
 	void load_viper_bit(unsigned plane, unsigned target, unsigned word_bit, bool data);
 	void write_viper_pixel(unsigned plane, unsigned x, unsigned y, u16 command, bool source_bit);
@@ -159,7 +163,22 @@ private:
 	u8 m_viper_select = 0;
 	u16 m_status = 0;
 	bool m_operational = false;
+	u16 m_active_pause = 0;
+	u8 m_pause_events = 0;
+	bool m_pause_fired = false;
 	bool m_scroll_pending = false;
+	bool m_scroll_active = false;
+	u16 m_active_scroll = 0;
+	u16 m_active_scroll_x_min = 0;
+	u16 m_active_scroll_x_max = 0;
+	u16 m_active_scroll_y_min = 0;
+	u16 m_active_scroll_y_max = 0;
+	u16 m_active_scroll_y_offset = 0;
+	u16 m_active_scroll_line = 0;
+	std::array<u16, BITMAP_PLANES> m_active_scroll_fill{};
+	std::array<u16, BITMAP_PLANES> m_active_scroll_left{};
+	std::array<u16, BITMAP_PLANES> m_active_scroll_right{};
+	std::array<u8, BITMAP_PLANES> m_active_scroll_word_width{};
 	bool m_index_phase_active = false;
 	bool m_pbt_read_active = false;
 	bool m_pbt_read_z_mode = false;

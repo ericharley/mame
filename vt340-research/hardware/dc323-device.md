@@ -32,6 +32,7 @@ The runtime interface is:
 | `operational_w(state)` | Release or hold the operational model around board graphics POST |
 | `viper_select_w(mask)` | Select which of the four plane datapaths accept Viper loads and raster destination writes |
 | `frame_event()` | Supply one completed-frame occurrence; services pending scroll and frame status without implying a physical line level |
+| `scanline_event(line)` | Supply the current DC7051 device-coordinate raster for progressive scroll movement and pause comparison |
 | `irq_handler()` | Electrical interrupt output, asserted when enabled sticky status is nonzero |
 | `pixel_r(plane, x, y)` | Narrow display-backend access to the retained four bitmap planes |
 | `bitmap_clear(data)` | Reset/diagnostic initialization of the retained bitmap storage |
@@ -55,7 +56,7 @@ special registers are:
 | `07` | Retained I/D value and active bitmap/character-ROM transfer reads |
 | `08` | Command decode, selected-Viper loads, transfer setup, and raster dispatch |
 | `09` | Raster X-control mode and independent source/destination indexing |
-| `0e-14` | Scroll bounds, offset, and frame-pending Y command |
+| `0e-14` | Scroll bounds, double-buffered pause coordinate, offset, and frame-pending Y command |
 | `15-1a` | Pending, new, and old X/Y index values and frame-boundary promotion |
 | `22-29` | Source, destination, width, and height parameters |
 | `2c-2e` | Source-2 origin and power-of-two tile dimensions |
@@ -66,8 +67,10 @@ Status bits remain sticky until acknowledged.  Raster command functions 2 and
 bitmap-to-processor transfer completes through register 7 reads.  Bitmap
 source data comes from the selected Viper plane whose command-selected CSR
 enables I/D-bus output; it is not inherently sourced from plane zero.  Writing
-scroll register `14` records one pending operation; the next `frame_event`
-call executes it, sets Pause Complete and Scroll Service, and recomputes IRQ.
+scroll register `14` records one pending operation. The next `frame_event`
+starts it and sets Scroll Service; subsequent scanline events move upward-scroll
+rows behind refresh. Pause Complete is independently generated when refresh
+equals the frame-latched register `12` coordinate and retains a two-event queue.
 
 X-mode processor-to-bitmap commands consume one I/D word per bitmap bus word
 and scanline. Each word is routed through the command-selected CSR external
@@ -113,8 +116,9 @@ the X-control indexing enables. At a frame boundary, the previous new pair
 becomes old and the pending pair becomes new. During a scrolling frame, each
 address above the live DC7051 raster boundary uses the new pair and each
 address below it uses the old pair; outside a pending transition the new pair
-applies throughout. The backing bitmap scroll itself remains an atomic
-frame-service operation rather than a scanline-progressive memory move.
+applies throughout. Upward bitmap movement follows the same scanline boundary,
+so redraws use the new indexes only after the corresponding rows have moved.
+Downward movement retains reverse-order copying to preserve overlapping data.
 
 Normal-mode source-2-only rasters derive their source address from the
 unindexed destination address plus the source-2 origin. With tiling enabled,
@@ -186,8 +190,8 @@ emulation time and include the relevant command parameters and status.
 
 Scroll diagnostics record scheduling while another request is pending, frame
 service, direction, distance, erase mode, exclusive bounds, Y offset, status,
-interrupt enable, and IRQ transitions.  This supports investigation of the
-known smooth-scroll failure without changing its behavior.  Host serial flow
+interrupt enable, pause coordinate, and IRQ transitions. This supports the
+verified two-pixel smooth-scroll workload. Host serial flow
 control remains observable through the separate DUART/connector traces.
 
 ## Remaining hardware questions
@@ -199,13 +203,11 @@ control remains observable through the separate DUART/connector traces.
   DC322 subdevices after their remaining timing and pipeline behavior is known.
 - Exact word-level Viper barrel-shifter/delay-register behavior and electrical
   contention when more than one selected Viper drives the I/D bus.
-- Scanline-progressive bitmap movement matching the raster-phase index choice;
-  the current scroll copy remains atomic at frame service.
 - Low-resolution Viper subplane behavior during Z-mode transfers.
 - Exact right-edge word and mask behavior when `SCROLL_X_MAX` is aligned.
 - Scroll request queuing or overwrite behavior when register `14` is loaded
   more than once before a frame event.
-- The physical source and phase of Pause Complete and Scroll Service.
+- Exact half-end-vertical suppression of out-of-range pause coordinates.
 - The exact physical reset input currently represented by the board's
   `operational_w` transition.
 

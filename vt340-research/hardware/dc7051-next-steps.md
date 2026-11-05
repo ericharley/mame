@@ -94,8 +94,9 @@ Capture at least these scenarios:
 1. cold boot through `VT340 OK`;
 2. entering and leaving Setup;
 3. ordinary terminal output with multiple full-screen scrolls;
-4. the known smooth-scroll or pause-complete failure, if reproducible; and
-5. a run long enough to demonstrate the independent-timer phase drift.
+4. sustained smooth scrolling through pause coordinate 500; and
+5. a run long enough to prove the raster callback has no independent-timer
+   phase drift.
 
 The baseline deliverable is an event table identifying phase relationships at
 the first DC323 enable, subsequent enable changes, and the first incorrect or

@@ -62,7 +62,7 @@
       "encoding": "op=2, X-control index enabled, any old/new index nonzero",
       "status": "partial",
       "required_level": "direct",
-      "remaining": "Old/new selection follows the live DC7051 raster line; bitmap scrolling itself is still applied atomically at frame service."
+      "remaining": "Old/new selection and upward bitmap movement follow the live DC7051 raster line; exact silicon arbitration remains unresolved."
     },
     {
       "id": "raster.error-offsets",
@@ -170,11 +170,11 @@
     },
     {
       "id": "scroll.frame-service",
-      "title": "Frame-serviced vertical scroll/erase",
-      "encoding": "register 14 load, executed by frame event",
+      "title": "Raster-synchronous vertical scroll/erase",
+      "encoding": "register 14 load, started by frame event",
       "status": "partial",
       "required_level": "direct",
-      "remaining": "Queueing, exact edge masks, event phase, and status timing remain provisional."
+      "remaining": "Up-scroll is scanline-progressive; pause/scroll status phase and the two-event pause queue are covered. Multiple pending-command queueing and exact silicon arbitration remain provisional."
     }
   ]
 }

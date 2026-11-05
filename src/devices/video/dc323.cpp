@@ -5,7 +5,7 @@
     Digital Equipment Corporation DC323 Adder
 
     Models the Adder command engine, retained per-plane Viper state, bitmap
-    memory, processor transfers, and frame-serviced scrolling used by VT340.
+    memory, processor transfers, and raster-synchronous scrolling used by VT340.
     Cycle-exact memory arbitration and some Viper edge cases remain unresolved.
 
 ***************************************************************************/
@@ -187,7 +187,22 @@ void dc323_device::device_start()
 	save_item(NAME(m_viper_select));
 	save_item(NAME(m_status));
 	save_item(NAME(m_operational));
+	save_item(NAME(m_active_pause));
+	save_item(NAME(m_pause_events));
+	save_item(NAME(m_pause_fired));
 	save_item(NAME(m_scroll_pending));
+	save_item(NAME(m_scroll_active));
+	save_item(NAME(m_active_scroll));
+	save_item(NAME(m_active_scroll_x_min));
+	save_item(NAME(m_active_scroll_x_max));
+	save_item(NAME(m_active_scroll_y_min));
+	save_item(NAME(m_active_scroll_y_max));
+	save_item(NAME(m_active_scroll_y_offset));
+	save_item(NAME(m_active_scroll_line));
+	save_item(NAME(m_active_scroll_fill));
+	save_item(NAME(m_active_scroll_left));
+	save_item(NAME(m_active_scroll_right));
+	save_item(NAME(m_active_scroll_word_width));
 	save_item(NAME(m_index_phase_active));
 	save_item(NAME(m_pbt_read_active));
 	save_item(NAME(m_pbt_read_z_mode));
@@ -244,7 +259,22 @@ void dc323_device::device_reset()
 	m_viper_select = 0;
 	m_status = 0;
 	m_operational = false;
+	m_active_pause = 0;
+	m_pause_events = 0;
+	m_pause_fired = false;
 	m_scroll_pending = false;
+	m_scroll_active = false;
+	m_active_scroll = 0;
+	m_active_scroll_x_min = 0;
+	m_active_scroll_x_max = 0;
+	m_active_scroll_y_min = 0;
+	m_active_scroll_y_max = 0;
+	m_active_scroll_y_offset = 0;
+	m_active_scroll_line = 0;
+	m_active_scroll_fill.fill(0);
+	m_active_scroll_left.fill(0);
+	m_active_scroll_right.fill(0);
+	m_active_scroll_word_width.fill(0);
 	m_index_phase_active = false;
 	m_pbt_read_active = false;
 	m_pbt_read_z_mode = false;
@@ -365,6 +395,13 @@ void dc323_device::write(offs_t offset, u16 data)
 	{
 		u16 const old_status = m_status;
 		m_status &= data;
+		// Pause complete is a two-event queue, not a simple sticky bit.  A
+		// zero in bit zero acknowledges one queued raster crossing; the bit
+		// remains asserted until both crossings have been acknowledged.
+		if (!BIT(data, 0) && m_pause_events)
+			--m_pause_events;
+		if (m_pause_events)
+			m_status |= STATUS_PAUSE_COMPLETE;
 		DC323_LOGMASKED(LOG_INTERRUPTS, "%s %s: status clear data=%04X old=%04X new=%04X enable=%04X\n",
 			machine().time().to_string(), tag(), data, old_status, m_status, m_registers[REG_INTERRUPT_ENABLE]);
 		update_interrupt("status acknowledge");
@@ -515,24 +552,53 @@ void dc323_device::frame_event()
 		return;
 
 	u16 const old_status = m_status;
+	finish_scroll();
 	bool const was_pending = m_scroll_pending;
 	// At the frame boundary the indexes for the region already moved become
 	// the old indexes, and the scroll process's pending values become the new
-	// indexes.  Our scroll backend moves the complete region atomically at this
-	// same boundary, so subsequent update operations use the new pair.
+	// indexes.  Upward scrolling then moves bitmap rows behind screen refresh,
+	// allowing update rasters to select old/new indexes at the same boundary.
 	m_registers[REG_OLD_X_INDEX] = m_registers[REG_NEW_X_INDEX];
 	m_registers[REG_OLD_Y_INDEX] = m_registers[REG_NEW_Y_INDEX];
 	m_registers[REG_NEW_X_INDEX] = m_registers[REG_PENDING_X_INDEX];
 	m_registers[REG_NEW_Y_INDEX] = m_registers[REG_PENDING_Y_INDEX];
+	m_active_pause = m_registers[REG_PAUSE] & 0x07ff;
+	m_pause_fired = false;
 	m_index_phase_active = was_pending &&
 		((m_registers[REG_OLD_X_INDEX] != m_registers[REG_NEW_X_INDEX]) ||
 		 (m_registers[REG_OLD_Y_INDEX] != m_registers[REG_NEW_Y_INDEX]));
-	execute_scroll();
-	m_status |= STATUS_PAUSE_COMPLETE | STATUS_SCROLL_SERVICE;
+	begin_scroll();
+	m_status |= STATUS_SCROLL_SERVICE;
 	DC323_LOGMASKED(LOG_SCROLL, "%s %s: frame pending=%u->%u status=%04X->%04X enable=%04X\n",
 		machine().time().to_string(), tag(), was_pending, m_scroll_pending,
 		old_status, m_status, m_registers[REG_INTERRUPT_ENABLE]);
 	update_interrupt("vertical frame");
+}
+
+
+void dc323_device::scanline_event(u16 line)
+{
+	if (!m_operational)
+		return;
+
+	// The pause value is double buffered at the frame boundary.  Crossing the
+	// programmed device-coordinate scan queues one of up to two independently
+	// acknowledgeable pause events.
+	if (!m_pause_fired && (line == m_active_pause))
+	{
+		m_pause_fired = true;
+		m_pause_events = std::min<u8>(m_pause_events + 1, 2);
+		m_status |= STATUS_PAUSE_COMPLETE;
+		update_interrupt("pause raster");
+	}
+
+	if (!m_scroll_active)
+		return;
+	u16 const last_line = std::min<u16>(line, m_active_scroll_y_max - 1);
+	while (m_active_scroll_line <= last_line)
+		execute_scroll_line(m_active_scroll_line++);
+	if (m_active_scroll_line >= m_active_scroll_y_max)
+		m_scroll_active = false;
 }
 
 
@@ -1370,37 +1436,71 @@ std::pair<int, int> dc323_device::raster_index(int unindexed_y)
 }
 
 
-void dc323_device::execute_scroll()
+void dc323_device::begin_scroll()
 {
 	if (!m_scroll_pending)
 		return;
 	m_scroll_pending = false;
-
-	u16 const scroll = m_registers[REG_SCROLL_Y];
-	u16 const x_min = std::min<u16>(m_registers[REG_SCROLL_X_MIN] & 0x3ffc, BITMAP_WIDTH);
-	u16 const x_max = std::min<u16>(m_registers[REG_SCROLL_X_MAX] & 0x3ffc, BITMAP_WIDTH);
-	u16 const y_min = std::min<u16>(m_registers[REG_SCROLL_Y_MIN] & 0x1fff, BITMAP_HEIGHT);
-	u16 const y_max = std::min<u16>(m_registers[REG_SCROLL_Y_MAX] & 0x1fff, BITMAP_HEIGHT);
-	u16 const y_offset = m_registers[REG_SCROLL_Y_OFFSET] & 0x1fff;
-	bool const erase = BIT(scroll, 13);
-	u16 const distance = (y_min < y_max) ? std::min<u16>(scroll & 0x0fff, y_max - y_min) : 0;
-	DC323_LOGMASKED(LOG_SCROLL, "%s %s: execute command=%04X down=%u distance=%u erase=%u x=%u..%u y=%u..%u offset=%u pending=0 status=%04X enable=%04X\n",
-		machine().time().to_string(), tag(), scroll, BIT(scroll, 12), distance, erase,
-		x_min, x_max, y_min, y_max, y_offset, m_status, m_registers[REG_INTERRUPT_ENABLE]);
-	if ((x_min >= x_max) || (y_min >= y_max))
-		return;
-
+	m_active_scroll = m_registers[REG_SCROLL_Y];
+	m_active_scroll_x_min = std::min<u16>(m_registers[REG_SCROLL_X_MIN] & 0x3ffc, BITMAP_WIDTH);
+	m_active_scroll_x_max = std::min<u16>(m_registers[REG_SCROLL_X_MAX] & 0x3ffc, BITMAP_WIDTH);
+	m_active_scroll_y_min = std::min<u16>(m_registers[REG_SCROLL_Y_MIN] & 0x1fff, BITMAP_HEIGHT);
+	m_active_scroll_y_max = std::min<u16>(m_registers[REG_SCROLL_Y_MAX] & 0x1fff, BITMAP_HEIGHT);
+	m_active_scroll_y_offset = m_registers[REG_SCROLL_Y_OFFSET] & 0x1fff;
+	m_active_scroll_line = m_active_scroll_y_min;
 	for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
 	{
 		auto const &viper = m_viper_registers[plane];
-		u16 const fill = viper[VIPER_REG_FILL];
-		u16 const scroll_word_width = viper_bus_width(viper[VIPER_REG_BUS_WIDTH]);
-		u16 const left_word = x_min & ~(scroll_word_width - 1);
-		u16 const right_word = x_max & ~(scroll_word_width - 1);
-		u16 const operation_x_min = erase ? x_min : left_word;
-		u16 const operation_x_max = erase ? x_max : std::min<u16>(right_word + scroll_word_width, BITMAP_WIDTH);
-		u16 const left_mask = viper[VIPER_REG_SCROLL_LEFT];
-		u16 const right_mask = viper[VIPER_REG_SCROLL_RIGHT];
+		m_active_scroll_fill[plane] = viper[VIPER_REG_FILL];
+		m_active_scroll_left[plane] = viper[VIPER_REG_SCROLL_LEFT];
+		m_active_scroll_right[plane] = viper[VIPER_REG_SCROLL_RIGHT];
+		m_active_scroll_word_width[plane] = viper_bus_width(viper[VIPER_REG_BUS_WIDTH]);
+	}
+	u16 const distance = (m_active_scroll_y_min < m_active_scroll_y_max) ?
+		std::min<u16>(m_active_scroll & 0x0fff, m_active_scroll_y_max - m_active_scroll_y_min) : 0;
+	bool const erase = BIT(m_active_scroll, 13);
+	DC323_LOGMASKED(LOG_SCROLL, "%s %s: execute command=%04X down=%u distance=%u erase=%u x=%u..%u y=%u..%u offset=%u pending=0 status=%04X enable=%04X\n",
+		machine().time().to_string(), tag(), m_active_scroll, BIT(m_active_scroll, 12), distance, erase,
+		m_active_scroll_x_min, m_active_scroll_x_max, m_active_scroll_y_min,
+		m_active_scroll_y_max, m_active_scroll_y_offset, m_status, m_registers[REG_INTERRUPT_ENABLE]);
+	if ((m_active_scroll_x_min >= m_active_scroll_x_max) ||
+		(m_active_scroll_y_min >= m_active_scroll_y_max) || (!erase && !distance))
+		return;
+	m_scroll_active = true;
+	if (BIT(m_active_scroll, 12))
+	{
+		for (u16 device_y = m_active_scroll_y_max; device_y-- > m_active_scroll_y_min; )
+			execute_scroll_line(device_y);
+		m_scroll_active = false;
+	}
+}
+
+
+void dc323_device::finish_scroll()
+{
+	while (m_scroll_active && (m_active_scroll_line < m_active_scroll_y_max))
+		execute_scroll_line(m_active_scroll_line++);
+	m_scroll_active = false;
+}
+
+
+void dc323_device::execute_scroll_line(u16 device_y)
+{
+	bool const erase = BIT(m_active_scroll, 13);
+	bool const down = BIT(m_active_scroll, 12);
+	u16 const distance = std::min<u16>(m_active_scroll & 0x0fff,
+		m_active_scroll_y_max - m_active_scroll_y_min);
+
+	for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
+	{
+		u16 const scroll_word_width = m_active_scroll_word_width[plane];
+		u16 const left_word = m_active_scroll_x_min & ~(scroll_word_width - 1);
+		u16 const right_word = m_active_scroll_x_max & ~(scroll_word_width - 1);
+		u16 const operation_x_min = erase ? m_active_scroll_x_min : left_word;
+		u16 const operation_x_max = erase ? m_active_scroll_x_max :
+			std::min<u16>(right_word + scroll_word_width, BITMAP_WIDTH);
+		u16 const left_mask = m_active_scroll_left[plane];
+		u16 const right_mask = m_active_scroll_right[plane];
 		auto const scrolls_x = [erase, left_word, right_word, scroll_word_width, left_mask, right_mask](u16 x)
 		{
 			if (erase)
@@ -1413,43 +1513,17 @@ void dc323_device::execute_scroll()
 			return true;
 		};
 
-		auto const copy_row = [this, plane, operation_x_min, operation_x_max, y_offset, &scrolls_x](u16 destination_y, u16 source_y)
-		{
-			u16 const destination_bitmap_y = (destination_y + y_offset) & (BITMAP_HEIGHT - 1);
-			u16 const source_bitmap_y = (source_y + y_offset) & (BITMAP_HEIGHT - 1);
-			for (u16 x = operation_x_min; x < operation_x_max; x++)
-				if (scrolls_x(x))
-					m_bitmap_planes[bitmap_plane_address(plane, x, destination_bitmap_y)] =
-						m_bitmap_planes[bitmap_plane_address(plane, x, source_bitmap_y)];
-		};
-
-		auto const fill_row = [this, plane, operation_x_min, operation_x_max, y_offset, fill, &scrolls_x](u16 device_y)
-		{
-			u16 const bitmap_y = (device_y + y_offset) & (BITMAP_HEIGHT - 1);
-			for (u16 x = operation_x_min; x < operation_x_max; x++)
-				if (scrolls_x(x))
-					m_bitmap_planes[bitmap_plane_address(plane, x, bitmap_y)] = BIT(fill, x & 15);
-		};
-
-		if (erase)
-		{
-			for (u16 device_y = y_min; device_y < y_max; device_y++)
-				fill_row(device_y);
-		}
-		else if (distance && BIT(scroll, 12))
-		{
-			for (u16 device_y = y_max - distance; device_y-- > y_min; )
-				copy_row(device_y + distance, device_y);
-			for (u16 device_y = y_min; device_y < y_min + distance; device_y++)
-				fill_row(device_y);
-		}
-		else if (distance)
-		{
-			for (u16 device_y = y_min; device_y < y_max - distance; device_y++)
-				copy_row(device_y, device_y + distance);
-			for (u16 device_y = y_max - distance; device_y < y_max; device_y++)
-				fill_row(device_y);
-		}
+		u16 const destination_bitmap_y = (device_y + m_active_scroll_y_offset) & (BITMAP_HEIGHT - 1);
+		bool const fill = erase || (down ?
+			(device_y < m_active_scroll_y_min + distance) :
+			(device_y >= m_active_scroll_y_max - distance));
+		u16 const source_y = down ? device_y - distance : device_y + distance;
+		u16 const source_bitmap_y = (source_y + m_active_scroll_y_offset) & (BITMAP_HEIGHT - 1);
+		for (u16 x = operation_x_min; x < operation_x_max; x++)
+			if (scrolls_x(x))
+				m_bitmap_planes[bitmap_plane_address(plane, x, destination_bitmap_y)] = fill ?
+					BIT(m_active_scroll_fill[plane], x & 15) :
+					m_bitmap_planes[bitmap_plane_address(plane, x, source_bitmap_y)];
 	}
 }
 
