@@ -16,6 +16,7 @@ class dc7051_device : public device_t
 {
 public:
 	using frame_event_delegate = device_delegate<void ()>;
+	using scanline_event_delegate = device_delegate<void (u16)>;
 
 	static constexpr u32 DOT_CLOCK = 32'317'400;
 	static constexpr u32 HORIZONTAL_TOGGLE_RATE = 63'000;
@@ -31,6 +32,10 @@ public:
 	template <typename... T> void set_frame_event_callback(T &&... args)
 	{
 		m_frame_event_callback.set(std::forward<T>(args)...);
+	}
+	template <typename... T> void set_scanline_event_callback(T &&... args)
+	{
+		m_scanline_event_callback.set(std::forward<T>(args)...);
 	}
 
 	u8 low_r(offs_t offset) const { return m_low[offset & 0x0f] & 0x0f; }
@@ -57,11 +62,14 @@ protected:
 
 private:
 	TIMER_CALLBACK_MEMBER(horizontal_tick);
+	TIMER_CALLBACK_MEMBER(scanline_tick);
 	TIMER_CALLBACK_MEMBER(frame_tick);
 
 	devcb_write_line m_hsync_handler;
 	frame_event_delegate m_frame_event_callback;
+	scanline_event_delegate m_scanline_event_callback;
 	emu_timer *m_horizontal_timer = nullptr;
+	emu_timer *m_scanline_timer = nullptr;
 	emu_timer *m_frame_timer = nullptr;
 	std::array<u8, 16> m_low{};
 	std::array<u8, 16> m_high{};

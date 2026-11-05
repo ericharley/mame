@@ -179,11 +179,36 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 		"zero command aborts transfer into completed idle state");
 
 	reg_w(dc323_device::REG_INTERRUPT_ENABLE, 0x0003);
+	reg_w(dc323_device::REG_PAUSE, 12);
 	m_dc323->frame_event();
-	require((m_dc323->status_r() & 0x0003) == 0x0003, "frame status generation");
+	require((m_dc323->status_r() & 0x0003) == dc323_device::STATUS_SCROLL_SERVICE,
+		"frame boundary generates scroll service independently of pause");
 	require(m_irq, "enabled frame status asserts IRQ");
 	reg_w(dc323_device::REG_STATUS, 0x0000);
 	require(m_dc323->status_r() == 0 && !m_irq, "status acknowledgement clears IRQ");
+	m_dc323->scanline_event(11);
+	require((m_dc323->status_r() & dc323_device::STATUS_PAUSE_COMPLETE) == 0,
+		"pause remains clear before programmed raster");
+	m_dc323->scanline_event(13);
+	require((m_dc323->status_r() & dc323_device::STATUS_PAUSE_COMPLETE) == 0,
+		"pause requires an exact device-coordinate match");
+	m_dc323->scanline_event(12);
+	require((m_dc323->status_r() & dc323_device::STATUS_PAUSE_COMPLETE) && m_irq,
+		"programmed raster generates pause event");
+	reg_w(dc323_device::REG_STATUS, 0x0000);
+
+	// The physical status stores two pause crossings.  One acknowledgement
+	// must leave the bit asserted when two frames crossed before service.
+	m_dc323->frame_event();
+	m_dc323->scanline_event(12);
+	m_dc323->frame_event();
+	m_dc323->scanline_event(12);
+	reg_w(dc323_device::REG_STATUS, 0x0000);
+	require(m_dc323->status_r() & dc323_device::STATUS_PAUSE_COMPLETE,
+		"first acknowledgement preserves second queued pause");
+	reg_w(dc323_device::REG_STATUS, 0x0000);
+	require((m_dc323->status_r() & dc323_device::STATUS_PAUSE_COMPLETE) == 0,
+		"second acknowledgement drains pause queue");
 	m_dc323->viper_select_w(0x0f);
 	viper_w(0x0e, 0x0000);
 	viper_w(0x0f, 0xffff);
@@ -1206,6 +1231,7 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	expect_pixel(0, 10, true, "scroll deferred until frame");
 	m_dc323->frame_event();
 	require(!m_dc323->scroll_pending(), "scroll consumed at frame");
+	m_dc323->scanline_event(12);
 	expect_pixel(0, 10, false, "up scroll first row");
 	expect_pixel(0, 11, true, "up scroll copied row");
 	expect_pixel(0, 12, false, "up scroll fill row");
@@ -1224,6 +1250,7 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	reg_w(dc323_device::REG_SCROLL_Y_MAX, 42);
 	reg_w(dc323_device::REG_SCROLL_Y, 1);
 	m_dc323->frame_event();
+	m_dc323->scanline_event(41);
 	expect_pixel(0, 40, true, "left scroll mask preservation");
 	expect_pixel(1, 40, true, "left scroll edge preservation");
 	expect_pixel(2, 40, false, "unaligned scroll first pixel");
@@ -1252,6 +1279,7 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	reg_w(dc323_device::REG_STATUS, 0x0000);
 	reg_w(dc323_device::REG_SCROLL_Y, 0x0fff);
 	m_dc323->frame_event();
+	m_dc323->scanline_event(22);
 	for (unsigned y = 20; y < 23; y++)
 		expect_pixel(0, y, false, "saturated scroll fills region");
 	reg_w(dc323_device::REG_STATUS, 0x0000);
@@ -1263,6 +1291,7 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	reg_w(dc323_device::REG_SCROLL_Y_MAX, 140);
 	reg_w(dc323_device::REG_SCROLL_Y, 20);
 	m_dc323->frame_event();
+	m_dc323->scanline_event(139);
 	expect_pixel(0, 100, true, "character-height scroll copy");
 	expect_pixel(0, 120, false, "character-height scroll fill");
 	reg_w(dc323_device::REG_STATUS, 0x0000);
@@ -1272,6 +1301,7 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	viper_w(0x0b, 0xffff);
 	reg_w(dc323_device::REG_SCROLL_Y, 0x2000);
 	m_dc323->frame_event();
+	m_dc323->scanline_event(22);
 	for (unsigned y = 20; y < 23; y++)
 		expect_pixel(0, y, true, "erase mode fill");
 	reg_w(dc323_device::REG_STATUS, 0x0000);
@@ -1286,6 +1316,7 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	reg_w(dc323_device::REG_SCROLL_Y_OFFSET, 2047);
 	reg_w(dc323_device::REG_SCROLL_Y, 1);
 	m_dc323->frame_event();
+	m_dc323->scanline_event(1);
 	expect_pixel(0, 2047, true, "Y-offset wrapped source row");
 	expect_pixel(0, 0, false, "Y-offset wrapped fill row");
 	reg_w(dc323_device::REG_STATUS, 0x0000);
@@ -1298,6 +1329,7 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	reg_w(dc323_device::REG_SCROLL_Y, 1);
 	reg_w(dc323_device::REG_SCROLL_Y, 2);
 	m_dc323->frame_event();
+	m_dc323->scanline_event(33);
 	expect_pixel(0, 30, false, "repeated scroll uses last distance row zero");
 	expect_pixel(0, 31, false, "repeated scroll uses last distance row one");
 	reg_w(dc323_device::REG_STATUS, 0x0000);

@@ -19,6 +19,9 @@ vt340-research/tests/run.py run core
 vt340-research/tests/run.py run graphics serial
 vt340-research/tests/run.py run conformance
 vt340-research/tests/run.py run dc323-device graphics-raster-commands
+
+# Verify native normal/bold/underline/reverse/blink rendering and palette routing.
+vt340-research/tests/run.py run text-attributes
 vt340-research/tests/run.py run dc323-command-coverage
 
 # Use another targeted executable or result location.

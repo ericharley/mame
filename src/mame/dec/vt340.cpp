@@ -954,6 +954,7 @@ void vt340_state::vt340(machine_config &config)
 	DC7051(config, m_dc7051, XTAL(dc7051_device::DOT_CLOCK));
 	m_dc7051->hsync_handler().set_inputline(m_cpu2, MCS51_T0_LINE);
 	m_dc7051->set_frame_event_callback("dc323", FUNC(dc323_device::frame_event));
+	m_dc7051->set_scanline_event_callback("dc323", FUNC(dc323_device::scanline_event));
 	m_dc323->raster_line_handler().set(m_dc7051, FUNC(dc7051_device::raster_line_r));
 	// Y1 clocks the DC7051.  Its 32.3174 MHz rate divided by the programmed
 	// 1026 clocks and 526 lines gives the measured 31.5 kHz / 59.89 Hz raster.

@@ -35,10 +35,11 @@ scroll_trace = xdata:install_write_tap(
 			viper[value & 0x1f] = registers[0x07] or 0
 		elseif register == 0x14 and manager.machine.time:as_double() >= 125 then
 			print(string.format(
-				'SCROLL_JSON {"time":%.9f,"pc":"%04X","x":[%d,%d],"y":[%d,%d],"y_offset":%d,"constant":"%04X","distance":%d,"down":%s,"erase":%s,"viper_constant":"%04X","fill":"%04X","left_mask":"%04X","right_mask":"%04X","indexes":["%04X","%04X","%04X","%04X","%04X","%04X"]}',
+				'SCROLL_JSON {"time":%.9f,"pc":"%04X","x":[%d,%d],"y":[%d,%d],"pause":%d,"y_offset":%d,"constant":"%04X","distance":%d,"down":%s,"erase":%s,"viper_constant":"%04X","fill":"%04X","left_mask":"%04X","right_mask":"%04X","indexes":["%04X","%04X","%04X","%04X","%04X","%04X"]}',
 				manager.machine.time:as_double(), cpu2.state["PC"].value,
 				(registers[0x0e] or 0) & 0x3fff, (registers[0x0f] or 0) & 0x3fff,
 				(registers[0x10] or 0) & 0x1fff, (registers[0x11] or 0) & 0x1fff,
+				(registers[0x12] or 0) & 0x07ff,
 				(registers[0x13] or 0) & 0x1fff, value,
 				value & 0x0fff,
 				(value & 0x1000) ~= 0 and "true" or "false",

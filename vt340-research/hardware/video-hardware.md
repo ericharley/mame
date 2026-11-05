@@ -268,9 +268,31 @@ requests and leaves lines 18 through 40 visible in order while preserving the
 status row. `../traces/scroll-command-trace.lua` records the register sequence
 and captures before/after screenshots without modifying emulated state.
 
+DEC smooth-scroll mode uses the same region but submits `0002`, moving two
+scanlines per frame. The firmware also programs pause register `12` to device
+coordinate 500. Dragon specifies that Scroll Service occurs at frame start,
+while Pause Complete occurs only when refresh reaches that separately buffered
+coordinate. The device therefore moves upward-scroll rows progressively behind
+the exact DC7051 raster and releases the firmware redraw at line 500. A
+100-line `DECSET 4` run remains intact both during motion (lines 036-059) and
+after completion (lines 078-100), including the formerly stuck left edge.
+
 Direct framebuffer hashes also show that the success panel and copyright
 bitmap persist unchanged from 130 through 300 seconds; intermittent blank
 snapshots are in the presentation path, not the bitmap raster engine.
+
+## Text attributes and intensity routing
+
+The native firmware renders ordinary glyph pixels with Viper plane index 14
+and SGR 1 bold pixels with index 15. Board bit-significance reversal maps these
+to output-map entries 7 and 15. The default terminal configuration programs
+both entries to `RGB FFF`, so bold is logically distinct but has the same
+visible white color until the palette is customized; the DC323 does
+not synthesize a thicker glyph. SGR 22/0 restores index 14 exactly.
+
+The `text-attributes` regression also verifies underline baseline expansion,
+reverse-video cell fill, and both native blink phases. Blink alternates between
+the ordinary and reverse cell forms rather than deleting the glyph bitmap.
 
 ## SIXEL integration workload
 
