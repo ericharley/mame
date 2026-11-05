@@ -125,6 +125,16 @@ int dc7051_device::diagnostic_vsync_r() const
 }
 
 
+u16 dc7051_device::raster_line_r() const
+{
+	if (!m_frame_timer)
+		return 0;
+	u64 const remaining = std::min<u64>(m_frame_timer->remaining().as_ticks(clock()), FRAME_CLOCKS);
+	u64 const phase = (FRAME_CLOCKS - remaining) % FRAME_CLOCKS;
+	return u16(phase / HORIZONTAL_TOTAL);
+}
+
+
 TIMER_CALLBACK_MEMBER(dc7051_device::horizontal_tick)
 {
 	bool const old = m_hsync_asserted;

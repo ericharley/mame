@@ -42,6 +42,7 @@ public:
 	// test multiplexer.  This preserves the established POST waveform pending
 	// decoding of the physical DC7051 output and mux input.
 	int diagnostic_vsync_r() const;
+	u16 raster_line_r() const;
 
 	bool hsync_asserted() const { return m_hsync_asserted; }
 	u64 horizontal_transitions() const { return m_horizontal_transitions; }

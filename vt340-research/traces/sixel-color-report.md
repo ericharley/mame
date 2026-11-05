@@ -64,15 +64,19 @@ commands over the normal DC323 four-plane path. The successful full run read
 all 93,198 bytes with zero mismatches, processed 901 XOFF and 901 XON bytes,
 and originally exposed the four-index collapse caused by the incorrect Viper
 select decode. With the schematic-correct latch mapping, the first 4,096-byte
-window exercises and leaves nonzero pixels in all 16 framebuffer indices. A
-complete post-fix run passes the PTY acceptance test and renders Bill with the
-full set of available shades (several palette entries intentionally quantize
-to the same 12-bit RGB value).
+window leaves nonzero image pixels in 15 framebuffer indices. An earlier
+capture appeared to cover index 8 as well, but its exact 200-pixel contribution
+was the independently blinking 10x20 text cursor, not SIXEL image data. The
+firmware-free `dc323-device` regression remains the exhaustive check of all 16
+index values. A complete post-fix run passes the PTY acceptance test and
+renders Bill with the full set of shades used by the image (several palette
+entries intentionally quantize to the same 12-bit RGB value).
 
 `sixel-color-indices.sh` fixes the input at the first 4,096 bytes and requires
-all 16 framebuffer-index counts to be nonzero. This is the focused regression
-for the Viper-select wiring; the complete Bill run remains the sustained-
-stream integration workload.
+at least 15 framebuffer-index counts to be nonzero. This is the focused native-
+firmware regression for the Viper-select wiring without treating cursor blink
+phase as image coverage; the complete Bill run remains the sustained-stream
+integration workload.
 
 ## Remaining issue
 

@@ -69,18 +69,19 @@
         {"family": "raster.normal-constant", "level": "direct", "scope": "Checks constant fills, masks, clipping, signed vectors, scaling, and Bresenham pixels."},
         {"family": "raster.normal-bitmap", "level": "direct", "scope": "Checks bitmap copies, overlap behavior, and 1:20 Set-Up restoration scaling."},
         {"family": "raster.normal-hole-fill", "level": "direct", "scope": "Compares rotated broad vectors with hole filling off and on at exact interior pixels."},
-        {"family": "raster.normal-indexed", "level": "direct", "scope": "Checks independent source and destination indexing, signed offsets, and pending/new/old frame rollover."},
+        {"family": "raster.normal-indexed", "level": "direct", "scope": "Checks source/destination indexing, signed offsets, frame rollover, and old/new selection above and below the live raster boundary."},
         {"family": "raster.error-offsets", "level": "direct", "scope": "Checks signed ERR1/ERR2 shifts on destination fast and slow vectors and independent fill edges A and B."},
         {"family": "raster.source2", "level": "direct", "scope": "Checks source-2 copies, indexing independence, tiling, patterned fills, dual-source internal routing through both CSR banks, cross-plane I/D-bus broadcast, and linear-pattern routing."},
         {"family": "raster.destination-disabled", "level": "direct", "scope": "Verifies an operation-2 command with destination disabled leaves the target unchanged."},
         {"family": "raster.reserved-mode", "level": "direct", "scope": "Verifies X-control mode 01 produces no drawing."},
-        {"family": "raster.linear-source1", "level": "direct", "scope": "Checks a rotated repeated bitmap pattern plus indexed source and destination origins at exact pixels."},
+        {"family": "raster.linear-source1", "level": "direct", "scope": "Checks rotation, fast up/down scaling, retained slow position and fractional phase, pen-up advancement, origin reset, and raster-phase indexing."},
         {"family": "raster.linear-constant", "level": "direct", "scope": "Verifies the undocumented source-free linear-pattern encoding does not invent visible output."},
         {"family": "raster.fill-two-edge", "level": "direct", "scope": "Checks X-fill and Y-fill interiors, exteriors, and excluded endpoints."},
         {"family": "raster.fill-baseline", "level": "direct", "scope": "Checks sloped X and Y edges against fixed baselines."},
-        {"family": "raster.fill-chained", "level": "direct", "scope": "Checks two-command X/Y diamonds and explicit origin restart."},
-        {"family": "transfer.bitmap-to-processor-x", "level": "direct", "scope": "Checks selected-plane packing, I/D readback, and completion status."},
-        {"family": "transfer.processor-to-bitmap-x", "level": "direct", "scope": "Checks aligned and unaligned writes, masks, CSR routing, and completion status."},
+        {"family": "raster.fill-chained", "level": "direct", "scope": "Checks X/Y diamonds, explicit restart, unequal edge expiration with one-sided reload, and scan reversal after crossing."},
+        {"family": "transfer.bitmap-to-processor-x", "level": "direct", "scope": "Checks selected-plane packing, six-entry FIFO prefetch/drain, I/D readback, and completion status."},
+        {"family": "transfer.processor-to-bitmap-x", "level": "direct", "scope": "Checks aligned/unaligned writes, masks, CSR routing, six-word back-pressure, cancel, and asynchronous status."},
+        {"family": "transfer.z-mode", "level": "direct", "scope": "Checks plane-addressed PTB unpacking and BTP packing for two adjacent pixels in a Z block."},
         {"family": "scroll.frame-service", "level": "direct", "scope": "Checks deferred up/down scroll, erase, edge masks, offsets, and pending-command replacement."}
       ],
       "outputs": ["source2-tiled-polygon-fill.png", "source2-untiled-baseline-fill.png"]
@@ -246,7 +247,7 @@
     {
       "id": "sixel-color-indices",
       "script": "sixel-color-indices.sh",
-      "title": "All sixteen native SIXEL framebuffer indices",
+      "title": "Native color SIXEL framebuffer routing",
       "kind": "atomic",
       "suites": ["graphics"],
       "estimated_seconds": 70,
@@ -254,8 +255,8 @@
       "requires": ["jq", "rg", "python3"],
       "fixtures": ["fixtures/bill-the-cat.six", "fixtures/bill-the-cat-16colors.png"],
       "dc323_commands": [
-        {"family": "transfer.processor-to-bitmap-x", "level": "integration", "scope": "Requires native SIXEL staging to produce all sixteen framebuffer indices."},
-        {"family": "raster.linear-source1", "level": "integration", "scope": "Requires staged SIXEL patterns to reach the visible bitmap with all sixteen indices."}
+        {"family": "transfer.processor-to-bitmap-x", "level": "integration", "scope": "Requires native SIXEL staging to produce the 15 framebuffer indices painted by the fixture prefix; exhaustive 0-15 routing is direct-tested."},
+        {"family": "raster.linear-source1", "level": "integration", "scope": "Requires staged SIXEL patterns to reach the visible bitmap through all 15 image-used indices."}
       ],
       "outputs": ["mame.log", "events.jsonl", "sixel-color-indices.png"]
     },

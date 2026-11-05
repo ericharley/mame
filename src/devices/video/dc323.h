@@ -79,6 +79,7 @@ public:
 	dc323_device(machine_config const &mconfig, char const *tag, device_t *owner, u32 clock);
 
 	auto irq_handler() { return m_irq_handler.bind(); }
+	auto raster_line_handler() { return m_raster_line_handler.bind(); }
 	void set_chargen_tag(char const *tag) { m_chargen_rom.set_tag(tag); }
 	void set_bitmap_tag(char const *tag) { m_bitmap_planes.set_tag(tag); }
 
@@ -127,6 +128,13 @@ private:
 
 	u8 id_data_r();
 	void id_data_w(u16 data);
+	u16 pbt_read_word(u32 index);
+	void pbt_write_word(u32 index, u16 data);
+	void fifo_clear();
+	bool fifo_push(u16 data);
+	u16 fifo_pop();
+	void update_fifo_status();
+	void schedule_pbt_service();
 	void command_w(u16 command);
 	void execute_rasterop(u16 command);
 	void execute_linear_pattern(u16 command);
@@ -135,11 +143,16 @@ private:
 	void route_source_cycle(unsigned csr, unsigned destination_x, std::array<bool, BITMAP_PLANES> const &source_bits);
 	void load_viper_bit(unsigned plane, unsigned target, unsigned word_bit, bool data);
 	void write_viper_pixel(unsigned plane, unsigned x, unsigned y, u16 command, bool source_bit);
+	std::pair<int, int> raster_index(int unindexed_y);
 	void update_interrupt(char const *event);
+	TIMER_CALLBACK_MEMBER(command_initialize_tick);
+	TIMER_CALLBACK_MEMBER(command_complete_tick);
+	TIMER_CALLBACK_MEMBER(pbt_service_tick);
 
 	required_region_ptr<u8> m_chargen_rom;
 	memory_share_creator<u8> m_bitmap_planes;
 	devcb_write_line m_irq_handler;
+	devcb_read16 m_raster_line_handler;
 
 	std::array<u16, 0x40> m_registers{};
 	std::array<std::array<u16, 0x20>, BITMAP_PLANES> m_viper_registers{};
@@ -147,24 +160,53 @@ private:
 	u16 m_status = 0;
 	bool m_operational = false;
 	bool m_scroll_pending = false;
+	bool m_index_phase_active = false;
 	bool m_pbt_read_active = false;
+	bool m_pbt_read_z_mode = false;
 	u16 m_pbt_read_command = 0;
 	u32 m_pbt_read_index = 0;
 	u32 m_pbt_read_count = 0;
 	bool m_pbt_write_active = false;
+	bool m_pbt_write_z_mode = false;
 	u16 m_pbt_write_command = 0;
 	u16 m_pbt_write_bus_width = 0;
 	u16 m_pbt_write_words_per_row = 0;
 	u32 m_pbt_write_index = 0;
+	u32 m_pbt_write_accepted = 0;
 	u32 m_pbt_write_count = 0;
+	std::array<u16, 6> m_id_fifo{};
+	u8 m_id_fifo_head = 0;
+	u8 m_id_fifo_tail = 0;
+	u8 m_id_fifo_count = 0;
+	emu_timer *m_command_initialize_timer = nullptr;
+	emu_timer *m_command_complete_timer = nullptr;
+	emu_timer *m_pbt_service_timer = nullptr;
 	u8 m_diagnostic_data = 0;
 	bool m_raster_diagnostic = false;
 	bool m_video_operational = false;
+	u16 m_linear_pattern_slow_position = 0;
+	u16 m_linear_pattern_slow_accumulator = 0;
 	bool m_fill_position_valid = false;
 	s32 m_fill_a_x = 0;
 	s32 m_fill_a_y = 0;
 	s32 m_fill_b_x = 0;
 	s32 m_fill_b_y = 0;
+	bool m_fill_a_vector_valid = false;
+	bool m_fill_b_vector_valid = false;
+	bool m_fill_a_vector_dirty = false;
+	bool m_fill_b_vector_dirty = false;
+	s32 m_fill_a_origin_x = 0;
+	s32 m_fill_a_origin_y = 0;
+	s32 m_fill_b_origin_x = 0;
+	s32 m_fill_b_origin_y = 0;
+	s32 m_fill_a_dx = 0;
+	s32 m_fill_a_dy = 0;
+	s32 m_fill_b_dx = 0;
+	s32 m_fill_b_dy = 0;
+	s32 m_fill_a_error = 0;
+	s32 m_fill_b_error = 0;
+	u32 m_fill_a_progress = 0;
+	u32 m_fill_b_progress = 0;
 	bool m_irq_state = false;
 	u32 m_log_events = 0;
 };
