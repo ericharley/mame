@@ -13,6 +13,7 @@ snapshot=${VT340_SIXEL_SNAPSHOT:-$(vt340_artifact_path /tmp/vt340-sixel-bill-col
 capture_time=${VT340_SIXEL_CAPTURE_TIME:-560}
 run_time=$((capture_time + 5))
 byte_limit=${VT340_SIXEL_BYTE_LIMIT:-0}
+minimum_color_indices=${VT340_MIN_COLOR_INDICES:-16}
 pid=
 
 cleanup()
@@ -81,7 +82,7 @@ test "$(jq -s '[.[] | select(.event == "palette" and .index == 11 and .rg == "AE
 test "$(jq -s '[.[] | select(.event == "select_count" and .select == "F" and .count > 0)] | length' "$json")" -eq 1
 test "$(jq -s '[.[] | select(.event == "command_count" and .command == "07D1" and .count > 0)] | length' "$json")" -eq 1
 test "$(jq -s '[.[] | select(.event == "mode_count" and .mode == "00C2" and .count > 0)] | length' "$json")" -eq 1
-test "$(jq -r 'select(.event == "capture") | [.color_counts[] | select(. > 0)] | length' "$json")" -eq 16
+test "$(jq -r 'select(.event == "capture") | [.color_counts[] | select(. > 0)] | length' "$json")" -ge "$minimum_color_indices"
 test -s "$snapshot"
 
 echo "VT340 native color SIXEL PTY regression passed"

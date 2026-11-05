@@ -11,10 +11,10 @@ and normal scrolling.
 
 It is not yet a complete hardware model. The current implementation combines
 DC323 Adder sequencing, four DC322 Viper datapaths, and one VT340-specific
-display-policy heuristic. Command execution is synchronous, some status
-semantics remain provisional, and several raster modes are deliberately
-unsupported. This plan identifies the smallest correctness fixes and the
-evidence required before expanding the graphics engine.
+display-policy heuristic. Command status and PBT FIFO service are now
+asynchronous, but exact memory-arbitration timing, several complement/hole-fill
+cases, and low-resolution Viper behavior remain provisional. This plan records
+the remaining evidence boundaries after the functional expansion.
 
 ## Current implementation assessment
 
@@ -40,13 +40,11 @@ evidence required before expanding the graphics engine.
 Passing the existing regression proves extraction compatibility. It does not
 establish that every retained behavior matches DC323/DC322 silicon.
 
-## Confirmed implementation defect: incomplete IRQ recomputation
+## Resolved implementation defect: incomplete IRQ recomputation
 
-The device does not recompute its interrupt output after every status change.
-In particular, starting a bitmap-to-processor transfer clears command status,
-sets transfer status, and may assert I/D Data Ready without calling
-`update_interrupt()`. Interrupt state is updated only on a later event, such
-as the final I/D read.
+FIFO occupancy changes, timer-driven initialization/completion, transfer
+completion, acknowledgement, and frame service now recompute the interrupt
+output. The invariant remains:
 
 This can leave the electrical IRQ output inconsistent with the device's own
 invariant:
@@ -55,9 +53,10 @@ invariant:
 IRQ = operational AND ((status AND interrupt_enable) != 0)
 ```
 
-### Required correction
+### Implemented correction
 
-Introduce narrow status helpers that always recompute IRQ, for example:
+FIFO helpers and timer callbacks update status and immediately recompute IRQ.
+A later cleanup may still centralize every mutation behind helpers such as:
 
 - `set_status(mask, reason)`;
 - `clear_status(mask, reason)`; and
@@ -68,7 +67,7 @@ frame status, status acknowledgement, reset/operational transitions, and any
 future asynchronous event. Avoid exposing mutable status to individual
 command paths.
 
-### Required focused tests
+### Remaining focused tests
 
 1. Enable I/D Data Ready, start a nonempty PBT, and verify immediate IRQ.
 2. Consume all but the final byte and verify Data Ready remains asserted.
@@ -97,16 +96,14 @@ These questions must be answered in conjunction with the DC7051 raster-phase
 work. Changing status generation before establishing the real event ordering
 could reintroduce CPU2 interrupt starvation.
 
-### Command completion has no elapsed time
+### Command timing is functional but not cycle-exact
 
-Raster operations execute inside the command-register write. Initialization,
-raster completion, and address completion are therefore effectively
-simultaneous. No busy state, queued command, FIFO depth, or operation overlap
-is represented.
-
-The standalone device is presently configured without an input clock. Do not
-add an arbitrary delay. First establish from the schematics and Dragon
-documentation:
+Raster pixels are committed functionally during dispatch, but Initialization
+Complete and Rasterop/Address Complete now arrive on separate four/eight
+microsecond timers. PBT data crosses a six-entry FIFO with one-word asynchronous
+service and visible receive/transmit back-pressure. No command queue is
+invented. The standalone device remains configured without an input clock, so
+the following still require schematic/trace evidence:
 
 - the physical Adder clock;
 - initialization and per-pixel/per-word costs;
@@ -114,8 +111,8 @@ documentation:
 - when each completion bit changes; and
 - what happens when firmware writes a command while work is active.
 
-Once established, use device timers or a small command state machine and test
-observable status transitions at intermediate times.
+Once established, replace the bounded functional intervals with the resolved
+clock and arbitration costs while preserving the tested intermediate states.
 
 ### VT340 display policy leaks into the device
 
@@ -180,11 +177,11 @@ matrix describes the behavior in `dc323.cpp` as of this checkpoint:
 | Operation 2 with source 2 enabled (`S2E`, command bit 12) | Partial | Source-2-only offset/tiled addressing and patterned fills execute; dual-source normal and linear commands route both reads through the selected Viper CSR bank, including external I/D-bus loads. Exact word pipeline and delay-register timing remain |
 | Operation 2 with destination disabled | No drawing | Currently rejected; observed instances have been diagnostic forms rather than proven missing visible work |
 | X-control mode `01` | Reserved | No drawing behavior should be inferred without contrary hardware evidence |
-| Linear-pattern mode (`X-control[1:0] = 10`) with source 1 | Partial | Repeats a bitmap pattern using signed source/destination vectors |
+| Linear-pattern mode (`X-control[1:0] = 10`) with source 1 | Implemented | Applies independent fast/slow scaling, wraps the programmed pattern, retains slow position and fractional phase across destination commands, advances under pen-up, and resets on Source 1 origin loads |
 | Linear-pattern mode without source 1 | Illegal/no drawing | Dragon defines the mode around source 1 and warns that unlisted command combinations are undefined; no constant-pattern behavior is invented |
-| Fill mode (`X-control[1:0] = 11`) | Partial | Basic and baseline X/Y fills execute; equal-duration paired edges chain from retained endpoints, while independent vector expiration and crossing edges remain |
-| Operation 3, source 1 enabled and destination disabled | Partial | X-mode bitmap-to-processor transfer works; exact FIFO/timing and Z mode are missing |
-| Operation 3, source 1 disabled and destination enabled | Partial | X-mode processor-to-bitmap transfer works; exact FIFO/timing and Z mode are missing |
+| Fill mode (`X-control[1:0] = 11`) | Partial | Basic/baseline X/Y fills, unequal edge continuation, one-sided reload, and crossing reversal execute; complement-mode vertex-doubling correction remains |
+| Operation 3, source 1 enabled and destination disabled | Partial | X- and Z-mode bitmap-to-processor transfers use six-word FIFO prefetch/drain; exact memory arbitration and low-resolution Z subplanes remain |
+| Operation 3, source 1 disabled and destination enabled | Partial | X- and Z-mode processor-to-bitmap transfers use FIFO back-pressure and asynchronous service; exact memory arbitration and low-resolution Z subplanes remain |
 | Other operation-3 source/destination combinations | Unsupported | Ignored unless evidence establishes a defined transfer form |
 
 Some accepted commands still have incomplete semantics:
@@ -193,35 +190,37 @@ Some accepted commands still have incomplete semantics:
   Destination-only/constant-source broad parallelograms repair holes between
   occupied scanline endpoints; source-coupled hole pixels and exact silicon
   edge cases remain unresolved.
-- Normal and linear-pattern commands independently apply the signed new X/Y
-  indexes to enabled source and destination origins. Frame service promotes
-  new values to old and pending values to new. The synchronous, atomic scroll
-  model does not yet select old versus new indexes by physical raster phase.
+- Normal and linear-pattern commands select old/new index pairs independently
+  for each enabled source and destination address using the live DC7051 raster
+  line. Frame service promotes new values to old and pending values to new;
+  the backing bitmap scroll remains atomic rather than scanline-progressive.
 - Programmable signed Bresenham error offsets now initialize destination fast
   and slow vectors and fill edges B and A, respectively. Extreme overflow
   behavior has not been compared with physical silicon.
 - Overlapping bitmap copies always traverse top-to-bottom and left-to-right,
   which may not match command-controlled hardware scan direction.
-- PTB/PBT completion is functional but synchronous and does not reproduce the
-  documented six-entry I/D FIFO occupancy or intermediate busy states.
+- PTB/PBT data uses the documented six-entry I/D FIFO with receive/transmit
+  ready transitions and asynchronous one-word service. Command initialization
+  and completion are timer-driven; exact contention-dependent cycle counts
+  remain provisional.
 
 #### Raster implementation priority
 
 Use firmware provenance and visible/read-back effects to choose work, in this
 order unless a trace establishes a different dependency:
 
-1. **Complete fill and hole-fill behavior.** Extend the verified paired-edge
-   vector strings to independent edge expiration, source-coupled hole pixels,
-   crossing edges, and complement-mode corrections only as firmware traces
+1. **Complete fill and hole-fill behavior.** Unequal/crossing chained edges are
+   now retained independently. Continue with source-coupled hole pixels and
+   complement-mode vertex-doubling corrections only as firmware traces
    constrain them. The
    current ReGIS `F(V...)` probe uses normal spans and does not validate DC323
    fill mode.
-2. **Raster-phase index selection.** This affects updates made while a
-   physical scroll is partway through the frame; the documented programmable
-   raster error offsets are now implemented independently of that timing work.
-3. **Complete linear-pattern semantics.** Add full scaling and retained phase
-   behavior after identifying firmware paths that constrain them; do not
-   invent behavior for the documented-illegal source-free encoding.
+2. **Raster/scroll phase coupling.** Old/new index selection now follows the
+   DC7051 raster boundary. Replace the remaining atomic bitmap move only when
+   a scanline-progressive scroll test can constrain intermediate memory state.
+3. **Linear-pattern silicon comparison.** Scaling, retained slow phase,
+   pen-up advancement, and origin reset are implemented. Compare only exact
+   sampling artifacts; do not invent behavior for the illegal source-free form.
 4. **Complete source 2 timing.** Dual-source commands now perform the two
    documented Viper source cycles through either CSR bank, including local
    Source/Mask loads and cross-plane I/D-bus broadcast. Reconstruct the exact
@@ -229,8 +228,9 @@ order unless a trace establishes a different dependency:
    only when firmware or hardware evidence constrains them. Source-2-only
    patterned polygon fills use the same offset/tile addressing as normal mode.
    The historical cold boot contained no destination-enabled source-2 commands.
-5. **Z-mode transfers and exact FIFO/timing.** Treat functional transfer
-   expansion separately from the later asynchronous command-timing work.
+5. **Transfer timing refinement.** X/Z transfers and the six-entry FIFO are
+   functional and asynchronous. Refine memory-arbitration-dependent cadence,
+   low-resolution Z subplanes, and the inaccessible upper I/D byte separately.
 
 For each item, use `traces/dc323-command-provenance.lua` to record the emitting
 PC, active descriptor handler, return stack, raw command, and X-control value.
@@ -309,12 +309,12 @@ first incorrect or missing event before changing frame-status semantics.
 Implement post-load callback restoration and add a real save/load lifecycle
 test. Keep this separate from timing changes so failures have a single cause.
 
-### Stage 5: reconstruct command timing
+### Stage 5: reconstruct command timing — functional stage complete
 
-Inventory firmware polling and interrupt behavior for representative command
-sizes. Establish the clock and documented pipeline, then implement the
-smallest asynchronous state machine that distinguishes initialization,
-raster completion, address completion, and I/D readiness.
+The device now distinguishes initialization, raster completion, address
+completion, receive readiness, and transmit readiness, with a six-entry FIFO.
+Inventory representative command sizes and establish the physical clock before
+replacing the bounded timer values with cycle-exact pipeline timing.
 
 Do not introduce a command queue unless documentation or observed firmware
 behavior establishes one.

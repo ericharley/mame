@@ -97,37 +97,67 @@ dc323_device::dc323_device(machine_config const &mconfig, char const *tag, devic
 	device_t(mconfig, DC323, tag, owner, clock),
 	m_chargen_rom(*this, finder_base::DUMMY_TAG),
 	m_bitmap_planes(*this, "bitmap_planes", BITMAP_PLANES * BITMAP_PLANE_SIZE, ENDIANNESS_LITTLE),
-	m_irq_handler(*this)
+	m_irq_handler(*this),
+	m_raster_line_handler(*this, 0)
 {
 }
 
 
 void dc323_device::device_start()
 {
+	m_command_initialize_timer = timer_alloc(FUNC(dc323_device::command_initialize_tick), this);
+	m_command_complete_timer = timer_alloc(FUNC(dc323_device::command_complete_tick), this);
+	m_pbt_service_timer = timer_alloc(FUNC(dc323_device::pbt_service_tick), this);
 	save_item(NAME(m_registers));
 	save_item(NAME(m_viper_registers));
 	save_item(NAME(m_viper_select));
 	save_item(NAME(m_status));
 	save_item(NAME(m_operational));
 	save_item(NAME(m_scroll_pending));
+	save_item(NAME(m_index_phase_active));
 	save_item(NAME(m_pbt_read_active));
+	save_item(NAME(m_pbt_read_z_mode));
 	save_item(NAME(m_pbt_read_command));
 	save_item(NAME(m_pbt_read_index));
 	save_item(NAME(m_pbt_read_count));
 	save_item(NAME(m_pbt_write_active));
+	save_item(NAME(m_pbt_write_z_mode));
 	save_item(NAME(m_pbt_write_command));
 	save_item(NAME(m_pbt_write_bus_width));
 	save_item(NAME(m_pbt_write_words_per_row));
 	save_item(NAME(m_pbt_write_index));
+	save_item(NAME(m_pbt_write_accepted));
 	save_item(NAME(m_pbt_write_count));
+	save_item(NAME(m_id_fifo));
+	save_item(NAME(m_id_fifo_head));
+	save_item(NAME(m_id_fifo_tail));
+	save_item(NAME(m_id_fifo_count));
 	save_item(NAME(m_diagnostic_data));
 	save_item(NAME(m_raster_diagnostic));
 	save_item(NAME(m_video_operational));
+	save_item(NAME(m_linear_pattern_slow_position));
+	save_item(NAME(m_linear_pattern_slow_accumulator));
 	save_item(NAME(m_fill_position_valid));
 	save_item(NAME(m_fill_a_x));
 	save_item(NAME(m_fill_a_y));
 	save_item(NAME(m_fill_b_x));
 	save_item(NAME(m_fill_b_y));
+	save_item(NAME(m_fill_a_vector_valid));
+	save_item(NAME(m_fill_b_vector_valid));
+	save_item(NAME(m_fill_a_vector_dirty));
+	save_item(NAME(m_fill_b_vector_dirty));
+	save_item(NAME(m_fill_a_origin_x));
+	save_item(NAME(m_fill_a_origin_y));
+	save_item(NAME(m_fill_b_origin_x));
+	save_item(NAME(m_fill_b_origin_y));
+	save_item(NAME(m_fill_a_dx));
+	save_item(NAME(m_fill_a_dy));
+	save_item(NAME(m_fill_b_dx));
+	save_item(NAME(m_fill_b_dy));
+	save_item(NAME(m_fill_a_error));
+	save_item(NAME(m_fill_b_error));
+	save_item(NAME(m_fill_a_progress));
+	save_item(NAME(m_fill_b_progress));
 	save_item(NAME(m_irq_state));
 }
 
@@ -141,24 +171,50 @@ void dc323_device::device_reset()
 	m_status = 0;
 	m_operational = false;
 	m_scroll_pending = false;
+	m_index_phase_active = false;
 	m_pbt_read_active = false;
+	m_pbt_read_z_mode = false;
 	m_pbt_read_command = 0;
 	m_pbt_read_index = 0;
 	m_pbt_read_count = 0;
 	m_pbt_write_active = false;
+	m_pbt_write_z_mode = false;
 	m_pbt_write_command = 0;
 	m_pbt_write_bus_width = 0;
 	m_pbt_write_words_per_row = 0;
 	m_pbt_write_index = 0;
+	m_pbt_write_accepted = 0;
 	m_pbt_write_count = 0;
+	m_id_fifo.fill(0);
+	m_id_fifo_head = 0;
+	m_id_fifo_tail = 0;
+	m_id_fifo_count = 0;
 	m_diagnostic_data = 0;
 	m_raster_diagnostic = false;
 	m_video_operational = false;
+	m_linear_pattern_slow_position = 0;
+	m_linear_pattern_slow_accumulator = 0;
 	m_fill_position_valid = false;
 	m_fill_a_x = 0;
 	m_fill_a_y = 0;
 	m_fill_b_x = 0;
 	m_fill_b_y = 0;
+	m_fill_a_vector_valid = false;
+	m_fill_b_vector_valid = false;
+	m_fill_a_vector_dirty = false;
+	m_fill_b_vector_dirty = false;
+	m_fill_a_origin_x = 0;
+	m_fill_a_origin_y = 0;
+	m_fill_b_origin_x = 0;
+	m_fill_b_origin_y = 0;
+	m_fill_a_dx = 0;
+	m_fill_a_dy = 0;
+	m_fill_b_dx = 0;
+	m_fill_b_dy = 0;
+	m_fill_a_error = 0;
+	m_fill_b_error = 0;
+	m_fill_a_progress = 0;
+	m_fill_b_progress = 0;
 	m_irq_state = false;
 	m_log_events = 0;
 	bitmap_clear();
@@ -197,6 +253,17 @@ void dc323_device::write(offs_t offset, u16 data)
 		// mode/axis/baseline change also terminates any active vector string.
 		m_fill_position_valid = false;
 	}
+	if ((reg == REG_SOURCE_X) || (reg == REG_SOURCE_Y))
+	{
+		// In linear-pattern mode either source-origin component restarts both
+		// the source slow-vector scan and its fractional scale phase.
+		m_linear_pattern_slow_position = 0;
+		m_linear_pattern_slow_accumulator = 0;
+	}
+	if ((reg == REG_DESTINATION_SLOW_DX) || (reg == REG_HEIGHT) || (reg == REG_ERROR_1))
+		m_fill_a_vector_dirty = true;
+	if ((reg == REG_SOURCE_FAST_DX) || (reg == REG_SOURCE_SLOW_DY) || (reg == REG_ERROR_2))
+		m_fill_b_vector_dirty = true;
 	if (reg == REG_ID_DATA)
 	{
 		// The board diagnostics use the DC323 I/D path as a retained test-data
@@ -242,59 +309,96 @@ void dc323_device::write(offs_t offset, u16 data)
 void dc323_device::id_data_w(u16 data)
 {
 	if (!m_pbt_write_active)
+	{
+		fifo_clear();
+		fifo_push(data);
 		return;
+	}
+	if ((m_pbt_write_accepted >= m_pbt_write_count) || !fifo_push(data))
+		return;
+	m_pbt_write_accepted++;
+	if (m_pbt_write_accepted >= m_pbt_write_count)
+	{
+		// Once the complete short transfer is resident, finish it without
+		// forcing the processor to yield solely for the regression harness.
+		// Longer streams still back-pressure at the physical six-word depth.
+		while (m_id_fifo_count && (m_pbt_write_index < m_pbt_write_count))
+			pbt_write_word(m_pbt_write_index++, fifo_pop());
+		if (m_pbt_write_index >= m_pbt_write_count)
+		{
+			m_pbt_write_active = false;
+			m_status |= STATUS_ADDRESS_COMPLETE;
+		}
+	}
+	else
+		schedule_pbt_service();
+	update_fifo_status();
+	DC323_LOGMASKED(LOG_TRANSFERS, "%s %s: I/D enqueue accepted=%u index=%u/%u data=%04X fifo=%u active=%u status=%04X\n",
+		machine().time().to_string(), tag(), m_pbt_write_accepted, m_pbt_write_index,
+		m_pbt_write_count, data, m_id_fifo_count, m_pbt_write_active, m_status);
+}
 
+
+void dc323_device::pbt_write_word(u32 index, u16 data)
+{
 	u16 const destination_x = m_registers[REG_DESTINATION_X] & 0x3fff;
 	u16 const destination_y = m_registers[REG_DESTINATION_Y] & 0x3fff;
 	u16 const width = m_registers[REG_WIDTH] & 0x1fff;
 	u16 const height = m_registers[REG_HEIGHT] & 0x1fff;
-	u32 const row = m_pbt_write_index / m_pbt_write_words_per_row;
-	u32 const column = m_pbt_write_index % m_pbt_write_words_per_row;
-	u16 const word_x = (destination_x & ~(m_pbt_write_bus_width - 1)) + column * m_pbt_write_bus_width;
-
-	if (row < height && (destination_y + row) < BITMAP_HEIGHT)
+	if (m_pbt_write_z_mode)
 	{
-		for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
-		{
-			if (!BIT(m_viper_select, plane))
-				continue;
-
-			auto &viper = m_viper_registers[plane];
-			switch (viper[VIPER_REG_CSR_BASE + (m_pbt_write_command & 7)] & 3)
+		u32 const row = width ? index / width : 0;
+		u32 const column = width ? index % width : 0;
+		int const unindexed_x = destination_x + column;
+		int const unindexed_y = destination_y + row;
+		auto const raster_offset = BIT(m_registers[REG_X_CONTROL], 6) ?
+			raster_index(unindexed_y) : std::pair<int, int>{ 0, 0 };
+		int const x = unindexed_x + raster_offset.first;
+		int const y = unindexed_y + raster_offset.second;
+		unsigned const z_block = m_pbt_write_command & 3;
+		unsigned const color_register = BIT(m_pbt_write_command, 3) ?
+			VIPER_REG_BACKGROUND : VIPER_REG_FOREGROUND;
+		if ((x >= 0) && (x < BITMAP_WIDTH) && (y >= 0) && (y < BITMAP_HEIGHT))
+			for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
 			{
-			case 1:
-				viper[VIPER_REG_SOURCE] = data;
-				break;
-			case 2:
-				viper[VIPER_REG_MASK_1] = data;
-				viper[VIPER_REG_MASK_2] = data;
-				break;
-			case 3:
-				viper[VIPER_REG_MASK_2] = data;
-				break;
-			}
-
-			for (unsigned bit = 0; bit < m_pbt_write_bus_width; bit++)
-			{
-				u16 const x = word_x + bit;
-				if (x < destination_x || x >= destination_x + width || x >= BITMAP_WIDTH)
+				if (!BIT(m_viper_select, plane))
 					continue;
-				write_viper_pixel(plane, x, destination_y + row, m_pbt_write_command,
-					BIT(viper[VIPER_REG_SOURCE], bit));
+				auto &viper = m_viper_registers[plane];
+				unsigned const plane_address = viper[0x03] & 0x3f;
+				if ((plane_address >> 4) != z_block)
+					continue;
+				bool const plane_data = BIT(data, plane_address & 15);
+				viper[color_register] = plane_data ? 0xffff : 0x0000;
+				write_viper_pixel(plane, x, y, m_pbt_write_command, false);
 			}
+		return;
+	}
+
+	u32 const row = index / m_pbt_write_words_per_row;
+	u32 const column = index % m_pbt_write_words_per_row;
+	u16 const word_x = (destination_x & ~(m_pbt_write_bus_width - 1)) + column * m_pbt_write_bus_width;
+	if (row >= height || (destination_y + row) >= BITMAP_HEIGHT)
+		return;
+	for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
+	{
+		if (!BIT(m_viper_select, plane))
+			continue;
+		auto &viper = m_viper_registers[plane];
+		switch (viper[VIPER_REG_CSR_BASE + (m_pbt_write_command & 7)] & 3)
+		{
+		case 1: viper[VIPER_REG_SOURCE] = data; break;
+		case 2: viper[VIPER_REG_MASK_1] = data; viper[VIPER_REG_MASK_2] = data; break;
+		case 3: viper[VIPER_REG_MASK_2] = data; break;
+		}
+		for (unsigned bit = 0; bit < m_pbt_write_bus_width; bit++)
+		{
+			u16 const x = word_x + bit;
+			if (x < destination_x || x >= destination_x + width || x >= BITMAP_WIDTH)
+				continue;
+			write_viper_pixel(plane, x, destination_y + row, m_pbt_write_command,
+				BIT(viper[VIPER_REG_SOURCE], bit));
 		}
 	}
-
-	m_pbt_write_index++;
-	if (m_pbt_write_index >= m_pbt_write_count)
-	{
-		m_pbt_write_active = false;
-		m_status |= STATUS_ADDRESS_COMPLETE;
-		update_interrupt("processor-to-bitmap transfer complete");
-	}
-	DC323_LOGMASKED(LOG_TRANSFERS, "%s %s: I/D write index=%u/%u data=%04X active=%u status=%04X\n",
-		machine().time().to_string(), tag(), m_pbt_write_index, m_pbt_write_count,
-		data, m_pbt_write_active, m_status);
 }
 
 
@@ -346,6 +450,9 @@ void dc323_device::frame_event()
 	m_registers[REG_OLD_Y_INDEX] = m_registers[REG_NEW_Y_INDEX];
 	m_registers[REG_NEW_X_INDEX] = m_registers[REG_PENDING_X_INDEX];
 	m_registers[REG_NEW_Y_INDEX] = m_registers[REG_PENDING_Y_INDEX];
+	m_index_phase_active = was_pending &&
+		((m_registers[REG_OLD_X_INDEX] != m_registers[REG_NEW_X_INDEX]) ||
+		 (m_registers[REG_OLD_Y_INDEX] != m_registers[REG_NEW_Y_INDEX]));
 	execute_scroll();
 	m_status |= STATUS_PAUSE_COMPLETE | STATUS_SCROLL_SERVICE;
 	DC323_LOGMASKED(LOG_SCROLL, "%s %s: frame pending=%u->%u status=%04X->%04X enable=%04X\n",
@@ -357,16 +464,63 @@ void dc323_device::frame_event()
 
 u8 dc323_device::id_data_r()
 {
+	if (!m_pbt_read_active || !m_id_fifo_count)
+		return u8(m_id_fifo_count ? m_id_fifo[m_id_fifo_head] : m_registers[REG_ID_DATA]);
+	u16 const data = fifo_pop();
+	while ((m_id_fifo_count < m_id_fifo.size()) && (m_pbt_read_index < m_pbt_read_count))
+		fifo_push(pbt_read_word(m_pbt_read_index++));
+	if ((m_pbt_read_index >= m_pbt_read_count) && !m_id_fifo_count)
+	{
+		m_pbt_read_active = false;
+		m_status |= STATUS_ADDRESS_COMPLETE;
+	}
+	update_fifo_status();
+	schedule_pbt_service();
+	DC323_LOGMASKED(LOG_TRANSFERS, "%s %s: I/D dequeue generated=%u/%u data=%04X fifo=%u active=%u status=%04X\n",
+		machine().time().to_string(), tag(), m_pbt_read_index, m_pbt_read_count,
+		data, m_id_fifo_count, m_pbt_read_active, m_status);
+	return u8(data);
+}
+
+
+u16 dc323_device::pbt_read_word(u32 index)
+{
 	u16 const width = m_registers[REG_WIDTH] & 0x1fff;
+	if (m_pbt_read_z_mode)
+	{
+		u32 const row = width ? index / width : 0;
+		u32 const column = width ? index % width : 0;
+		int const source_x_step = BIT(m_registers[REG_SOURCE_FAST_DX], 13) ? -1 : 1;
+		int const source_y_step = BIT(m_registers[REG_SOURCE_SLOW_DY], 13) ? -1 : 1;
+		int const unindexed_source_x = int(m_registers[REG_SOURCE_X] & 0x3fff) + int(column) * source_x_step;
+		int const unindexed_source_y = int(m_registers[REG_SOURCE_Y] & 0x3fff) + int(row) * source_y_step;
+		auto const raster_offset = BIT(m_registers[REG_X_CONTROL], 5) ?
+			raster_index(unindexed_source_y) : std::pair<int, int>{ 0, 0 };
+		int const source_x = unindexed_source_x + raster_offset.first;
+		int const source_y = unindexed_source_y + raster_offset.second;
+		unsigned const z_block = m_pbt_read_command & 3;
+		u16 data = 0;
+		if ((source_x >= 0) && (source_x < BITMAP_WIDTH) &&
+			(source_y >= 0) && (source_y < BITMAP_HEIGHT))
+			for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
+			{
+				if (!BIT(m_viper_select, plane))
+					continue;
+				unsigned const plane_address = m_viper_registers[plane][0x03] & 0x3f;
+				if ((plane_address >> 4) == z_block)
+					data |= u16(m_bitmap_planes[bitmap_plane_address(plane, source_x, source_y)]) << (plane_address & 15);
+			}
+		return data;
+	}
+
 	u32 const bytes_per_row = (width + 7) / 8;
-	u32 const row = m_pbt_read_index / bytes_per_row;
-	u32 const column = m_pbt_read_index % bytes_per_row;
+	u32 const row = bytes_per_row ? index / bytes_per_row : 0;
+	u32 const column = bytes_per_row ? index % bytes_per_row : 0;
 	u16 const source_origin_x = m_registers[REG_SOURCE_X] & 0x3fff;
 	u16 const source_origin_y = m_registers[REG_SOURCE_Y] & 0x1fff;
 	u16 const source_x = source_origin_x + column * 8;
 	u16 const source_y = source_origin_y + row;
 	u8 data = 0;
-
 	if (m_raster_diagnostic && (m_pbt_read_command == 0x0bc0))
 		data = BIT(source_origin_x, 3) ? 0x55 : 0xaa;
 	else if (!m_raster_diagnostic && (m_pbt_read_command == 0x0bc0))
@@ -379,37 +533,117 @@ u8 dc323_device::id_data_r()
 	}
 	else if ((source_x < BITMAP_WIDTH) && (source_y < BITMAP_HEIGHT))
 	{
-		// In X-mode BTP, the active source CSR's I/D-output bit chooses the
-		// Viper plane that drives the shared processor bus.  Chip select can
-		// disambiguate multiple identically programmed source CSRs.
 		unsigned output_plane = 0;
 		bool output_enabled = false;
 		unsigned const csr = VIPER_REG_CSR_BASE + (m_pbt_read_command & 7);
 		for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
-		{
 			if (BIT(m_viper_select, plane) && BIT(m_viper_registers[plane][csr], 4))
 			{
 				output_plane = plane;
 				output_enabled = true;
 				break;
 			}
-		}
 		if (output_enabled)
 			for (unsigned bit = 0; bit < 8 && (source_x + bit) < BITMAP_WIDTH; bit++)
 				data |= (m_bitmap_planes[bitmap_plane_address(output_plane, source_x + bit, source_y)] & 1) << bit;
 	}
+	return data;
+}
 
-	u32 const index = m_pbt_read_index++;
-	if (m_pbt_read_index >= m_pbt_read_count)
+
+void dc323_device::fifo_clear()
+{
+	m_id_fifo_head = 0;
+	m_id_fifo_tail = 0;
+	m_id_fifo_count = 0;
+	update_fifo_status();
+}
+
+
+bool dc323_device::fifo_push(u16 data)
+{
+	if (m_id_fifo_count >= m_id_fifo.size())
+		return false;
+	m_id_fifo[m_id_fifo_tail] = data;
+	m_id_fifo_tail = (m_id_fifo_tail + 1) % m_id_fifo.size();
+	m_id_fifo_count++;
+	update_fifo_status();
+	return true;
+}
+
+
+u16 dc323_device::fifo_pop()
+{
+	if (!m_id_fifo_count)
+		return 0;
+	u16 const data = m_id_fifo[m_id_fifo_head];
+	m_id_fifo_head = (m_id_fifo_head + 1) % m_id_fifo.size();
+	m_id_fifo_count--;
+	update_fifo_status();
+	return data;
+}
+
+
+void dc323_device::update_fifo_status()
+{
+	if (m_id_fifo_count)
+		m_status |= STATUS_ID_DATA_READY;
+	else
+		m_status &= ~STATUS_ID_DATA_READY;
+	if (m_id_fifo_count < m_id_fifo.size())
+		m_status |= STATUS_ID_DATA_TRANSMIT_READY;
+	else
+		m_status &= ~STATUS_ID_DATA_TRANSMIT_READY;
+	update_interrupt("I/D FIFO state");
+}
+
+
+void dc323_device::schedule_pbt_service()
+{
+	if (m_pbt_read_active || m_pbt_write_active)
+		m_pbt_service_timer->adjust(attotime::from_usec(1));
+}
+
+
+TIMER_CALLBACK_MEMBER(dc323_device::command_initialize_tick)
+{
+	m_status |= STATUS_RASTEROP_INITIALIZED;
+	update_interrupt("command initialization complete");
+}
+
+
+TIMER_CALLBACK_MEMBER(dc323_device::command_complete_tick)
+{
+	m_status |= STATUS_RASTEROP_COMPLETE;
+	if (param == 0)
+		m_status |= STATUS_ADDRESS_COMPLETE;
+	update_interrupt(param == 0 ? "raster operation complete" : "PBT address calculation complete");
+}
+
+
+TIMER_CALLBACK_MEMBER(dc323_device::pbt_service_tick)
+{
+	if (m_pbt_write_active && m_id_fifo_count && (m_pbt_write_index < m_pbt_write_count))
+	{
+		pbt_write_word(m_pbt_write_index++, fifo_pop());
+		if (m_pbt_write_index >= m_pbt_write_count)
+		{
+			m_pbt_write_active = false;
+			m_status |= STATUS_ADDRESS_COMPLETE;
+		}
+	}
+	if (m_pbt_read_active && (m_id_fifo_count < m_id_fifo.size()) &&
+		(m_pbt_read_index < m_pbt_read_count))
+		fifo_push(pbt_read_word(m_pbt_read_index++));
+	if (m_pbt_read_active && (m_pbt_read_index >= m_pbt_read_count) && !m_id_fifo_count)
 	{
 		m_pbt_read_active = false;
-		m_status &= ~STATUS_ID_DATA_READY;
 		m_status |= STATUS_ADDRESS_COMPLETE;
-		update_interrupt("I/D transfer complete");
 	}
-	DC323_LOGMASKED(LOG_TRANSFERS, "%s %s: I/D read index=%u/%u data=%02X active=%u status=%04X\n",
-		machine().time().to_string(), tag(), index, m_pbt_read_count, data, m_pbt_read_active, m_status);
-	return data;
+	update_fifo_status();
+	if ((m_pbt_write_active && m_id_fifo_count) ||
+		(m_pbt_read_active && (m_pbt_read_index < m_pbt_read_count) && (m_id_fifo_count < m_id_fifo.size())))
+		schedule_pbt_service();
 }
 
 
@@ -422,10 +656,16 @@ void dc323_device::command_w(u16 command)
 
 	if (m_operational && ((operation == 2) || (operation == 3)))
 	{
+		m_command_initialize_timer->adjust(attotime::never);
+		m_command_complete_timer->adjust(attotime::never);
+		m_pbt_service_timer->adjust(attotime::never);
 		m_status &= ~STATUS_COMMAND_MASK;
-		m_status |= STATUS_ID_DATA_TRANSMIT_READY;
 		m_pbt_read_active = false;
+		m_pbt_read_z_mode = false;
 		m_pbt_write_active = false;
+		m_pbt_write_z_mode = false;
+		fifo_clear();
+		m_command_initialize_timer->adjust(attotime::from_usec(4));
 	}
 	else if (m_operational && (command == 0x0000))
 	{
@@ -433,8 +673,13 @@ void dc323_device::command_w(u16 command)
 		// uses it to terminate a diagnostic I/D sequence before polling Address
 		// Output Complete.
 		m_pbt_read_active = false;
+		m_pbt_read_z_mode = false;
 		m_pbt_write_active = false;
-		m_status &= ~(STATUS_ID_DATA_READY | STATUS_ID_DATA_TRANSMIT_READY);
+		m_pbt_write_z_mode = false;
+		m_command_initialize_timer->adjust(attotime::never);
+		m_command_complete_timer->adjust(attotime::never);
+		m_pbt_service_timer->adjust(attotime::never);
+		fifo_clear();
 		m_status |= STATUS_RASTEROP_MASK;
 		update_interrupt("command abort");
 	}
@@ -451,15 +696,20 @@ void dc323_device::command_w(u16 command)
 	{
 		u32 const width = m_registers[REG_WIDTH] & 0x1fff;
 		u32 const height = m_registers[REG_HEIGHT] & 0x1fff;
+		m_pbt_read_z_mode = (command & 0xfffc) == 0x0bd8;
 		m_pbt_read_index = 0;
 		m_pbt_read_command = command;
-		m_pbt_read_count = ((width + 7) / 8) * height;
+		m_pbt_read_count = (m_pbt_read_z_mode ? width : ((width + 7) / 8)) * height;
 		m_pbt_read_active = m_pbt_read_count != 0;
+		while ((m_id_fifo_count < m_id_fifo.size()) && (m_pbt_read_index < m_pbt_read_count))
+			fifo_push(pbt_read_word(m_pbt_read_index++));
 		if (m_operational)
 		{
-			m_status |= STATUS_RASTEROP_INITIALIZED | STATUS_RASTEROP_COMPLETE;
-			m_status |= m_pbt_read_active ? STATUS_ID_DATA_READY : STATUS_ADDRESS_COMPLETE;
+			if (!m_pbt_read_active)
+				m_status |= STATUS_ADDRESS_COMPLETE;
+			m_command_complete_timer->adjust(attotime::from_usec(8), 1);
 		}
+		schedule_pbt_service();
 		DC323_LOGMASKED(LOG_TRANSFERS, "%s %s: PBT start width=%u height=%u count=%u active=%u status=%04X\n",
 			machine().time().to_string(), tag(), width, height, m_pbt_read_count, m_pbt_read_active, m_status);
 	}
@@ -468,19 +718,21 @@ void dc323_device::command_w(u16 command)
 		u16 const destination_x = m_registers[REG_DESTINATION_X] & 0x3fff;
 		u16 const width = m_registers[REG_WIDTH] & 0x1fff;
 		u16 const height = m_registers[REG_HEIGHT] & 0x1fff;
+		m_pbt_write_z_mode = (command & 0xfff4) == 0x07a4;
 		u16 const bus_width_select = (m_viper_registers[0][VIPER_REG_BUS_WIDTH] >> 2) & 3;
 		m_pbt_write_bus_width = (bus_width_select == 0) ? 4 : (bus_width_select == 3) ? 16 : 8;
 		m_pbt_write_words_per_row = (width != 0) ?
 			((destination_x & (m_pbt_write_bus_width - 1)) + width + m_pbt_write_bus_width - 1) / m_pbt_write_bus_width : 0;
 		m_pbt_write_index = 0;
-		m_pbt_write_count = m_pbt_write_words_per_row * height;
+		m_pbt_write_accepted = 0;
+		m_pbt_write_count = (m_pbt_write_z_mode ? width : m_pbt_write_words_per_row) * height;
 		m_pbt_write_command = command;
 		m_pbt_write_active = m_pbt_write_count != 0;
 		if (m_operational)
 		{
-			m_status |= STATUS_RASTEROP_INITIALIZED | STATUS_RASTEROP_COMPLETE;
 			if (!m_pbt_write_active)
 				m_status |= STATUS_ADDRESS_COMPLETE;
+			m_command_complete_timer->adjust(attotime::from_usec(8), 1);
 		}
 		DC323_LOGMASKED(LOG_TRANSFERS, "%s %s: PTB start width=%u height=%u bus=%u words=%u active=%u status=%04X\n",
 			machine().time().to_string(), tag(), width, height, m_pbt_write_bus_width,
@@ -489,10 +741,7 @@ void dc323_device::command_w(u16 command)
 
 	execute_rasterop(command);
 	if (m_operational && (operation == 2))
-	{
-		m_status |= STATUS_RASTEROP_MASK;
-		update_interrupt("raster operation complete");
-	}
+		m_command_complete_timer->adjust(attotime::from_usec(8), 0);
 	DC323_LOGMASKED(LOG_COMMANDS, "%s %s: command complete=%04X status=%04X->%04X\n",
 		machine().time().to_string(), tag(), command, old_status, m_status);
 }
@@ -569,7 +818,7 @@ void dc323_device::execute_rasterop(u16 command)
 	bool const source2_enabled = BIT(command, 12);
 	u16 const x_control = m_registers[REG_X_CONTROL];
 	bool const normal_mode = ((x_control & 0x0003) == 0) && BIT(x_control, 7);
-	bool const linear_pattern_mode = ((x_control & 0x0003) == 2) && BIT(x_control, 7);
+	bool const linear_pattern_mode = (x_control & 0x0003) == 2;
 	bool const fill_mode = ((x_control & 0x0003) == 3) && BIT(x_control, 7);
 	if (!rasterop || !destination_enabled)
 		return;
@@ -586,23 +835,18 @@ void dc323_device::execute_rasterop(u16 command)
 	if (!normal_mode)
 		return;
 
-	int source_x = m_registers[REG_SOURCE_X] & 0x3fff;
-	int source_y = m_registers[REG_SOURCE_Y] & 0x3fff;
+	int const source_x = signed_14(m_registers[REG_SOURCE_X]);
+	int const source_y = signed_14(m_registers[REG_SOURCE_Y]);
 	int const unindexed_destination_x = m_registers[REG_DESTINATION_X] & 0x3fff;
 	int const unindexed_destination_y = m_registers[REG_DESTINATION_Y] & 0x3fff;
-	int destination_x = unindexed_destination_x;
-	int destination_y = unindexed_destination_y;
-	if (BIT(x_control, 5))
-	{
-		source_x = signed_14(source_x + m_registers[REG_NEW_X_INDEX]);
-		source_y = signed_14(source_y + m_registers[REG_NEW_Y_INDEX]);
-	}
-	if (BIT(x_control, 6))
-	{
-		destination_x = signed_14(destination_x + m_registers[REG_NEW_X_INDEX]);
-		destination_y = signed_14(destination_y + m_registers[REG_NEW_Y_INDEX]);
-	}
-	bool const source_is_e49 = source1_enabled && BIT(source_y, 12);
+	auto const origin_destination_index = BIT(x_control, 6) ?
+		raster_index(unindexed_destination_y) : std::pair<int, int>{ 0, 0 };
+	int const destination_x = signed_14(unindexed_destination_x + origin_destination_index.first);
+	int const destination_y = signed_14(unindexed_destination_y + origin_destination_index.second);
+	auto const origin_source_index = BIT(x_control, 5) ?
+		raster_index(source_y) : std::pair<int, int>{ 0, 0 };
+	int const indexed_source_y = signed_14(source_y + origin_source_index.second);
+	bool const source_is_e49 = source1_enabled && BIT(indexed_source_y, 12);
 	int const destination_fast_dx = signed_14(m_registers[REG_WIDTH]);
 	int const destination_fast_dy = signed_14(m_registers[REG_DESTINATION_FAST_DY]);
 	int const destination_slow_dx = signed_14(m_registers[REG_DESTINATION_SLOW_DX]);
@@ -645,15 +889,20 @@ void dc323_device::execute_rasterop(u16 command)
 	for (axis_sample const slow : slow_samples)
 	{
 		raster_point const slow_point = slow_path[slow.destination];
-		int const source_pixel_y = source_y + slow.source * source_y_step;
+		int const unindexed_source_pixel_y = source_y + slow.source * source_y_step;
 		for (axis_sample const fast : fast_samples)
 		{
 			raster_point const fast_point = fast_path[fast.destination];
 			int const unindexed_pixel_x = unindexed_destination_x + slow_point.x + fast_point.x;
 			int const unindexed_pixel_y = unindexed_destination_y + slow_point.y + fast_point.y;
-			int const pixel_x = destination_x + slow_point.x + fast_point.x;
-			int const pixel_y = destination_y + slow_point.y + fast_point.y;
-			int const source_pixel_x = source_x + fast.source * source_x_step;
+			auto const destination_index = BIT(x_control, 6) ?
+				raster_index(unindexed_pixel_y) : std::pair<int, int>{ 0, 0 };
+			auto const source_index = BIT(x_control, 5) ?
+				raster_index(unindexed_source_pixel_y) : std::pair<int, int>{ 0, 0 };
+			int const pixel_x = signed_14(unindexed_pixel_x + destination_index.first);
+			int const pixel_y = signed_14(unindexed_pixel_y + destination_index.second);
+			int const source_pixel_x = signed_14(source_x + fast.source * source_x_step + source_index.first);
+			int const source_pixel_y = signed_14(unindexed_source_pixel_y + source_index.second);
 			int const source2_pixel_x = signed_14(m_registers[REG_SOURCE2_X] +
 				(source2_tiled ? (unindexed_pixel_x & (source2_width - 1)) : unindexed_pixel_x));
 			int const source2_pixel_y = signed_14(m_registers[REG_SOURCE2_Y] +
@@ -741,17 +990,53 @@ void dc323_device::execute_rasterop(u16 command)
 
 void dc323_device::execute_linear_pattern(u16 command)
 {
+	struct axis_sample
+	{
+		unsigned destination;
+		unsigned source;
+	};
+	auto const scaled_axis = [](unsigned destination_length, u16 scale,
+		unsigned &source, unsigned &accumulator)
+	{
+		std::vector<axis_sample> result;
+		unsigned const step = (scale & 0x1fff) + 1;
+		unsigned destination = 0;
+		if (!BIT(scale, 13))
+		{
+			result.reserve(destination_length);
+			while (destination < destination_length)
+			{
+				result.push_back({ destination++, source });
+				accumulator += step;
+				if (accumulator >= 0x2000)
+				{
+					accumulator -= 0x2000;
+					source++;
+				}
+			}
+		}
+		else
+		{
+			// Down scaling advances the source for every computation and
+			// advances the destination only when the scale accumulator carries.
+			while (destination < destination_length)
+			{
+				result.push_back({ destination, source++ });
+				accumulator += step;
+				if (accumulator >= 0x2000)
+				{
+					accumulator -= 0x2000;
+					destination++;
+				}
+			}
+		}
+		return result;
+	};
 	auto const delta = [this](unsigned reg)
 	{
 		u16 const raw = m_registers[reg] & 0x3fff;
 		return BIT(raw, 13) ? int(raw) - 0x4000 : int(raw);
 	};
-	auto const indexed_origin = [this](unsigned origin_reg, unsigned index_reg)
-	{
-		u16 const raw = (m_registers[origin_reg] + m_registers[index_reg]) & 0x3fff;
-		return BIT(raw, 13) ? int(raw) - 0x4000 : int(raw);
-	};
-
 	int const source_fast_dx = delta(REG_SOURCE_FAST_DX);
 	int const source_slow_dy = delta(REG_SOURCE_SLOW_DY);
 	int const destination_fast_dx = delta(REG_WIDTH);
@@ -773,24 +1058,28 @@ void dc323_device::execute_linear_pattern(u16 command)
 	unsigned const destination_height = slow_path.size();
 	if (!destination_width || !destination_height)
 		return;
+	unsigned slow_source = source1_enabled ? m_linear_pattern_slow_position % source_height : 0;
+	unsigned slow_accumulator = source1_enabled ? m_linear_pattern_slow_accumulator : 0;
+	auto const slow_samples = scaled_axis(destination_height,
+		source1_enabled ? m_registers[REG_SLOW_SCALE] : 0x1fff, slow_source, slow_accumulator);
+	if (source1_enabled)
+	{
+		m_linear_pattern_slow_position = slow_source % source_height;
+		m_linear_pattern_slow_accumulator = slow_accumulator;
+	}
 	int const source_x_step = source_fast_dx < 0 ? -1 : 1;
 	int const source_y_step = source_slow_dy < 0 ? -1 : 1;
-	int source_origin_x = m_registers[REG_SOURCE_X] & 0x3fff;
-	int source_origin_y = m_registers[REG_SOURCE_Y] & 0x3fff;
+	int const source_origin_x = delta(REG_SOURCE_X);
+	int const source_origin_y = delta(REG_SOURCE_Y);
 	int const unindexed_destination_origin_x = m_registers[REG_DESTINATION_X] & 0x3fff;
 	int const unindexed_destination_origin_y = m_registers[REG_DESTINATION_Y] & 0x3fff;
-	int destination_origin_x = unindexed_destination_origin_x;
-	int destination_origin_y = unindexed_destination_origin_y;
-	if (BIT(m_registers[REG_X_CONTROL], 5))
-	{
-		source_origin_x = indexed_origin(REG_SOURCE_X, REG_NEW_X_INDEX);
-		source_origin_y = indexed_origin(REG_SOURCE_Y, REG_NEW_Y_INDEX);
-	}
-	if (BIT(m_registers[REG_X_CONTROL], 6))
-	{
-		destination_origin_x = indexed_origin(REG_DESTINATION_X, REG_NEW_X_INDEX);
-		destination_origin_y = indexed_origin(REG_DESTINATION_Y, REG_NEW_Y_INDEX);
-	}
+	u16 const x_control = m_registers[REG_X_CONTROL];
+	auto const destination_origin_index = BIT(x_control, 6) ?
+		raster_index(unindexed_destination_origin_y) : std::pair<int, int>{ 0, 0 };
+	int const destination_origin_x = delta(REG_DESTINATION_X) + destination_origin_index.first;
+	int const destination_origin_y = delta(REG_DESTINATION_Y) + destination_origin_index.second;
+	auto const source_origin_index = BIT(x_control, 5) ?
+		raster_index(source_origin_y) : std::pair<int, int>{ 0, 0 };
 	u16 const source2_size = m_registers[REG_SOURCE2_SIZE];
 	bool const source2_tiled = !BIT(source2_size, 7);
 	unsigned const source2_width = 1U << ((source2_size & 0x0007) + 2);
@@ -803,24 +1092,34 @@ void dc323_device::execute_linear_pattern(u16 command)
 	};
 
 	DC323_LOGMASKED(LOG_RASTEROPS, "%s %s: linear pattern command=%04X src=%d,%d pattern=%ux%u dst=%d,%d size=%ux%u select=%X\n",
-		machine().time().to_string(), tag(), command, source_origin_x, source_origin_y,
+		machine().time().to_string(), tag(), command,
+		source_origin_x + source_origin_index.first, source_origin_y + source_origin_index.second,
 		source_width, source_height, destination_origin_x, destination_origin_y,
 		destination_width, destination_height, m_viper_select);
 
-	for (unsigned y = 0; y < destination_height; y++)
+	for (axis_sample const slow : slow_samples)
 	{
-		raster_point const slow_point = slow_path[y];
-		int const source_y = source_origin_y + int(y % source_height) * source_y_step;
+		raster_point const slow_point = slow_path[slow.destination];
+		int const unindexed_source_y = source_origin_y + int(slow.source % source_height) * source_y_step;
+		auto const source_index = BIT(x_control, 5) ?
+			raster_index(unindexed_source_y) : std::pair<int, int>{ 0, 0 };
+		int const source_y = unindexed_source_y + source_index.second;
 		if (source1_enabled && (source_y < 0 || source_y >= BITMAP_HEIGHT))
 			continue;
-		for (unsigned x = 0; x < destination_width; x++)
+		unsigned fast_source = 0;
+		unsigned fast_accumulator = 0;
+		auto const fast_samples = scaled_axis(destination_width,
+			source1_enabled ? m_registers[REG_FAST_SCALE] : 0x1fff, fast_source, fast_accumulator);
+		for (axis_sample const fast : fast_samples)
 		{
-			raster_point const fast_point = fast_path[x];
+			raster_point const fast_point = fast_path[fast.destination];
 			int const unindexed_destination_x = unindexed_destination_origin_x + slow_point.x + fast_point.x;
 			int const unindexed_destination_y = unindexed_destination_origin_y + slow_point.y + fast_point.y;
-			int const destination_x = destination_origin_x + slow_point.x + fast_point.x;
-			int const destination_y = destination_origin_y + slow_point.y + fast_point.y;
-			int const source_x = source_origin_x + int(x % source_width) * source_x_step;
+			auto const destination_index = BIT(x_control, 6) ?
+				raster_index(unindexed_destination_y) : std::pair<int, int>{ 0, 0 };
+			int const destination_x = unindexed_destination_x + destination_index.first;
+			int const destination_y = unindexed_destination_y + destination_index.second;
+			int const source_x = source_origin_x + int(fast.source % source_width) * source_x_step + source_index.first;
 			int const source2_x = source2_coordinate(REG_SOURCE2_X, unindexed_destination_x, source2_width, source2_tiled);
 			int const source2_y = source2_coordinate(REG_SOURCE2_Y, unindexed_destination_y, source2_height, source2_tiled);
 			if (destination_x < 0 || destination_x >= BITMAP_WIDTH ||
@@ -857,7 +1156,8 @@ void dc323_device::execute_linear_pattern(u16 command)
 				bool const source_bit = (source1_enabled && source2_enabled) ?
 					BIT(viper[VIPER_REG_SOURCE], word_bit) :
 					source2_enabled ? source2_bits[plane] : source1_bits[plane];
-				write_viper_pixel(plane, destination_x, destination_y, command, source_bit);
+				if (BIT(x_control, 7))
+					write_viper_pixel(plane, destination_x, destination_y, command, source_bit);
 			}
 		}
 	}
@@ -893,21 +1193,24 @@ void dc323_device::execute_fill(u16 command)
 		m_fill_b_x = y_fill ? m_fill_a_x : int(m_registers[REG_SOURCE_X] & 0x3fff);
 		m_fill_b_y = y_fill ? int(m_registers[REG_SOURCE_Y] & 0x1fff) : m_fill_a_y;
 		m_fill_position_valid = true;
+		m_fill_a_vector_valid = false;
+		m_fill_b_vector_valid = false;
 	}
 	int const a_origin_x = m_fill_a_x;
 	int const a_origin_y = m_fill_a_y;
 	int const b_origin_x = m_fill_b_x;
 	int const b_origin_y = m_fill_b_y;
-	int const a_dx = delta(REG_DESTINATION_SLOW_DX);
-	int const a_dy = delta(REG_HEIGHT);
-	int const b_dx = delta(REG_SOURCE_FAST_DX);
-	int const b_dy = delta(REG_SOURCE_SLOW_DY);
-	auto const a_path = raster_vector(a_dx, a_dy, delta(REG_ERROR_1), BITMAP_HEIGHT);
-	auto const b_path = raster_vector(b_dx, b_dy, delta(REG_ERROR_2), BITMAP_HEIGHT);
+	int const programmed_a_dx = delta(REG_DESTINATION_SLOW_DX);
+	int const programmed_a_dy = delta(REG_HEIGHT);
+	int const programmed_b_dx = delta(REG_SOURCE_FAST_DX);
+	int const programmed_b_dy = delta(REG_SOURCE_SLOW_DY);
 
 	DC323_LOGMASKED(LOG_RASTEROPS, "%s %s: fill command=%04X axis=%c baseline=%u A=%d,%d points=%zu B=%d,%d points=%zu s2=%u/%04X,%04X tile=%u/%ux%u select=%X\n",
 		machine().time().to_string(), tag(), command, y_fill ? 'Y' : 'X', baseline,
-		a_origin_x, a_origin_y, a_path.size(), b_origin_x, b_origin_y, b_path.size(),
+		a_origin_x, a_origin_y,
+		raster_vector(programmed_a_dx, programmed_a_dy, delta(REG_ERROR_1), BITMAP_HEIGHT).size(),
+		b_origin_x, b_origin_y,
+		raster_vector(programmed_b_dx, programmed_b_dy, delta(REG_ERROR_2), BITMAP_HEIGHT).size(),
 		source2_enabled, m_registers[REG_SOURCE2_X], m_registers[REG_SOURCE2_Y],
 		source2_tiled, source2_width, source2_height, m_viper_select);
 
@@ -941,6 +1244,8 @@ void dc323_device::execute_fill(u16 command)
 
 	if (baseline)
 	{
+		auto const a_path = raster_vector(programmed_a_dx, programmed_a_dy,
+			delta(REG_ERROR_1), BITMAP_HEIGHT);
 		int const fixed_baseline = y_fill ? b_origin_y : b_origin_x;
 		for (raster_point const a : a_path)
 		{
@@ -948,37 +1253,75 @@ void dc323_device::execute_fill(u16 command)
 			int const a_y = a_origin_y + a.y;
 			write_span(y_fill ? a_x : a_y, y_fill ? a_y : a_x, fixed_baseline);
 		}
-		m_fill_a_x += a_dx;
-		m_fill_a_y += a_dy;
+		m_fill_a_x += programmed_a_dx;
+		m_fill_a_y += programmed_a_dy;
 		return;
 	}
 
-	// In an ordinary two-edge fill both generators must advance on the same
-	// perpendicular scan coordinate.  Equal-duration edge pairs may continue
-	// across commands using the retained endpoints below.  Independent edge
-	// expiration is deliberately left for later rather than inventing hold or
-	// partial-generator behavior here.
-	if (a_path.size() != b_path.size())
-		return;
-	unsigned const points = a_path.size();
-	for (unsigned position = 0; position < points; position++)
-		if ((!y_fill && (a_path[position].y != b_path[position].y)) ||
-			(y_fill && (a_path[position].x != b_path[position].x)))
-			return;
+	// Each edge generator retains its partial vector when the other edge
+	// expires. Firmware can then load only the expired edge and resume the
+	// still-active one on the next command.
+	if (!m_fill_a_vector_valid || m_fill_a_vector_dirty)
+	{
+		m_fill_a_origin_x = m_fill_a_x;
+		m_fill_a_origin_y = m_fill_a_y;
+		m_fill_a_dx = programmed_a_dx;
+		m_fill_a_dy = programmed_a_dy;
+		m_fill_a_error = delta(REG_ERROR_1);
+		m_fill_a_progress = 0;
+		m_fill_a_vector_valid = true;
+		m_fill_a_vector_dirty = false;
+	}
+	if (!m_fill_b_vector_valid || m_fill_b_vector_dirty)
+	{
+		m_fill_b_origin_x = m_fill_b_x;
+		m_fill_b_origin_y = m_fill_b_y;
+		m_fill_b_dx = programmed_b_dx;
+		m_fill_b_dy = programmed_b_dy;
+		m_fill_b_error = delta(REG_ERROR_2);
+		m_fill_b_progress = 0;
+		m_fill_b_vector_valid = true;
+		m_fill_b_vector_dirty = false;
+	}
+	auto const a_path = raster_vector(m_fill_a_dx, m_fill_a_dy, m_fill_a_error, BITMAP_HEIGHT);
+	auto const b_path = raster_vector(m_fill_b_dx, m_fill_b_dy, m_fill_b_error, BITMAP_HEIGHT);
+	unsigned const a_remaining = (m_fill_a_progress < a_path.size()) ?
+		a_path.size() - m_fill_a_progress : 0;
+	unsigned const b_remaining = (m_fill_b_progress < b_path.size()) ?
+		b_path.size() - m_fill_b_progress : 0;
+	unsigned const points = std::min(a_remaining, b_remaining);
 	for (unsigned position = 0; position < points; position++)
 	{
-		raster_point const a = a_path[position];
-		raster_point const b = b_path[position];
-		int const a_x = a_origin_x + a.x;
-		int const a_y = a_origin_y + a.y;
-		int const b_x = b_origin_x + b.x;
-		int const b_y = b_origin_y + b.y;
+		raster_point const a = a_path[m_fill_a_progress + position];
+		raster_point const b = b_path[m_fill_b_progress + position];
+		int const a_x = m_fill_a_origin_x + a.x;
+		int const a_y = m_fill_a_origin_y + a.y;
+		int const b_x = m_fill_b_origin_x + b.x;
+		int const b_y = m_fill_b_origin_y + b.y;
 		write_span(y_fill ? a_x : a_y, y_fill ? a_y : a_x, y_fill ? b_y : b_x);
 	}
-	m_fill_a_x += a_dx;
-	m_fill_a_y += a_dy;
-	m_fill_b_x += b_dx;
-	m_fill_b_y += b_dy;
+	m_fill_a_progress += points;
+	m_fill_b_progress += points;
+	if (m_fill_a_progress < a_path.size())
+	{
+		m_fill_a_x = m_fill_a_origin_x + a_path[m_fill_a_progress].x;
+		m_fill_a_y = m_fill_a_origin_y + a_path[m_fill_a_progress].y;
+	}
+	else
+	{
+		m_fill_a_x = m_fill_a_origin_x + m_fill_a_dx;
+		m_fill_a_y = m_fill_a_origin_y + m_fill_a_dy;
+	}
+	if (m_fill_b_progress < b_path.size())
+	{
+		m_fill_b_x = m_fill_b_origin_x + b_path[m_fill_b_progress].x;
+		m_fill_b_y = m_fill_b_origin_y + b_path[m_fill_b_progress].y;
+	}
+	else
+	{
+		m_fill_b_x = m_fill_b_origin_x + m_fill_b_dx;
+		m_fill_b_y = m_fill_b_origin_y + m_fill_b_dy;
+	}
 }
 
 
@@ -1061,6 +1404,21 @@ void dc323_device::write_viper_pixel(unsigned plane, unsigned x, unsigned y, u16
 	bool const select_foreground = BIT(logic, logic_input);
 	unsigned const color_register = select_foreground ? VIPER_REG_FOREGROUND : VIPER_REG_BACKGROUND;
 	m_bitmap_planes[destination] = BIT(viper[color_register], word_bit);
+}
+
+
+std::pair<int, int> dc323_device::raster_index(int unindexed_y)
+{
+	auto const signed_14 = [](u16 value)
+	{
+		value &= 0x3fff;
+		return BIT(value, 13) ? int(value) - 0x4000 : int(value);
+	};
+	bool const use_new = !m_index_phase_active ||
+		(unindexed_y < int(m_raster_line_handler()));
+	unsigned const x_reg = use_new ? REG_NEW_X_INDEX : REG_OLD_X_INDEX;
+	unsigned const y_reg = use_new ? REG_NEW_Y_INDEX : REG_OLD_Y_INDEX;
+	return { signed_14(m_registers[x_reg]), signed_14(m_registers[y_reg]) };
 }
 
 

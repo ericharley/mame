@@ -62,7 +62,7 @@
       "encoding": "op=2, X-control index enabled, any old/new index nonzero",
       "status": "partial",
       "required_level": "direct",
-      "remaining": "The atomic frame model uses new indexes after frame service; raster-phase selection between old and new indexes remains."
+      "remaining": "Old/new selection follows the live DC7051 raster line; bitmap scrolling itself is still applied atomically at frame service."
     },
     {
       "id": "raster.error-offsets",
@@ -92,9 +92,9 @@
       "id": "raster.linear-source1",
       "title": "Linear-pattern raster with source 1",
       "encoding": "op=2 D=1 S1=1 S2=0, X-control mode 10",
-      "status": "partial",
+      "status": "implemented",
       "required_level": "direct",
-      "remaining": "Complete scaling, retained pattern phase, and raster-phase old/new index selection remain."
+      "remaining": "No known functional gap; exact sampling artifacts remain subject to physical-silicon comparison."
     },
     {
       "id": "raster.linear-constant",
@@ -110,7 +110,7 @@
       "encoding": "op=2 D=1 S1=0 S2=0, X-control mode 11, baseline=0",
       "status": "partial",
       "required_level": "direct",
-      "remaining": "Only edge pairs with equal duration and matching scan coordinates are implemented."
+      "remaining": "Unequal and crossing edges execute; complement-mode vertex-doubling corrections remain."
     },
     {
       "id": "raster.fill-baseline",
@@ -126,7 +126,7 @@
       "encoding": "successive op=2 fill commands without origin reload",
       "status": "partial",
       "required_level": "direct",
-      "remaining": "Partially expired and crossing edge continuation is not implemented."
+      "remaining": "Independent edge expiration and crossing continuation are implemented; complement-mode vertex-doubling corrections remain."
     },
     {
       "id": "raster.source2",
@@ -142,7 +142,7 @@
       "encoding": "op=3 D=0 S1=1",
       "status": "partial",
       "required_level": "direct",
-      "remaining": "Six-entry FIFO occupancy and asynchronous timing are not modeled."
+      "remaining": "Six-entry FIFO flow and staged command status are modeled; exact per-memory-cycle transfer cadence remains provisional."
     },
     {
       "id": "transfer.processor-to-bitmap-x",
@@ -150,20 +150,20 @@
       "encoding": "op=3 D=1 S1=0",
       "status": "partial",
       "required_level": "direct",
-      "remaining": "Six-entry FIFO occupancy and asynchronous timing are not modeled."
+      "remaining": "Six-entry FIFO back-pressure and asynchronous service are modeled; exact per-memory-cycle transfer cadence remains provisional."
     },
     {
       "id": "transfer.z-mode",
       "title": "Z-mode processor/bitmap transfer",
       "encoding": "op=3 with Z-mode selection",
-      "status": "unsupported",
-      "required_level": "none",
-      "remaining": "Z addressing and transfer semantics are not implemented."
+      "status": "partial",
+      "required_level": "direct",
+      "remaining": "One-bit Viper plane addressing, Z blocks, and foreground/background PTB paths are implemented; low-resolution subplanes and the board-inaccessible upper I/D byte remain."
     },
     {
       "id": "transfer.other",
       "title": "Other operation-3 source/destination forms",
-      "encoding": "op=3 excluding established X-mode PBT/PTB forms",
+      "encoding": "op=3 excluding established X- and Z-mode PBT/PTB forms",
       "status": "unsupported",
       "required_level": "none",
       "remaining": "No defined behavior has been established."
