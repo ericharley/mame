@@ -305,20 +305,6 @@ if VIDEOS["DC323"] then
 	}
 end
 
---------------------------------------------------
---
---@src/devices/video/dc7051.h,VIDEOS["DC7051"] = true
---------------------------------------------------
-
-if VIDEOS["DC7051"] then
-	files {
-		MAME_DIR .. "src/devices/video/dc7051.cpp",
-		MAME_DIR .. "src/devices/video/dc7051.h",
-	}
-end
-
---------------------------------------------------
---
 --@src/devices/video/dl1416.h,VIDEOS["DL1416"] = true
 --------------------------------------------------
 

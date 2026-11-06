@@ -23,6 +23,7 @@ vt340-research/tests/run.py run dc323-device graphics-raster-commands
 # Verify native normal/bold/underline/reverse/blink rendering and palette routing.
 vt340-research/tests/run.py run text-attributes
 vt340-research/tests/run.py run dc323-command-coverage
+vt340-research/tests/run.py run dc7051-timing
 
 # Use another targeted executable or result location.
 vt340-research/tests/run.py run core --binary ./vt340 \
@@ -133,7 +134,7 @@ vt340-research/tests/dc323-command-coverage.sh
 | --- | --- |
 | `quick` | Short structural, ROM, smoke, and firmware-free checks |
 | `core` | Main confidence set used after emulator changes |
-| `device` | Firmware-free DC323 and DC7051 tests |
+| `device` | Firmware-free DC323 device tests |
 | `startup` | Boot, POST, mailbox, and processor synchronization |
 | `graphics` | Raster, Set-Up, color, and SIXEL behavior |
 | `conformance` | Selected programs from the external `vt340test` behavior corpus |
@@ -145,8 +146,9 @@ vt340-research/tests/dc323-command-coverage.sh
 
 ## Requirements and isolation
 
-The standalone DC323 and DC7051 device tests do not require VT340 firmware.
-Integration tests require the private ROM set described in
+The standalone DC323 device tests do not require VT340 firmware. DC7051
+compatibility timing is driver-local and covered by the VT340 integration
+tests. Integration tests require the private ROM set described in
 `../roms/catalog.json` and `../BUILDING.md`. Use
 `../tools/rom_catalog.py verify --location active` to validate the selected
 MAME profile before a long suite.

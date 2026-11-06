@@ -90,7 +90,8 @@ review did not rerun the native regression suites.
 - [x] Exercise text scrolling, return from Set-Up, ReGIS, and color SIXEL.
 - [x] Render the complete color Bill SIXEL fixture through the PTY acceptance
   path, with byte-level transport comparison.
-- [x] Extract DC323 and DC7051 into standalone devices with focused regressions.
+- [x] Extract DC323 into a standalone device; fold the provisional DC7051
+  compatibility timing back into the VT340 driver after its extraction trial.
 - [x] Provide an optional fast-start ROM patch with a separate regression.
 - [x] Add native 2×/4× prescaling and smoothing launch options.
 - [x] Catalog native tests with a common runner and retained evidence.

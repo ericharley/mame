@@ -113,17 +113,16 @@
       "outputs": []
     },
     {
-      "id": "dc7051-device",
-      "script": "dc7051-device.sh",
-      "title": "Firmware-free DC7051 timing and save-state regression",
+      "id": "dc7051-timing",
+      "script": "dc7051-timing.sh",
+      "title": "VT340 driver-local DC7051 timing integration",
       "kind": "atomic",
-      "suites": ["core", "device", "graphics"],
-      "estimated_seconds": 25,
-      "requires_roms": false,
-      "accepts_binary": false,
-      "requires": ["make", "rg"],
-      "fixtures": [],
-      "outputs": ["save-pass.log"]
+      "suites": ["core", "graphics"],
+      "estimated_seconds": 5,
+      "requires_roms": true,
+      "requires": ["rg"],
+      "fixtures": ["traces/dc7051-sync-trace.lua"],
+      "outputs": ["mame.log"]
     },
     {
       "id": "fast-start",
