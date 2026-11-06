@@ -16,10 +16,10 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 // The browser frontend owns the WebSocket; only raw serial bytes cross here.
-EM_JS(void, vt340_browser_output, (int data), {
+EM_JS(void, mame_bitbanger_output, (int data), {
 	if (Module.serialOutput) Module.serialOutput(data);
 });
-EM_JS(unsigned, vt340_browser_input, (void *buffer, unsigned length), {
+EM_JS(unsigned, mame_bitbanger_input, (void *buffer, unsigned length), {
 	return Module.serialInput ? Module.serialInput(buffer, length) : 0;
 });
 #endif
@@ -55,7 +55,7 @@ void bitbanger_device::output(uint8_t data)
 #ifdef __EMSCRIPTEN__
 	if (exists() && !strcmp(basename(), "browser-serial"))
 	{
-		vt340_browser_output(data);
+		mame_bitbanger_output(data);
 		return;
 	}
 #endif
@@ -72,7 +72,7 @@ uint32_t bitbanger_device::input(void *buffer, uint32_t length)
 {
 #ifdef __EMSCRIPTEN__
 	if (exists() && !strcmp(basename(), "browser-serial"))
-		return vt340_browser_input(buffer, length);
+		return mame_bitbanger_input(buffer, length);
 #endif
 	if (exists())
 		return fread(buffer, length);

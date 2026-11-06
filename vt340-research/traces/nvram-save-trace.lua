@@ -36,11 +36,11 @@ coded(140, "{F3}")
 key(143, ":keyboard:KBD17", "Enter") -- open Global Set-Up
 key(148, ":keyboard:KBD15", "Right") -- on-line -> local
 key(152, ":keyboard:KBD12", "Select") -- return to directory
-key(157, ":keyboard:KBD15", "Right") -- right-hand directory column
-for index = 1, 5 do
-	key(157 + index, ":keyboard:KBD16", "Down")
+for index = 1, 6 do
+	key(156 + index, ":keyboard:KBD16", "Down") -- Reset Session row
 end
-key(165, ":keyboard:KBD17", "Enter") -- Save Current Settings
+key(164, ":keyboard:KBD15", "Right") -- Save Current Settings
+key(166, ":keyboard:KBD17", "Enter")
 
 local next_action = 1
 local reported = false

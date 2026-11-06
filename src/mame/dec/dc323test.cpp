@@ -1,5 +1,5 @@
 // license:BSD-3-Clause
-// copyright-holders:Harley Card
+// copyright-holders:Eric Harley
 /***************************************************************************
 
     Firmware-free regression harness for the DEC DC323 device
@@ -105,8 +105,8 @@ void dc323_test_state::write_visual(char const *name, unsigned x, unsigned y, un
 	if (!artifact_dir || !*artifact_dir)
 		return;
 
-	constexpr unsigned scale = 24;
-	bitmap_rgb32 image(width * scale, height * scale);
+	constexpr unsigned SCALE = 24;
+	bitmap_rgb32 image(width * SCALE, height * SCALE);
 	for (unsigned source_y = 0; source_y < height; source_y++)
 		for (unsigned source_x = 0; source_x < width; source_x++)
 		{
@@ -114,9 +114,9 @@ void dc323_test_state::write_visual(char const *name, unsigned x, unsigned y, un
 			for (unsigned plane = 0; plane < dc323_device::BITMAP_PLANES; plane++)
 				color_index |= unsigned(m_dc323->pixel_r(plane, x + source_x, y + source_y)) << plane;
 			rgb_t const color = color_index ? rgb_t(0x4c, 0xd9, 0xff) : rgb_t(0x16, 0x19, 0x22);
-			for (unsigned pixel_y = 0; pixel_y < scale; pixel_y++)
-				for (unsigned pixel_x = 0; pixel_x < scale; pixel_x++)
-					image.pix(source_y * scale + pixel_y, source_x * scale + pixel_x) =
+			for (unsigned pixel_y = 0; pixel_y < SCALE; pixel_y++)
+				for (unsigned pixel_x = 0; pixel_x < SCALE; pixel_x++)
+					image.pix(source_y * SCALE + pixel_y, source_x * SCALE + pixel_x) =
 						(pixel_x == 0 || pixel_y == 0) ? rgb_t(0x3b, 0x40, 0x4d) : color;
 		}
 

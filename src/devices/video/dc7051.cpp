@@ -1,5 +1,5 @@
 // license:BSD-3-Clause
-// copyright-holders:Harley Card
+// copyright-holders:Eric Harley
 /***************************************************************************
 
     Digital Equipment Corporation DC7051 video timing generator
@@ -14,10 +14,8 @@
 #include "dc7051.h"
 
 #define LOG_REGISTERS (1U << 1)
-#define LOG_TIMING    (1U << 2)
-#define LOG_SYNC      (1U << 3)
-#define LOG_TESTMUX   (1U << 4)
-#define LOG_RESET     (1U << 5)
+#define LOG_SYNC      (1U << 2)
+#define LOG_RESET     (1U << 3)
 
 #define VERBOSE (0)
 #include "logmacro.h"
@@ -125,8 +123,8 @@ int dc7051_device::diagnostic_vsync_r() const
 	// Preserve the original 27 us high interval in a 16.698 ms period.  These
 	// constants are measured compatibility behavior, not decoded register
 	// fields or a claimed physical VSYNC width.
-	u64 const phase = machine().time().as_ticks(1'000'000) % 16'698;
-	return phase < 27;
+	u64 const phase = machine().time().as_ticks(1'000'000) % DIAGNOSTIC_FRAME_US;
+	return phase < DIAGNOSTIC_PULSE_US;
 }
 
 

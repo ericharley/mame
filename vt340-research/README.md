@@ -51,6 +51,10 @@ frontend is documented in `browser/README.md`.
 
 Primary evidence:
 
+Local copies of manuals, schematics, chipset specifications, wiring notes, and
+working extracts are indexed in [references/README.md](references/README.md).
+The reference manifest records original locations and verified SHA-256 hashes.
+
 - DEC drawing set `K-TC-VT340_Schematic_Feb87.pdf`, especially terminal
   control module sheets on scanned PDF pages 18-27.
 - Malcolm Macleod's VT340 Internals archive and its buzzed-out cartridge
