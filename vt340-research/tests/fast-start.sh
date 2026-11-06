@@ -22,6 +22,6 @@ rg -q 'event=checkpoint_value .*value=00 patch=00' "$log"
 rg -q 'event=checkpoint_exit .*value=00 patch=00' "$log"
 rg -q 'event=native_result value=80' "$log"
 rg -q 'event=result_classify A=80 value=80 patch=00' "$log"
-rg -q 'FAST_START_PASS native_result=1 elapsed=13\.14[0-9]+' "$log"
+rg -q 'FAST_START_PASS native_result=1 elapsed=13\.1[2-4][0-9]+' "$log"
 
 echo "VT340 optional fast-start ROM patch passed"

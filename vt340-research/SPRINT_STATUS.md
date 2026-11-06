@@ -16,8 +16,11 @@ display, and implement only verified hardware behavior. Do not manually draw
 The recovered E80 EEPROM is decoded on CPU1's selected `f000-f1ff` access
 path, clearing POST bit 0. The SCN2681 local-loopback failure is also resolved:
 generic serial framing calculated parity from all eight input bits even when
-emitting a shorter character. Masking parity input to the configured width
-lets both native DUART diagnostics complete with status `0d`. The remaining
+emitting a shorter character. Pending acceptance of the generic correction,
+the VT340 write path truncates SCN2681 transmit-register data to the device's
+configured width. This gives the shared framing code the physical character
+accepted by the DUART and lets both native diagnostics complete with status
+`0d`. The remaining
 printer diagnostic was caused by an incorrect E81 address decode and two
 SCN2641-specific omissions in the shared PCI/EPCI model: MR2 was overwritten
 on a later MR1 write, and the asynchronous-only ACI's invalid reset mode was

@@ -28,7 +28,6 @@ phase4_comm1_read = xdata:install_read_tap(
 	0xf040, 0xf04f, "phase4_comm1_read",
 	function(offset, data, mask)
 		local now = manager.machine.time:as_double()
-		if now < 120 or now > 124 then return end
 		accesses = accesses + 1
 		if accesses <= 2000 then
 			print(string.format(
@@ -44,7 +43,6 @@ phase4_comm1_write = xdata:install_write_tap(
 	0xf040, 0xf04f, "phase4_comm1_write",
 	function(offset, data, mask)
 		local now = manager.machine.time:as_double()
-		if now < 120 or now > 124 then return end
 		accesses = accesses + 1
 		if accesses <= 2000 then
 			print(string.format(

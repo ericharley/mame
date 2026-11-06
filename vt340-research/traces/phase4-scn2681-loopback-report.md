@@ -114,8 +114,11 @@ parity generation uses the wrong data width.
 
 ## Corrected execution
 
-After parity generation was limited to the configured character width, both
-channels completed the entire firmware sweep. Each channel transmitted this
+After the value entering each SCN2681 transmit register was limited to the
+configured character width, both channels completed the entire firmware
+sweep. This driver-local form gives the unchanged shared framing layer the
+same character the physical DUART accepts; the preferred upstream correction
+is to limit parity generation itself. Each channel transmitted this
 21-byte sequence:
 
 ```text

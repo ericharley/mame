@@ -1,5 +1,5 @@
 // license:BSD-3-Clause
-// copyright-holders:Harley Card
+// copyright-holders:Eric Harley
 /***************************************************************************
 
     Digital Equipment Corporation DC323 Adder
@@ -19,7 +19,7 @@
 class dc323_device : public device_t
 {
 public:
-	enum register_number : unsigned
+	enum register_number : u8
 	{
 		REG_INTERRUPT_ENABLE = 0x02,
 		REG_STATUS = 0x03,
@@ -107,9 +107,22 @@ protected:
 	virtual void device_reset() override ATTR_COLD;
 
 private:
-	enum : unsigned
+	struct raster_point
+	{
+		int x;
+		int y;
+	};
+
+	struct axis_sample
+	{
+		unsigned destination;
+		unsigned source;
+	};
+
+	enum : u8
 	{
 		VIPER_REG_BUS_WIDTH = 0x01,
+		VIPER_REG_Z_ADDRESS = 0x03,
 		VIPER_REG_LOGIC_BASE = 0x04,
 		VIPER_REG_MASK_1 = 0x08,
 		VIPER_REG_MASK_2 = 0x09,
@@ -121,11 +134,27 @@ private:
 		VIPER_REG_FOREGROUND = 0x0f,
 		VIPER_REG_CSR_BASE = 0x10
 	};
+	static constexpr u16 COORDINATE_MASK = 0x3fff;
+	static constexpr u16 FIELD_13_BIT_MASK = 0x1fff;
+	static constexpr u16 UNITY_SCALE = 0x1fff;
+	static constexpr u16 Z_ADDRESS_MASK = 0x003f;
+	static constexpr unsigned Z_BLOCK_SHIFT = 4;
 
 	static constexpr u32 bitmap_plane_address(unsigned plane, unsigned x, unsigned y)
 	{
 		return plane * BITMAP_PLANE_SIZE + y * BITMAP_WIDTH + x;
 	}
+	static constexpr bool bitmap_contains(int x, int y)
+	{
+		return (unsigned(x) < BITMAP_WIDTH) && (unsigned(y) < BITMAP_HEIGHT);
+	}
+	static int signed_14(u16 value);
+	static unsigned viper_bus_width(u16 value);
+	static int source2_coordinate(u16 origin, int coordinate, unsigned tile_size, bool tiled);
+	static std::vector<axis_sample> scaled_axis(unsigned destination_length, u16 scale,
+		unsigned &source, unsigned &accumulator);
+	static std::vector<axis_sample> scaled_axis(unsigned destination_length, u16 scale);
+	static std::vector<raster_point> raster_vector(int dx, int dy, int error_adjustment, unsigned limit);
 
 	u8 id_data_r();
 	void id_data_w(u16 data);
