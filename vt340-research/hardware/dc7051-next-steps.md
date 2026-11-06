@@ -2,32 +2,32 @@
 
 ## Purpose
 
-The standalone DC7051 device is a successful structural extraction of the
-fixed VT340 timing behavior that previously lived in `vt340_state`. It gives
-the timing generator a clear ownership boundary and provides a firmware-free
-regression baseline. The extraction-era claim that `f080/f0a0` were its
-firmware-visible registers has since been disproven; those ranges are the
-E51/E52 output maps.
+The former standalone DC7051 device was a useful structural experiment around
+fixed VT340 timing behavior. The extraction-era claim that `f080/f0a0` were
+its firmware-visible registers has since been disproven; those ranges are the
+E51/E52 output maps. With no authentic programming aperture or reusable device
+interface established, the connected timing behavior now lives directly in
+`vt340_state` and is covered by VT340 integration tests.
 
-It is not yet a hardware-accurate DC7051 implementation. The current device is
-a compatibility scheduler: its configured clock and register contents do not
-drive its outputs, and three inherited approximations independently describe
-the vertical timing. This plan defines the smallest evidence-driven path from
-that compatibility model toward a coherent timing generator.
+It is not yet a hardware-accurate DC7051 implementation. The current model is
+a compatibility scheduler: fixed timing constants drive its outputs, and
+inherited approximations independently describe parts of the vertical timing.
+This plan defines the smallest evidence-driven path from that compatibility
+model toward a coherent timing generator.
 
 ## Current implementation assessment
 
 ### Established strengths
 
-- The device owns its retained raw state, timers, callbacks, event counters,
-  diagnostics, and save-state registration.
+- The driver owns the timing timers, event counters, diagnostic compatibility
+  waveform, and save-state registration.
 - The VT340 driver retains board-level PAL decoding, the external video-test
   multiplexer, CPU wiring, and monitor integration.
-- The device has no dependency on CPU identities, firmware addresses, ROM
-  contents, or VT340-specific diagnostic selector values.
-- Diagnostic logging is disabled by default and bounded when enabled.
-- The firmware-free test covers reset, retained storage, inherited timing
-  rates, continuous frame behavior, and long-run timer stability.
+- The timing model is confined to the VT340 driver while its physical DC7051
+  programming interface remains unknown.
+- Diagnostic logging is disabled by default.
+- VT340 integration tests cover inherited timing rates, continuous frame
+  behavior, and the connected CPU2/DC323 paths.
 
 ### Remaining compatibility behavior
 
@@ -53,18 +53,18 @@ Other unresolved behavior includes:
 - The CPU2 T0 input receives a 31.5 kHz, 50-percent-duty square wave made from
   63,000 transitions per second. The physical signal, relevant edge, polarity,
   pulse width, and phase have not yet been established.
-- The configured 32.3174 MHz device clock schedules frame service. CPU2 T0 and
+- The configured 32.3174 MHz screen clock schedules frame service. CPU2 T0 and
   the diagnostic pulse still use compatibility constants.
 - The DC323-facing callback is explicitly an event. DC323 consumes only the
   occurrence of a completed frame; no physical line level or pulse width is
   implied by this interface.
 - The diagnostic waveform is derived from absolute machine time rather than a
   device or raster phase.
-- Low and high raw arrays remain as unconnected extraction residue. They no
-  longer have a claimed CPU aperture and should either be removed or connected
-  only after an authentic DC7051 programming interface is identified.
-- Save/load restores active timer phase, retained registers, counters, and the
-  persistent horizontal output. A frame event is not replayed on load.
+- The unconnected low/high raw arrays from the extraction experiment have been
+  removed. They must not return unless an authentic DC7051 programming
+  interface is identified.
+- Save/load restores active timer phase, counters, and the persistent
+  horizontal output. A frame event is not replayed on load.
 
 ## Resolved hypothesis
 

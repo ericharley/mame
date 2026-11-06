@@ -5,7 +5,7 @@
 io.stdout:setvbuf("no")
 
 local cpu2 = manager.machine.devices[":cpu2"]
-local dc7051 = manager.machine.devices[":dc7051"]
+local vt340 = manager.machine.devices[":"]
 local dc323 = manager.machine.devices[":dc323"]
 local screen = manager.machine.screens[":screen"]
 local xdata = cpu2.spaces["xdata"]
@@ -22,7 +22,7 @@ local function saved_scalar(device, suffix)
 	error(string.format("saved item %s not found on %s", suffix, device.tag))
 end
 
-local dc7051_frames = saved_scalar(dc7051, "m_frame_events")
+local dc7051_frames = saved_scalar(vt340, "m_dc7051_frame_events")
 local dc323_status = saved_scalar(dc323, "m_status")
 
 local function emit(event, detail)

@@ -1,5 +1,10 @@
 # DC7051 extraction and timing-equivalence report
 
+> Historical report: the provisional DC7051 object was later folded back into
+> `vt340.cpp`. Its connected timing behavior and VT340 integration coverage
+> were retained, while the unconnected extraction-era register arrays and the
+> synthetic standalone test system were removed.
+>
 > Historical extraction baseline: the interrupt-enable-controlled frame timer
 > described below has since been replaced by continuous frame timing. See
 > `dc7051-continuous-frame-report.md` for the controlled A/B and current result.
@@ -26,7 +31,7 @@ not host wall-clock measurements.
 
 ## Extracted architecture
 
-The new `dc7051_device` owns both 16-entry register halves, horizontal and
+At the time, the new `dc7051_device` owned both 16-entry register halves, horizontal and
 frame timers, output state, the diagnostic waveform, and save-state fields.
 The VT340 board routes its horizontal callback to CPU2 T0 and its completed-
 frame event to `dc323_device::frame_event`. The board retains F0E0 selection
@@ -40,8 +45,8 @@ raster redesign.
 
 ## Firmware-free device results
 
-`vt340-research/tests/dc7051-device.sh` builds a ROM-free `dc7051test` MAME
-unit-test system and runs it unthrottled. It verifies:
+The now-retired `vt340-research/tests/dc7051-device.sh` built a ROM-free
+`dc7051test` MAME unit-test system and ran it unthrottled. It verified:
 
 - zero reset state for both register halves;
 - low-nibble masking and decoded-index aliasing;

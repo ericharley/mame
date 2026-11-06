@@ -34,7 +34,7 @@ flowchart LR
     CPU1 <-->|DAT9 / T1 handshake| CPU2
     E3[E3 + banked E4/E5 CPU2 ROM] --> CPU2
 
-    CPU2 --> DC7051[Standalone DC7051 timing device]
+    CPU2 --> DC7051[Driver-local DC7051 timing model]
     CPU2 --> DC323[Standalone DC323 device]
     DC323 --> VIPER[Four Viper plane operations]
     E49[E49 character ROM] --> VIPER
@@ -117,9 +117,9 @@ live in the DC323 device. The separate bitmap-memory POST aperture and board
 reset/DAT9 sequencing remain in the VT340 driver. See
 `hardware/dc323-device.md`.
 
-The standalone `dc7051_device` owns the preserved horizontal and frame timing
-approximations; a line callback drives CPU2 T0 and an explicit event callback
-services the DC323 at each completed frame. Frame timing
+Driver-local DC7051 compatibility state owns the preserved horizontal and
+frame timing approximations; the horizontal timer drives CPU2 T0 and explicit
+scanline/frame callbacks service the DC323. Frame timing
 now runs continuously from reset and is independent of DC323 interrupt-enable
 writes; DC323 suppresses frame service while held non-operational. The former
 `f080/f0a0` register assignment was disproven by the output-map schematic and
@@ -291,9 +291,8 @@ never reads `7ff2`; `10` is a stale-zero guard, not a request notification.
 
 | Location | Purpose |
 |---|---|
-| `src/mame/dec/vt340.cpp` | VT340 board wiring, compatibility adapter, and ROM declarations |
+| `src/mame/dec/vt340.cpp` | VT340 board wiring, DC7051 compatibility timing, and ROM declarations |
 | `src/devices/video/dc323.{h,cpp}` | Standalone DC323 register, command, IRQ, transfer, and graphics device |
-| `src/devices/video/dc7051.{h,cpp}` | Standalone DC7051 raw storage and continuous compatibility timing device |
 | `vt340-research/firmware/` | Disassembly findings and firmware control flow |
 | `vt340-research/hardware/` | Hardware maps, video model, and open questions |
 | `vt340-research/traces/` | Reproduction scripts and concise trace summaries |

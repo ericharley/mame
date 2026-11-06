@@ -41,12 +41,13 @@
 #include "machine/mc68681.h"
 #include "machine/scn_pci.h"
 #include "video/dc323.h"
-#include "video/dc7051.h"
 
 #include "screen.h"
 
 #define LOG_PORTS (1U << 1)
 #define LOG_XDATA (1U << 2)
+#define LOG_DC7051_SYNC (1U << 3)
+#define LOG_DC7051_RESET (1U << 4)
 
 // Enable LOG_PORTS | LOG_XDATA in a local diagnostic build.
 #define VERBOSE (0)
@@ -112,7 +113,6 @@ public:
 		m_eeprom(*this, "eeprom"),
 		m_screen(*this, "screen"),
 		m_dc323(*this, "dc323"),
-		m_dc7051(*this, "dc7051"),
 		m_startup(*this, "STARTUP"),
 		m_cpu2banks_rom(*this, "cpu2banks"),
 		m_shared_ram(*this, "shared_ram", 0x10000, ENDIANNESS_LITTLE),
@@ -151,6 +151,15 @@ private:
 	static constexpr u8 MCS51_SFR_SPACE = 4;
 	static constexpr u8 MCS51_IDATA_SPACE = 5;
 	static constexpr u32 BITMAP_POST_SIZE = 0x10000;
+	static constexpr u32 DC7051_DOT_CLOCK = 32'317'400;
+	static constexpr u32 DC7051_HORIZONTAL_TOGGLE_RATE = 63'000;
+	static constexpr u32 DC7051_HORIZONTAL_TOTAL = 1026;
+	static constexpr u32 DC7051_VERTICAL_TOTAL = 526;
+	static constexpr u32 DC7051_FRAME_CLOCKS = DC7051_HORIZONTAL_TOTAL * DC7051_VERTICAL_TOTAL;
+	static constexpr u32 DC7051_VISIBLE_WIDTH = 800;
+	static constexpr u32 DC7051_VISIBLE_HEIGHT = 500;
+	static constexpr u32 DC7051_DIAGNOSTIC_FRAME_US = 16'698;
+	static constexpr u32 DC7051_DIAGNOSTIC_PULSE_US = 27;
 	static constexpr offs_t SERIAL_UART_MASK = 0xffc0;
 	static constexpr offs_t BOARD_REGISTER_MASK = 0xffe0;
 	static constexpr offs_t PRINTER_UART_BASE = 0xf000;
@@ -176,7 +185,6 @@ private:
 	required_device<eeprom_parallel_2804_device> m_eeprom;
 	required_device<screen_device> m_screen;
 	required_device<dc323_device> m_dc323;
-	required_device<dc7051_device> m_dc7051;
 	required_ioport m_startup;
 	required_region_ptr<u8> m_cpu2banks_rom;
 	memory_share_creator<u8> m_shared_ram;
@@ -209,6 +217,12 @@ private:
 	u16 m_cpu2_trace_events = 0;
 	u16 m_cpu1_io_trace_events = 0;
 	u16 m_cpu2_io_trace_events = 0;
+	emu_timer *m_dc7051_horizontal_timer = nullptr;
+	emu_timer *m_dc7051_scanline_timer = nullptr;
+	emu_timer *m_dc7051_frame_timer = nullptr;
+	bool m_dc7051_hsync_asserted = true;
+	u64 m_dc7051_horizontal_transitions = 0;
+	u64 m_dc7051_frame_events = 0;
 
 	void cpu1_program_map(address_map &map) ATTR_COLD;
 	void cpu2_program_map(address_map &map) ATTR_COLD;
@@ -239,6 +253,12 @@ private:
 	bool dc323_post_bitmap_selected() const;
 	void release_dc323_post();
 	void apply_startup_rom_patch();
+	int dc7051_diagnostic_vsync_r() const;
+	u16 dc7051_raster_line_r() const;
+	void dc7051_post_load();
+	TIMER_CALLBACK_MEMBER(dc7051_horizontal_tick);
+	TIMER_CALLBACK_MEMBER(dc7051_scanline_tick);
+	TIMER_CALLBACK_MEMBER(dc7051_frame_tick);
 	u32 screen_update(screen_device &, bitmap_rgb32 &bitmap, rectangle const &cliprect);
 
 	virtual void machine_start() override ATTR_COLD;
@@ -685,7 +705,7 @@ u8 vt340_state::cpu2_p1_r()
 		// E15/PAL board logic selects one DC7051 diagnostic output onto P1.0.
 		// The selected waveform remains the established narrow compatibility
 		// pulse until the physical test-output mux is fully decoded.
-		data = m_dc7051->diagnostic_vsync_r() ? (data | 0x01) : (data & ~0x01);
+		data = dc7051_diagnostic_vsync_r() ? (data | 0x01) : (data & ~0x01);
 	}
 	return data;
 }
@@ -752,6 +772,56 @@ void vt340_state::cpu2_p3_w(u8 data)
 		std::fill_n(&m_bitmap_ram[0], BITMAP_POST_SIZE, 0x55);
 }
 
+int vt340_state::dc7051_diagnostic_vsync_r() const
+{
+	// Preserve the measured 27 us high interval in a 16.698 ms period.  These
+	// values are compatibility behavior, not decoded DC7051 register fields.
+	u64 const phase = machine().time().as_ticks(1'000'000) % DC7051_DIAGNOSTIC_FRAME_US;
+	return phase < DC7051_DIAGNOSTIC_PULSE_US;
+}
+
+u16 vt340_state::dc7051_raster_line_r() const
+{
+	if (!m_dc7051_frame_timer)
+		return 0;
+	u64 const remaining = std::min<u64>(m_dc7051_frame_timer->remaining().as_ticks(DC7051_DOT_CLOCK), DC7051_FRAME_CLOCKS);
+	u64 const phase = (DC7051_FRAME_CLOCKS - remaining) % DC7051_FRAME_CLOCKS;
+	return u16(phase / DC7051_HORIZONTAL_TOTAL);
+}
+
+void vt340_state::dc7051_post_load()
+{
+	// Timers are restored by the scheduler/save system.  Re-drive the one
+	// persistent external level without replaying a frame event.
+	m_cpu2->set_input_line(MCS51_T0_LINE, m_dc7051_hsync_asserted ? ASSERT_LINE : CLEAR_LINE);
+}
+
+TIMER_CALLBACK_MEMBER(vt340_state::dc7051_horizontal_tick)
+{
+	bool const old = m_dc7051_hsync_asserted;
+	m_dc7051_hsync_asserted = !m_dc7051_hsync_asserted;
+	++m_dc7051_horizontal_transitions;
+	m_cpu2->set_input_line(MCS51_T0_LINE, m_dc7051_hsync_asserted ? ASSERT_LINE : CLEAR_LINE);
+	LOGMASKED(LOG_DC7051_SYNC, "%s DC7051 hsync old=%u new=%u transition=%llu\n",
+		machine().time().to_string(), old, m_dc7051_hsync_asserted,
+		(unsigned long long)m_dc7051_horizontal_transitions);
+}
+
+TIMER_CALLBACK_MEMBER(vt340_state::dc7051_scanline_tick)
+{
+	// Scroll and pause comparisons use the Y1 dot-clock raster rather than the
+	// provisional 63 kHz compatibility waveform supplied to CPU2 T0.
+	m_dc323->scanline_event(dc7051_raster_line_r());
+}
+
+TIMER_CALLBACK_MEMBER(vt340_state::dc7051_frame_tick)
+{
+	++m_dc7051_frame_events;
+	LOGMASKED(LOG_DC7051_SYNC, "%s DC7051 frame event=%llu\n",
+		machine().time().to_string(), (unsigned long long)m_dc7051_frame_events);
+	m_dc323->frame_event();
+}
+
 u32 vt340_state::screen_update(screen_device &, bitmap_rgb32 &bitmap, rectangle const &cliprect)
 {
 	// Four serial bitmap planes form a 16-entry E51/E52 color-map index.  Use
@@ -780,6 +850,11 @@ u32 vt340_state::screen_update(screen_device &, bitmap_rgb32 &bitmap, rectangle 
 
 void vt340_state::machine_start()
 {
+	m_dc7051_horizontal_timer = timer_alloc(FUNC(vt340_state::dc7051_horizontal_tick), this);
+	m_dc7051_scanline_timer = timer_alloc(FUNC(vt340_state::dc7051_scanline_tick), this);
+	m_dc7051_frame_timer = timer_alloc(FUNC(vt340_state::dc7051_frame_tick), this);
+	machine().save().register_postload(save_prepost_delegate(FUNC(vt340_state::dc7051_post_load), this));
+
 	// The base MCS-51 core leaves reserved SFR reads at zero.  CPU1 firmware
 	// deliberately reads reserved SFR C2 and requires the all-ones value
 	// observed for this unimplemented location on the target processor.
@@ -810,6 +885,9 @@ void vt340_state::machine_start()
 	save_item(NAME(m_cpu2_trace_events));
 	save_item(NAME(m_cpu1_io_trace_events));
 	save_item(NAME(m_cpu2_io_trace_events));
+	save_item(NAME(m_dc7051_hsync_asserted));
+	save_item(NAME(m_dc7051_horizontal_transitions));
+	save_item(NAME(m_dc7051_frame_events));
 }
 
 void vt340_state::trace_exit()
@@ -852,6 +930,18 @@ void vt340_state::machine_reset()
 	m_cpu2_trace_events = 0;
 	m_cpu1_io_trace_events = 0;
 	m_cpu2_io_trace_events = 0;
+	m_dc7051_hsync_asserted = true;
+	m_dc7051_horizontal_transitions = 0;
+	m_dc7051_frame_events = 0;
+	m_cpu2->set_input_line(MCS51_T0_LINE, ASSERT_LINE);
+	attotime const horizontal_period = attotime::from_hz(DC7051_HORIZONTAL_TOGGLE_RATE);
+	m_dc7051_horizontal_timer->adjust(horizontal_period, 0, horizontal_period);
+	m_dc7051_scanline_timer->adjust(attotime::zero, 0,
+		attotime::from_ticks(DC7051_HORIZONTAL_TOTAL, DC7051_DOT_CLOCK));
+	attotime const frame_period = attotime::from_ticks(DC7051_FRAME_CLOCKS, DC7051_DOT_CLOCK);
+	m_dc7051_frame_timer->adjust(frame_period, 0, frame_period);
+	LOGMASKED(LOG_DC7051_RESET, "%s DC7051 reset horizontal_toggle=%u frame_period=%s\n",
+		machine().time().to_string(), DC7051_HORIZONTAL_TOGGLE_RATE, frame_period.to_string());
 	// Processor 1 T0 is tied to the active-low P1 BRD bus-read strobe.  The
 	// startup bus test samples it while performing its probe read.
 	m_cpu1->set_input_line(MCS51_T0_LINE, CLEAR_LINE);
@@ -962,20 +1052,16 @@ void vt340_state::vt340(machine_config &config)
 	m_dc323->set_bitmap_tag("^bitmap_planes");
 	m_dc323->irq_handler().set_inputline(m_cpu2, MCS51_INT0_LINE);
 
-	// Y1 is the physical DC7051 dot-clock source.  The extracted device owns
-	// horizontal/frame scheduling; board wiring routes its active-low
-	// horizontal output to CPU2 T0 and its frame event to the DC323.
-	DC7051(config, m_dc7051, XTAL(dc7051_device::DOT_CLOCK));
-	m_dc7051->hsync_handler().set_inputline(m_cpu2, MCS51_T0_LINE);
-	m_dc7051->set_frame_event_callback("dc323", FUNC(dc323_device::frame_event));
-	m_dc7051->set_scanline_event_callback("dc323", FUNC(dc323_device::scanline_event));
-	m_dc323->raster_line_handler().set(m_dc7051, FUNC(dc7051_device::raster_line_r));
-	// Y1 clocks the DC7051.  Its 32.3174 MHz rate divided by the programmed
+	// Y1 is the physical DC7051 dot-clock source.  Driver-local timers model
+	// the currently established board timing until its programming interface
+	// and exact output waveforms are decoded.
+	m_dc323->raster_line_handler().set(FUNC(vt340_state::dc7051_raster_line_r));
+	// Y1 clocks the DC7051.  Its 32.3174 MHz rate divided by the currently fixed
 	// 1026 clocks and 526 lines gives the measured 31.5 kHz / 59.89 Hz raster.
 	// The 800x500 visible area includes the terminal's 25th status line.
 	SCREEN(config, m_screen);
-	m_screen->set_raw(XTAL(dc7051_device::DOT_CLOCK), dc7051_device::HORIZONTAL_TOTAL,
-		0, dc7051_device::VISIBLE_WIDTH, dc7051_device::VERTICAL_TOTAL, 0, dc7051_device::VISIBLE_HEIGHT);
+	m_screen->set_raw(XTAL(DC7051_DOT_CLOCK), DC7051_HORIZONTAL_TOTAL,
+		0, DC7051_VISIBLE_WIDTH, DC7051_VERTICAL_TOTAL, 0, DC7051_VISIBLE_HEIGHT);
 	m_screen->set_screen_update(FUNC(vt340_state::screen_update));
 }
 

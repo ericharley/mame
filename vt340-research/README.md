@@ -85,15 +85,16 @@ The exact MAME checkout used for this sprint is commit
   and the host-shell compatibility profile.
 - `hardware/dc323-device.md` documents the extracted Adder interface,
   ownership boundary, diagnostics, and unresolved hardware questions.
-- `hardware/dc7051-device.md` documents the extracted timing-generator
-  interface, corrected register-ownership boundary, signal routing, and
-  retained approximations.
+- `hardware/dc7051-device.md` documents the driver-local timing-generator
+  compatibility model, corrected register-ownership boundary, signal routing,
+  and retained approximations.
 - `traces/sixel-color-report.md` documents the native Color Map decision,
   corrected E51/E52 decode, and full PTY-driven color SIXEL result.
 - `traces/dc323-extraction-report.md` records before/after equivalence and
   firmware-free device-test results.
-- `traces/dc7051-extraction-report.md` records timing measurements,
-  firmware-free test results, and VT340 verification boundaries.
+- `traces/dc7051-extraction-report.md` records the historical extraction trial,
+  timing measurements, and the VT340 verification boundary retained after
+  reintegration.
 - `traces/dc7051-continuous-frame-report.md` records the controlled removal of
   DC323 interrupt-mask control over DC7051 frame phase.
 - `traces/dc7051-raster-unification-report.md` records the screen-clock frame

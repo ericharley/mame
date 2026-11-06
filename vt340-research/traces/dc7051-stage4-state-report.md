@@ -1,5 +1,10 @@
 # DC7051 Stage 4 interface and state semantics
 
+> Historical report: this work was performed against the provisional
+> standalone DC7051 object. The connected timers, event semantics, and
+> post-load line restoration now live in `vt340_state`; its synthetic test
+> system and unconnected register storage were removed.
+
 ## Scope
 
 Stage 4 resolves the meaning of the DC7051-to-DC323 frame interface and tests
@@ -31,7 +36,8 @@ restoration rather than as another horizontal transition.
 
 ## Regression method and result
 
-`tests/dc7051-device.sh` performs an actual two-process MAME autosave cycle:
+At the time, `tests/dc7051-device.sh` performed an actual two-process MAME
+autosave cycle:
 
 1. The first process runs to 100 frame periods plus 1 microsecond, verifies
    that horizontal output is low, and exits so MAME writes an automatic state.
@@ -55,7 +61,7 @@ restoration semantics did not change firmware-visible behavior.
 The following all pass with the Stage 4 implementation:
 
 - targeted VT340 build;
-- standalone DC7051 save/load/reset regression;
+- historical standalone DC7051 save/load/reset regression;
 - standalone DC323 regression;
 - Phase 3 native startup checkpoint and smoke test;
 - optional fast-start native-result regression;
