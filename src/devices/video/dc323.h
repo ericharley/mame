@@ -93,13 +93,13 @@ public:
 
 	// Board compatibility and video-backend accessors.  These expose state,
 	// but never CPU identity or firmware addresses, so policy remains outside.
-	u16 register_r(offs_t offset) const { return m_registers[offset & 0x3f]; }
+	u16 register_r(offs_t offset) const { return m_registers[offset & REGISTER_MASK]; }
 	u16 status_r() const { return m_status; }
 	u16 interrupt_enable_r() const { return m_registers[REG_INTERRUPT_ENABLE]; }
 	bool video_operational() const { return m_video_operational; }
 	bool scroll_pending() const { return m_scroll_pending; }
 	u8 viper_select_r() const { return m_viper_select; }
-	u16 viper_register_r(unsigned plane, unsigned reg) const { return m_viper_registers[plane][reg & 0x1f]; }
+	u16 viper_register_r(unsigned plane, unsigned reg) const { return m_viper_registers[plane][reg & VIPER_REGISTER_MASK]; }
 	u8 pixel_r(unsigned plane, unsigned x, unsigned y) const;
 	u8 display_pixel_r(unsigned plane, unsigned x, unsigned y) const;
 	void bitmap_clear(u8 data = 0);
@@ -121,6 +121,13 @@ private:
 		unsigned source;
 	};
 
+	struct source2_format
+	{
+		bool tiled;
+		unsigned width;
+		unsigned height;
+	};
+
 	enum : u8
 	{
 		VIPER_REG_BUS_WIDTH = 0x01,
@@ -136,8 +143,22 @@ private:
 		VIPER_REG_FOREGROUND = 0x0f,
 		VIPER_REG_CSR_BASE = 0x10
 	};
+	enum : u8
+	{
+		COMMAND_RASTER_OPERATION = 2,
+		COMMAND_PROCESSOR_TRANSFER = 3
+	};
+	enum : u8
+	{
+		X_MODE_NORMAL = 0,
+		X_MODE_LINEAR_PATTERN = 2,
+		X_MODE_FILL = 3
+	};
+	static constexpr unsigned REGISTER_MASK = 0x3f;
+	static constexpr unsigned VIPER_REGISTER_MASK = 0x1f;
 	static constexpr u16 COORDINATE_MASK = 0x3fff;
 	static constexpr u16 FIELD_13_BIT_MASK = 0x1fff;
+	static constexpr u16 SCROLL_X_MASK = 0x3ffc;
 	static constexpr u16 UNITY_SCALE = 0x1fff;
 	static constexpr u16 Z_ADDRESS_MASK = 0x003f;
 	static constexpr unsigned Z_BLOCK_SHIFT = 4;
@@ -162,6 +183,8 @@ private:
 	static int signed_14(u16 value);
 	static unsigned viper_bus_width(u16 value);
 	static int source2_coordinate(u16 origin, int coordinate, unsigned tile_size, bool tiled);
+	source2_format source2_format_r() const;
+	bool scroll_mask_allows(unsigned plane, u16 x) const;
 	static std::vector<axis_sample> scaled_axis(unsigned destination_length, u16 scale,
 		unsigned &source, unsigned &accumulator);
 	static std::vector<axis_sample> scaled_axis(unsigned destination_length, u16 scale);
@@ -203,6 +226,8 @@ private:
 	std::array<std::array<u16, 0x20>, BITMAP_PLANES> m_viper_registers{};
 	u8 m_viper_select = 0;
 	u16 m_status = 0;
+	// The board release input gates command/status activity.  Video operational
+	// separately records that a visible character raster has executed.
 	bool m_operational = false;
 	u16 m_active_pause = 0;
 	u8 m_pause_events = 0;

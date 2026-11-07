@@ -280,7 +280,7 @@
       "script": "vttest-screen-features.sh",
       "title": "VTTEST scrolling, rendition, and cursor save/restore",
       "kind": "atomic",
-      "suites": ["graphics", "serial", "conformance"],
+      "suites": ["core", "graphics", "serial", "conformance"],
       "estimated_seconds": 55,
       "requires_roms": true,
       "requires": ["jq", "perl", "python3", "rg"],
@@ -296,7 +296,7 @@
       "script": "vttest-double-size-blink.sh",
       "title": "VTTEST double-size line attributes and blink refresh",
       "kind": "atomic",
-      "suites": ["graphics", "serial", "conformance"],
+      "suites": ["core", "graphics", "serial", "conformance"],
       "estimated_seconds": 24,
       "requires_roms": true,
       "requires": ["awk", "perl", "python3", "rg"],
@@ -304,6 +304,28 @@
       "dc323_commands": [
         {"family": "raster.normal-e49", "level": "integration", "scope": "Checks 2x-scaled top/bottom DECDHL glyph construction from E49 character ROM data."},
         {"family": "raster.normal-bitmap", "level": "integration", "scope": "Checks the periodic 1:20 bitmap-sourced blink refresh after a 132-to-80-column transition."}
+      ],
+      "outputs": ["mame.log", "vttest-double-size.png"]
+    },
+    {
+      "id": "vttest-double-size-history",
+      "script": "vttest-double-size-history.sh",
+      "title": "VTTEST double-size rendering after scrolling and rendition",
+      "kind": "atomic",
+      "suites": ["graphics", "serial", "conformance"],
+      "estimated_seconds": 75,
+      "requires_roms": true,
+      "requires": ["awk", "perl", "python3", "rg"],
+      "fixtures": [
+        "fixtures/fast-start.cfg",
+        "fixtures/vttest-screen-features.sh",
+        "fixtures/vttest-double-size-blink.sh",
+        "fixtures/vttest-screen-then-double.sh"
+      ],
+      "dc323_commands": [
+        {"family": "scroll.frame-service", "level": "integration", "scope": "Exercises smooth and jump scrolling before constructing the double-size frame."},
+        {"family": "raster.normal-e49", "level": "integration", "scope": "Checks that prior scrolling and rendition state does not disturb top/bottom DECDHL glyph construction."},
+        {"family": "raster.normal-bitmap", "level": "integration", "scope": "Checks aligned blink refresh after the preceding scrolling and rendition workload."}
       ],
       "outputs": ["mame.log", "vttest-double-size.png"]
     },

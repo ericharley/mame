@@ -22,6 +22,14 @@ rg -q 'event=startup_restore .*producer=54 consumer=54' "$log"
 rg -q 'event=command32_submit' "$log"
 rg -q 'event=command32_handler' "$log"
 rg -q 'event=command32_ring_poll .*producer=66 consumer=66' "$log"
-rg -q 'PHASE4_RING_DRAIN_PASS producer_writes=102 consumer_writes=102 ack_fe=[1-9][0-9]* ack_fd=[1-9][0-9]* ack_other=0' "$log"
+summary=$(rg 'PHASE4_RING_DRAIN_PASS producer_writes=' "$log")
+# Count the protocol activity itself rather than assuming the original
+# 120-second startup schedule.  Fast-start and restored NVRAM can reach the
+# same checkpoints much earlier.
+producer_writes=$(printf '%s\n' "$summary" | sed -n 's/.*producer_writes=\([0-9][0-9]*\).*/\1/p')
+consumer_writes=$(printf '%s\n' "$summary" | sed -n 's/.*consumer_writes=\([0-9][0-9]*\).*/\1/p')
+test "$producer_writes" -gt 0
+test "$producer_writes" -eq "$consumer_writes"
+printf '%s\n' "$summary" | rg -q 'ack_fe=[1-9][0-9]* ack_fd=[1-9][0-9]* ack_other=0'
 
 echo "VT340 Phase 4 CPU2 ring-drain regression passed"
