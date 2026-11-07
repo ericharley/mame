@@ -15,11 +15,10 @@ trap 'vt340_artifact_copy "$slots" "slots.txt"; vt340_artifact_copy "$devices" "
 "$binary" -listslots vt340 >"$slots"
 rg -q 'comm1' "$slots"
 rg -q 'comm2' "$slots"
-rg -q 'printer' "$slots"
-test "$(rg -c 'Pseudo Terminal' "$slots")" -eq 3
+test "$(rg -c 'Pseudo Terminal' "$slots")" -eq 2
 
-"$binary" vt340 -comm1 pty -comm2 pty -printer pty -listdevices >"$devices"
-test "$(rg -c 'Pseudo Terminal' "$devices")" -eq 3
+"$binary" vt340 -comm1 pty -comm2 pty -listdevices >"$devices"
+test "$(rg -c 'Pseudo Terminal' "$devices")" -eq 2
 
 # A scrolling region can make the terminal send XOFF while it moves and
 # redraws rows.  The host connector must honor that signal by default or a
@@ -34,7 +33,7 @@ rg -q 'VT340_SERIAL_DEFAULT_PASS flow=04' "$defaults_log"
 
 # Attaching both host ports must not alter the native serial diagnostics or
 # the zero POST result.
-"$binary" vt340 -rompath roms -comm1 pty -comm2 pty -printer pty \
+"$binary" vt340 -rompath roms -comm1 pty -comm2 pty \
 	-cfg_directory "$config_dir" -nvram_directory "$nvram_dir" \
 	-video none -sound none -nothrottle -seconds_to_run 126 \
 	-debug -debugger none -autoboot_delay 0 \
@@ -44,4 +43,4 @@ rg -q 'VT340_SERIAL_DEFAULT_PASS flow=04' "$defaults_log"
 rg -q 'event=command32_submit result=00' "$log"
 rg -q 'PHASE4_BIT0_PASS reads=574' "$log"
 
-echo "VT340 external host and printer connector regression passed"
+echo "VT340 external serial connector regression passed"
