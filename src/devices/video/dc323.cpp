@@ -49,14 +49,49 @@ int dc323_device::signed_14(u16 value)
 
 unsigned dc323_device::viper_bus_width(u16 value)
 {
-	unsigned const select = (value >> 2) & 3;
-	return (select == 0) ? 4 : (select == 3) ? 16 : 8;
+	switch ((value >> 2) & 3)
+	{
+	case 0:
+		return 4;
+	case 3:
+		return 16;
+	default:
+		return 8;
+	}
 }
 
 
 int dc323_device::source2_coordinate(u16 origin, int coordinate, unsigned tile_size, bool tiled)
 {
 	return signed_14(origin + (tiled ? (coordinate & (tile_size - 1)) : coordinate));
+}
+
+
+dc323_device::source2_format dc323_device::source2_format_r() const
+{
+	u16 const value = m_registers[REG_SOURCE2_SIZE];
+	return {
+		!BIT(value, 7),
+		1U << ((value & 0x0007) + 2),
+		1U << (((value >> 4) & 0x0007) + 2)
+	};
+}
+
+
+bool dc323_device::scroll_mask_allows(unsigned plane, u16 x) const
+{
+	u16 const word_width = m_active_scroll_word_width[plane];
+	u16 const left_word = m_active_scroll_x_min & ~(word_width - 1);
+	u16 const right_word = m_active_scroll_x_max & ~(word_width - 1);
+	if ((x < left_word) || (x >= right_word + word_width))
+		return false;
+
+	unsigned const bit = x & (word_width - 1);
+	if (x < left_word + word_width)
+		return !BIT(m_active_scroll_left[plane], bit);
+	if (x >= right_word)
+		return !BIT(m_active_scroll_right[plane], bit);
+	return true;
 }
 
 
@@ -313,7 +348,7 @@ void dc323_device::device_reset()
 
 u8 dc323_device::read(offs_t offset)
 {
-	unsigned const reg = offset & 0x3f;
+	unsigned const reg = offset & REGISTER_MASK;
 	u8 data;
 	if ((reg == REG_ID_DATA) && m_pbt_read_active)
 		data = id_data_r();
@@ -330,7 +365,7 @@ u8 dc323_device::read(offs_t offset)
 
 void dc323_device::write(offs_t offset, u16 data)
 {
-	unsigned const reg = offset & 0x3f;
+	unsigned const reg = offset & REGISTER_MASK;
 	u16 const old_data = m_registers[reg];
 	DC323_LOGMASKED(LOG_REGISTERS, "%s %s: W %02X=%04X status=%04X enable=%04X\n",
 		machine().time().to_string(), tag(), reg, data, m_status, m_registers[REG_INTERRUPT_ENABLE]);
@@ -359,18 +394,18 @@ void dc323_device::write(offs_t offset, u16 data)
 		// source. Equal-byte words test ordinary bus retention; 00CF selects the
 		// all-ones result and 00C6 selects the raster-address pattern returned by
 		// diagnostic bitmap-to-processor command 0BC0.
-		if (u8(data >> 8) == u8(data))
-		{
-			m_diagnostic_data = u8(data);
-			m_raster_diagnostic = false;
-		}
 		if (data == 0x00cf)
 		{
 			m_diagnostic_data = 0xff;
 			m_raster_diagnostic = false;
 		}
-		if (data == 0x00c6)
+		else if (data == 0x00c6)
 			m_raster_diagnostic = true;
+		else if (u8(data >> 8) == u8(data))
+		{
+			m_diagnostic_data = u8(data);
+			m_raster_diagnostic = false;
+		}
 		id_data_w(data);
 	}
 
@@ -798,7 +833,7 @@ void dc323_device::command_w(u16 command)
 	DC323_LOGMASKED(LOG_COMMANDS, "%s %s: command=%04X operation=%u status=%04X operational=%u\n",
 		machine().time().to_string(), tag(), command, operation, m_status, m_operational);
 
-	if (m_operational && ((operation == 2) || (operation == 3)))
+	if (m_operational && ((operation == COMMAND_RASTER_OPERATION) || (operation == COMMAND_PROCESSOR_TRANSFER)))
 	{
 		m_status &= ~STATUS_COMMAND_MASK;
 		stop_command_activity();
@@ -816,13 +851,13 @@ void dc323_device::command_w(u16 command)
 
 	if ((command & 0xffe0) == 0x0180)
 	{
-		unsigned const reg = command & 0x1f;
+		unsigned const reg = command & VIPER_REGISTER_MASK;
 		for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
 			if (BIT(m_viper_select, plane))
 				m_viper_registers[plane][reg] = m_registers[REG_ID_DATA];
 	}
 
-	if ((operation == 3) && BIT(command, 11) && !BIT(command, 10))
+	if ((operation == COMMAND_PROCESSOR_TRANSFER) && BIT(command, 11) && !BIT(command, 10))
 	{
 		u32 const width = m_registers[REG_WIDTH] & FIELD_13_BIT_MASK;
 		u32 const height = m_registers[REG_HEIGHT] & FIELD_13_BIT_MASK;
@@ -843,7 +878,7 @@ void dc323_device::command_w(u16 command)
 		DC323_LOGMASKED(LOG_TRANSFERS, "%s %s: PBT start width=%u height=%u count=%u active=%u status=%04X\n",
 			machine().time().to_string(), tag(), width, height, m_pbt_read_count, m_pbt_read_active, m_status);
 	}
-	else if ((operation == 3) && !BIT(command, 11) && BIT(command, 10))
+	else if ((operation == COMMAND_PROCESSOR_TRANSFER) && !BIT(command, 11) && BIT(command, 10))
 	{
 		u16 const destination_x = m_registers[REG_DESTINATION_X] & COORDINATE_MASK;
 		u16 const width = m_registers[REG_WIDTH] & FIELD_13_BIT_MASK;
@@ -869,7 +904,7 @@ void dc323_device::command_w(u16 command)
 	}
 
 	execute_rasterop(command);
-	if (m_operational && (operation == 2))
+	if (m_operational && (operation == COMMAND_RASTER_OPERATION))
 		m_command_complete_timer->adjust(attotime::from_usec(8), 0);
 	DC323_LOGMASKED(LOG_COMMANDS, "%s %s: command complete=%04X status=%04X->%04X\n",
 		machine().time().to_string(), tag(), command, old_status, m_status);
@@ -892,14 +927,15 @@ void dc323_device::update_interrupt(char const *event)
 
 void dc323_device::execute_rasterop(u16 command)
 {
-	bool const rasterop = ((command >> 8) & 3) == 2;
+	bool const rasterop = ((command >> 8) & 3) == COMMAND_RASTER_OPERATION;
 	bool const destination_enabled = BIT(command, 10);
 	bool const source1_enabled = BIT(command, 11);
 	bool const source2_enabled = BIT(command, 12);
 	u16 const x_control = m_registers[REG_X_CONTROL];
-	bool const normal_mode = ((x_control & 0x0003) == 0) && BIT(x_control, 7);
-	bool const linear_pattern_mode = (x_control & 0x0003) == 2;
-	bool const fill_mode = ((x_control & 0x0003) == 3) && BIT(x_control, 7);
+	unsigned const x_mode = x_control & 0x0003;
+	bool const normal_mode = (x_mode == X_MODE_NORMAL) && BIT(x_control, 7);
+	bool const linear_pattern_mode = x_mode == X_MODE_LINEAR_PATTERN;
+	bool const fill_mode = (x_mode == X_MODE_FILL) && BIT(x_control, 7);
 	if (!rasterop || !destination_enabled)
 		return;
 	if (linear_pattern_mode && (source1_enabled || source2_enabled))
@@ -942,10 +978,7 @@ void dc323_device::execute_rasterop(u16 command)
 	auto const fast_samples = scaled_axis(width, m_registers[REG_FAST_SCALE]);
 	auto const slow_samples = scaled_axis(height, m_registers[REG_SLOW_SCALE]);
 	bool const fill_holes = BIT(x_control, 4) && !source1_enabled && !source2_enabled;
-	u16 const source2_size = m_registers[REG_SOURCE2_SIZE];
-	bool const source2_tiled = !BIT(source2_size, 7);
-	unsigned const source2_width = 1U << ((source2_size & 0x0007) + 2);
-	unsigned const source2_height = 1U << (((source2_size >> 4) & 0x0007) + 2);
+	source2_format const source2 = source2_format_r();
 	std::vector<bool> selected;
 	std::array<int, BITMAP_HEIGHT> row_min;
 	std::array<int, BITMAP_HEIGHT> row_max;
@@ -959,8 +992,8 @@ void dc323_device::execute_rasterop(u16 command)
 	u8 const logic0 = u8(m_viper_registers[0][VIPER_REG_LOGIC_BASE + function]);
 	DC323_LOGMASKED(LOG_RASTEROPS, "%s %s: raster command=%04X src=%d,%d s2=%04X,%04X tile=%u/%ux%u dst=%d,%d size=%ux%u select=%X logic0=%02X s1=%u s2=%u\n",
 		machine().time().to_string(), tag(), command, source_x, source_y,
-		m_registers[REG_SOURCE2_X], m_registers[REG_SOURCE2_Y], source2_tiled,
-		source2_width, source2_height, destination_x, destination_y, width, height,
+		m_registers[REG_SOURCE2_X], m_registers[REG_SOURCE2_Y], source2.tiled,
+		source2.width, source2.height, destination_x, destination_y, width, height,
 		m_viper_select, logic0, source1_enabled, source2_enabled);
 	if (source_is_e49 && (destination_x < 800) && (destination_y < 500) &&
 		(width == 10) && (height == 20) && m_viper_select)
@@ -983,10 +1016,10 @@ void dc323_device::execute_rasterop(u16 command)
 			int const pixel_y = signed_14(unindexed_pixel_y + destination_index.second);
 			int const source_pixel_x = signed_14(source_x + fast.source * source_x_step + source_index.first);
 			int const source_pixel_y = signed_14(unindexed_source_pixel_y + source_index.second);
-			int const source2_pixel_x = signed_14(m_registers[REG_SOURCE2_X] +
-				(source2_tiled ? (unindexed_pixel_x & (source2_width - 1)) : unindexed_pixel_x));
-			int const source2_pixel_y = signed_14(m_registers[REG_SOURCE2_Y] +
-				(source2_tiled ? (unindexed_pixel_y & (source2_height - 1)) : unindexed_pixel_y));
+			int const source2_pixel_x = source2_coordinate(m_registers[REG_SOURCE2_X],
+				unindexed_pixel_x, source2.width, source2.tiled);
+			int const source2_pixel_y = source2_coordinate(m_registers[REG_SOURCE2_Y],
+				unindexed_pixel_y, source2.height, source2.tiled);
 			if (!bitmap_contains(pixel_x, pixel_y))
 				continue;
 			if (fill_holes)
@@ -1110,10 +1143,7 @@ void dc323_device::execute_linear_pattern(u16 command)
 	int const destination_origin_y = signed_14(m_registers[REG_DESTINATION_Y]) + destination_origin_index.second;
 	auto const source_origin_index = BIT(x_control, 5) ?
 		raster_index(source_origin_y) : std::pair<int, int>{ 0, 0 };
-	u16 const source2_size = m_registers[REG_SOURCE2_SIZE];
-	bool const source2_tiled = !BIT(source2_size, 7);
-	unsigned const source2_width = 1U << ((source2_size & 0x0007) + 2);
-	unsigned const source2_height = 1U << (((source2_size >> 4) & 0x0007) + 2);
+	source2_format const source2 = source2_format_r();
 	DC323_LOGMASKED(LOG_RASTEROPS, "%s %s: linear pattern command=%04X src=%d,%d pattern=%ux%u dst=%d,%d size=%ux%u select=%X\n",
 		machine().time().to_string(), tag(), command,
 		source_origin_x + source_origin_index.first, source_origin_y + source_origin_index.second,
@@ -1143,8 +1173,10 @@ void dc323_device::execute_linear_pattern(u16 command)
 			int const destination_x = unindexed_destination_x + destination_index.first;
 			int const destination_y = unindexed_destination_y + destination_index.second;
 			int const source_x = source_origin_x + int(fast.source % source_width) * source_x_step + source_index.first;
-			int const source2_x = source2_coordinate(m_registers[REG_SOURCE2_X], unindexed_destination_x, source2_width, source2_tiled);
-			int const source2_y = source2_coordinate(m_registers[REG_SOURCE2_Y], unindexed_destination_y, source2_height, source2_tiled);
+			int const source2_x = source2_coordinate(m_registers[REG_SOURCE2_X],
+				unindexed_destination_x, source2.width, source2.tiled);
+			int const source2_y = source2_coordinate(m_registers[REG_SOURCE2_Y],
+				unindexed_destination_y, source2.height, source2.tiled);
 			if (!bitmap_contains(destination_x, destination_y) ||
 				(source1_enabled && (unsigned(source_x) >= BITMAP_WIDTH)))
 				continue;
@@ -1190,10 +1222,7 @@ void dc323_device::execute_fill(u16 command)
 	bool const y_fill = BIT(x_control, 2);
 	bool const baseline = BIT(x_control, 3);
 	bool const source2_enabled = BIT(command, 12);
-	u16 const source2_size = m_registers[REG_SOURCE2_SIZE];
-	bool const source2_tiled = !BIT(source2_size, 7);
-	unsigned const source2_width = 1U << ((source2_size & 0x0007) + 2);
-	unsigned const source2_height = 1U << (((source2_size >> 4) & 0x0007) + 2);
+	source2_format const source2 = source2_format_r();
 	if (!m_fill_position_valid)
 	{
 		m_fill_a_x = m_registers[REG_DESTINATION_X] & COORDINATE_MASK;
@@ -1220,10 +1249,9 @@ void dc323_device::execute_fill(u16 command)
 		b_origin_x, b_origin_y,
 		raster_vector(programmed_b_dx, programmed_b_dy, signed_14(m_registers[REG_ERROR_2]), BITMAP_HEIGHT).size(),
 		source2_enabled, m_registers[REG_SOURCE2_X], m_registers[REG_SOURCE2_Y],
-		source2_tiled, source2_width, source2_height, m_viper_select);
+		source2.tiled, source2.width, source2.height, m_viper_select);
 
-	auto const write_span = [this, command, y_fill, source2_enabled, source2_tiled,
-		source2_width, source2_height](int fixed, int first, int last)
+	auto const write_span = [this, command, y_fill, source2_enabled, source2](int fixed, int first, int last)
 	{
 		if (first > last)
 			std::swap(first, last);
@@ -1233,8 +1261,8 @@ void dc323_device::execute_fill(u16 command)
 			int const y = y_fill ? position : fixed;
 			if (!bitmap_contains(x, y))
 				continue;
-			int const source2_x = source2_coordinate(m_registers[REG_SOURCE2_X], x, source2_width, source2_tiled);
-			int const source2_y = source2_coordinate(m_registers[REG_SOURCE2_Y], y, source2_height, source2_tiled);
+			int const source2_x = source2_coordinate(m_registers[REG_SOURCE2_X], x, source2.width, source2.tiled);
+			int const source2_y = source2_coordinate(m_registers[REG_SOURCE2_Y], y, source2.height, source2.tiled);
 			for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
 			{
 				if (!BIT(m_viper_select, plane))
@@ -1432,8 +1460,8 @@ void dc323_device::begin_scroll()
 		return;
 	m_scroll_pending = false;
 	m_active_scroll = m_registers[REG_SCROLL_Y];
-	m_active_scroll_x_min = std::min<u16>(m_registers[REG_SCROLL_X_MIN] & 0x3ffc, BITMAP_WIDTH);
-	m_active_scroll_x_max = std::min<u16>(m_registers[REG_SCROLL_X_MAX] & 0x3ffc, BITMAP_WIDTH);
+	m_active_scroll_x_min = std::min<u16>(m_registers[REG_SCROLL_X_MIN] & SCROLL_X_MASK, BITMAP_WIDTH);
+	m_active_scroll_x_max = std::min<u16>(m_registers[REG_SCROLL_X_MAX] & SCROLL_X_MASK, BITMAP_WIDTH);
 	m_active_scroll_y_min = std::min<u16>(m_registers[REG_SCROLL_Y_MIN] & FIELD_13_BIT_MASK, BITMAP_HEIGHT);
 	m_active_scroll_y_max = std::min<u16>(m_registers[REG_SCROLL_Y_MAX] & FIELD_13_BIT_MASK, BITMAP_HEIGHT);
 	m_active_scroll_y_offset = m_active_y_offset;
@@ -1481,32 +1509,19 @@ void dc323_device::execute_scroll_line(u16 device_y)
 
 	for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
 	{
-		u16 const scroll_word_width = m_active_scroll_word_width[plane];
-		u16 const left_word = m_active_scroll_x_min & ~(scroll_word_width - 1);
-		u16 const right_word = m_active_scroll_x_max & ~(scroll_word_width - 1);
+		u16 const word_width = m_active_scroll_word_width[plane];
+		u16 const left_word = m_active_scroll_x_min & ~(word_width - 1);
+		u16 const right_word = m_active_scroll_x_max & ~(word_width - 1);
 		u16 const operation_x_min = erase ? m_active_scroll_x_min : left_word;
 		u16 const operation_x_max = erase ? m_active_scroll_x_max :
-			std::min<u16>(right_word + scroll_word_width, BITMAP_WIDTH);
-		u16 const left_mask = m_active_scroll_left[plane];
-		u16 const right_mask = m_active_scroll_right[plane];
-		auto const scrolls_x = [erase, left_word, right_word, scroll_word_width, left_mask, right_mask](u16 x)
-		{
-			if (erase)
-				return true;
-			unsigned const bit = x & (scroll_word_width - 1);
-			if ((x >= left_word) && (x < left_word + scroll_word_width))
-				return !BIT(left_mask, bit);
-			if ((x >= right_word) && (x < right_word + scroll_word_width))
-				return !BIT(right_mask, bit);
-			return true;
-		};
+			std::min<u16>(right_word + word_width, BITMAP_WIDTH);
 
 		u16 const destination_bitmap_y = (device_y + m_active_scroll_y_offset) % m_active_y_limit;
 		bool const fill = erase || (device_y >= m_active_scroll_y_max - distance);
 		u16 const source_y = device_y + distance;
 		u16 const source_bitmap_y = (source_y + m_active_scroll_y_offset) % m_active_y_limit;
 		for (u16 x = operation_x_min; x < operation_x_max; x++)
-			if (scrolls_x(x))
+			if (erase || scroll_mask_allows(plane, x))
 				m_bitmap_planes[bitmap_plane_address(plane, x, destination_bitmap_y)] = fill ?
 					BIT(m_active_scroll_fill[plane], x & 15) :
 					m_bitmap_planes[bitmap_plane_address(plane, x, source_bitmap_y)];
@@ -1533,23 +1548,6 @@ void dc323_device::execute_down_scroll(u16 distance)
 
 	for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
 	{
-		u16 const scroll_word_width = m_active_scroll_word_width[plane];
-		u16 const left_word = m_active_scroll_x_min & ~(scroll_word_width - 1);
-		u16 const right_word = m_active_scroll_x_max & ~(scroll_word_width - 1);
-		u16 const left_mask = m_active_scroll_left[plane];
-		u16 const right_mask = m_active_scroll_right[plane];
-		auto const scrolls_x = [left_word, right_word, scroll_word_width, left_mask, right_mask](u16 x)
-		{
-			if ((x < left_word) || (x >= right_word + scroll_word_width))
-				return false;
-			unsigned const bit = x & (scroll_word_width - 1);
-			if (x < left_word + scroll_word_width)
-				return !BIT(left_mask, bit);
-			if (x >= right_word)
-				return !BIT(right_mask, bit);
-			return true;
-		};
-
 		for (u16 destination_y = 0; destination_y < m_active_y_limit; destination_y++)
 		{
 			u16 const device_y = (destination_y + m_active_y_limit - m_active_scroll_y_offset) % m_active_y_limit;
@@ -1557,7 +1555,7 @@ void dc323_device::execute_down_scroll(u16 distance)
 			for (u16 x = 0; x < BITMAP_WIDTH; x++)
 			{
 				bool const in_scroll_region = (device_y >= m_active_scroll_y_min) &&
-					(device_y < m_active_scroll_y_max) && scrolls_x(x);
+					(device_y < m_active_scroll_y_max) && scroll_mask_allows(plane, x);
 				u32 const destination = bitmap_plane_address(plane, x, destination_y);
 				if (in_scroll_region)
 				{

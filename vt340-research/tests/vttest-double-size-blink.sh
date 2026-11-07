@@ -3,14 +3,16 @@ set -eu
 
 binary=${1:-./vt340}
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
+. "$root/vt340-research/tests/lib/artifacts.sh"
 run_dir=$(mktemp -d -t vt340-vttest-double-size.XXXXXX)
 config="$run_dir/cfg"
 nvram="$run_dir/nvram"
 input="$run_dir/input.stream"
 expected="$run_dir/expected.stream"
 log=${VT340_DOUBLE_SIZE_LOG:-$run_dir/mame.log}
-snapshot=${VT340_DOUBLE_SIZE_SNAPSHOT:-/tmp/vt340-vttest-double-size.png}
+snapshot=${VT340_DOUBLE_SIZE_SNAPSHOT:-$(vt340_artifact_path /tmp/vt340-vttest-double-size.png vttest-double-size.png)}
 capture_time=${VT340_DOUBLE_SIZE_CAPTURE_TIME:-24}
+expected_hashes=${VT340_DOUBLE_SIZE_EXPECTED_HASHES:-0FB2B197}
 run_seconds=$(awk "BEGIN { print int($capture_time + 3) }")
 pid=
 
@@ -21,6 +23,7 @@ cleanup()
 		kill "$pid" 2>/dev/null || true
 		wait "$pid" 2>/dev/null || true
 	fi
+	vt340_artifact_copy "$log" "mame.log"
 	if test "$status" -eq 0 && test -z "${VT340_KEEP_RUN:-}"; then
 		rm -rf "$run_dir"
 	else
@@ -82,9 +85,11 @@ received_mismatches=$(sed -n 's/.*"event":"capture".*"received_mismatches":\([0-
 hash=$(sed -n 's/.*"event":"capture".*"bitmap_hash":"\([0-9A-F]*\)".*/\1/p' "$log")
 test "$received_bytes" -eq "$expected_bytes"
 test "$received_mismatches" -eq 0
-if test -z "${VT340_DOUBLE_SIZE_INPUT:-}" && test -z "${VT340_DOUBLE_SIZE_FIXTURE:-}"; then
-	test "$hash" = "0FB2B197"
-fi
+# Allow an explicit list when a fixture intentionally samples blinking text.
+case " $expected_hashes " in
+*" $hash "*) ;;
+*) false ;;
+esac
 test -s "$snapshot"
 echo "VTTEST double-size blink capture passed (bytes=$received_bytes hash=$hash)"
 echo "Snapshot: $snapshot"

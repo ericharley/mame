@@ -33,17 +33,13 @@ local completed = false
 phase4_ring_drain_producer = xdata1:install_write_tap(
 	0x7e7e, 0x7e7e, "phase4_ring_drain_producer",
 	function(offset, value, mask)
-		if manager.machine.time:as_double() >= 119.9 then
-			producer_writes = producer_writes + 1
-		end
+		producer_writes = producer_writes + 1
 	end)
 
 phase4_ring_drain_consumer = xdata2:install_write_tap(
 	0x7e7f, 0x7e7f, "phase4_ring_drain_consumer",
 	function(offset, value, mask)
-		if manager.machine.time:as_double() >= 119.9 then
-			consumer_writes = consumer_writes + 1
-		end
+		consumer_writes = consumer_writes + 1
 	end)
 
 phase4_ring_drain_ack = xdata2:install_write_tap(
@@ -52,7 +48,6 @@ phase4_ring_drain_ack = xdata2:install_write_tap(
 		if cpu2.state["PC"].value ~= 0x0053 and
 			cpu2.state["PC"].value ~= 0x03ec then return end
 		local now = manager.machine.time:as_double()
-		if now < 110 then return end
 		if value == 0xfe then
 			ack_fe = ack_fe + 1
 		elseif value == 0xfd then
