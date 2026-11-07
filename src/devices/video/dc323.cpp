@@ -266,6 +266,7 @@ void dc323_device::device_start()
 	save_item(NAME(m_fill_a_progress));
 	save_item(NAME(m_fill_b_progress));
 	save_item(NAME(m_irq_state));
+	save_item(NAME(m_display_dirty));
 }
 
 
@@ -340,6 +341,7 @@ void dc323_device::device_reset()
 	m_fill_a_progress = 0;
 	m_fill_b_progress = 0;
 	m_irq_state = false;
+	m_display_dirty = true;
 	m_log_events = 0;
 	bitmap_clear();
 	m_irq_handler(CLEAR_LINE);
@@ -431,6 +433,7 @@ void dc323_device::write(offs_t offset, u16 data)
 		DC323_LOGMASKED(LOG_SCROLL, "%s %s: schedule scroll command=%04X pending=%u status=%04X enable=%04X\n",
 			machine().time().to_string(), tag(), data, m_scroll_pending, m_status, m_registers[REG_INTERRUPT_ENABLE]);
 		m_scroll_pending = true;
+		m_display_dirty = true;
 	}
 	if (reg == REG_COMMAND)
 		command_w(data);
@@ -574,6 +577,8 @@ void dc323_device::frame_event()
 	u16 const old_status = m_status;
 	finish_scroll();
 	bool const was_pending = m_scroll_pending;
+	if (was_pending)
+		m_display_dirty = true;
 	// At the frame boundary the indexes for the region already moved become
 	// the old indexes, and the scroll process's pending values become the new
 	// indexes.  Upward scrolling then moves bitmap rows behind screen refresh,
@@ -586,9 +591,13 @@ void dc323_device::frame_event()
 	// portion of bitmap memory, including any extra down-scroll scanlines.  Both
 	// are frame-buffered.  A zero/unprogrammed YL retains the backing-store
 	// extent for device tests and reset-time operation.
+	u16 const old_y_offset = m_active_y_offset;
+	u16 const old_y_limit = m_active_y_limit;
 	u16 const programmed_y_limit = m_registers[REG_Y_LIMIT] & FIELD_13_BIT_MASK;
 	m_active_y_limit = programmed_y_limit ? std::min<u16>(programmed_y_limit, BITMAP_HEIGHT) : BITMAP_HEIGHT;
 	m_active_y_offset = (m_registers[REG_SCROLL_Y_OFFSET] & FIELD_13_BIT_MASK) % m_active_y_limit;
+	if ((m_active_y_offset != old_y_offset) || (m_active_y_limit != old_y_limit))
+		m_display_dirty = true;
 	m_active_pause = m_registers[REG_PAUSE] & 0x07ff;
 	m_pause_fired = false;
 	m_index_phase_active = was_pending &&
@@ -1436,7 +1445,12 @@ void dc323_device::write_viper_pixel(unsigned plane, unsigned x, unsigned y, u16
 	unsigned const logic_input = (destination_bit << 1) | source_bit;
 	bool const select_foreground = BIT(logic, logic_input);
 	unsigned const color_register = select_foreground ? VIPER_REG_FOREGROUND : VIPER_REG_BACKGROUND;
-	m_bitmap_planes[destination] = BIT(viper[color_register], word_bit);
+	bool const result = BIT(viper[color_register], word_bit);
+	if (destination_bit != result)
+	{
+		m_bitmap_planes[destination] = result;
+		m_display_dirty = true;
+	}
 }
 
 
@@ -1503,6 +1517,7 @@ void dc323_device::finish_scroll()
 
 void dc323_device::execute_scroll_line(u16 device_y)
 {
+	m_display_dirty = true;
 	bool const erase = BIT(m_active_scroll, 13);
 	u16 const distance = std::min<u16>(m_active_scroll & 0x0fff,
 		m_active_scroll_y_max - m_active_scroll_y_min);
@@ -1531,6 +1546,7 @@ void dc323_device::execute_scroll_line(u16 device_y)
 
 void dc323_device::execute_down_scroll(u16 distance)
 {
+	m_display_dirty = true;
 	// A down-scroll cannot copy the region from top to bottom without replacing
 	// data before refresh has read it.  The Adder instead advances all bitmap
 	// data outside the region by the scroll distance and lowers PYOF by the same
@@ -1589,7 +1605,14 @@ u8 dc323_device::display_pixel_r(unsigned plane, unsigned x, unsigned y) const
 }
 
 
+bool dc323_device::consume_display_dirty()
+{
+	return std::exchange(m_display_dirty, false);
+}
+
+
 void dc323_device::bitmap_clear(u8 data)
 {
 	std::fill_n(&m_bitmap_planes[0], BITMAP_PLANES * BITMAP_PLANE_SIZE, data);
+	m_display_dirty = true;
 }

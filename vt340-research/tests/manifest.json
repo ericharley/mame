@@ -378,7 +378,7 @@
     {
       "id": "serial-connectors",
       "script": "serial-connectors.sh",
-      "title": "External Comm 1 and Comm 2 connector integration",
+      "title": "External Comm 1, Comm 2, and printer connector integration",
       "kind": "atomic",
       "suites": ["core", "serial"],
       "estimated_seconds": 25,
@@ -386,6 +386,42 @@
       "requires": ["rg"],
       "fixtures": [],
       "outputs": ["mame.log", "slots.txt", "devices.txt", "defaults.log"]
+    },
+    {
+      "id": "printer-connector",
+      "script": "printer-connector.sh",
+      "title": "External SCN2641 printer connector byte transport",
+      "kind": "atomic",
+      "suites": ["quick", "core", "serial"],
+      "estimated_seconds": 3,
+      "requires_roms": true,
+      "requires": ["od", "rg"],
+      "fixtures": [],
+      "outputs": ["mame.log", "printer-output.prn", "mediacopy.six"]
+    },
+    {
+      "id": "printer-routing-known-failure",
+      "script": "printer-routing-known-failure.sh",
+      "title": "Native printer routing known-failure diagnostic",
+      "kind": "atomic",
+      "suites": ["historical"],
+      "estimated_seconds": 55,
+      "requires_roms": true,
+      "requires": ["rg"],
+      "fixtures": [],
+      "outputs": ["mame.log"]
+    },
+    {
+      "id": "mediacopy-printer-acceptance",
+      "script": "mediacopy-printer.sh",
+      "title": "Native target-0 media-copy printer acceptance",
+      "kind": "aggregate",
+      "suites": [],
+      "estimated_seconds": 80,
+      "requires_roms": true,
+      "requires": ["rg"],
+      "fixtures": [],
+      "outputs": ["mame.log", "mediacopy.six"]
     },
     {
       "id": "phase4-scn2681-loopback",

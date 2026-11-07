@@ -102,6 +102,9 @@ public:
 	u16 viper_register_r(unsigned plane, unsigned reg) const { return m_viper_registers[plane][reg & VIPER_REGISTER_MASK]; }
 	u8 pixel_r(unsigned plane, unsigned x, unsigned y) const;
 	u8 display_pixel_r(unsigned plane, unsigned x, unsigned y) const;
+	// Consume the accumulated bitmap/view-change notification used by a host
+	// display backend. Command timing and raster synchronization remain local.
+	bool consume_display_dirty();
 	void bitmap_clear(u8 data = 0);
 
 protected:
@@ -295,6 +298,7 @@ private:
 	u32 m_fill_a_progress = 0;
 	u32 m_fill_b_progress = 0;
 	bool m_irq_state = false;
+	bool m_display_dirty = true;
 	u32 m_log_events = 0;
 };
 

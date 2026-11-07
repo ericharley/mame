@@ -151,6 +151,8 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 		(dc323_device::STATUS_PAUSE_COMPLETE | dc323_device::STATUS_SCROLL_SERVICE)) == 0,
 		"frame service is suppressed while reset holds the device non-operational");
 	m_dc323->operational_w(1);
+	require(m_dc323->consume_display_dirty(), "reset bitmap marks display dirty");
+	require(!m_dc323->consume_display_dirty(), "display dirty state is consumed once");
 	require((m_dc323->status_r() & dc323_device::STATUS_RASTEROP_MASK) ==
 		dc323_device::STATUS_RASTEROP_MASK, "idle command engines report complete");
 	require((m_dc323->status_r() & dc323_device::STATUS_ID_DATA_READY) == 0,
@@ -231,8 +233,12 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	// index pair to their origins.  This is the update path used to keep a
 	// display list aligned with a region that has moved during scrolling.
 	m_dc323->bitmap_clear();
+	require(m_dc323->consume_display_dirty(), "bitmap clear marks display dirty");
+	require(!m_dc323->consume_display_dirty(), "cleared dirty state remains idle");
 	viper_w(0x04, 0x00ca);
 	fill(20, 24, 2, 1, true);
+	require(m_dc323->consume_display_dirty(), "raster write marks display dirty");
+	require(!m_dc323->consume_display_dirty(), "raster dirty state is consumed once");
 	reg_w(dc323_device::REG_NEW_X_INDEX, 5);
 	reg_w(dc323_device::REG_NEW_Y_INDEX, 4);
 	reg_w(dc323_device::REG_SOURCE_X, 15);
@@ -280,9 +286,12 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	reg_w(dc323_device::REG_NEW_Y_INDEX, 0);
 	reg_w(dc323_device::REG_PENDING_X_INDEX, 10);
 	reg_w(dc323_device::REG_PENDING_Y_INDEX, 10);
+	m_dc323->consume_display_dirty();
 	reg_w(dc323_device::REG_SCROLL_Y, 0);
 	m_raster_line = 50;
 	m_dc323->frame_event();
+	require(m_dc323->consume_display_dirty(), "scroll state change marks display dirty");
+	require(!m_dc323->consume_display_dirty(), "scroll dirty state is consumed once");
 	reg_w(dc323_device::REG_X_CONTROL, 0x00c0); // destination index only
 	reg_w(dc323_device::REG_DESTINATION_X, 20);
 	reg_w(dc323_device::REG_DESTINATION_Y, 40);

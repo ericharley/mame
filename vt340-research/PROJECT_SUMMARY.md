@@ -27,6 +27,8 @@ flowchart LR
     E1[E1/E2 CPU1 ROM] --> CPU1[CPU1 control processor]
     DUART[SCN2681 host DUART] <--> CPU1
     ACIA[SCN2641 printer interface] <--> CPU1
+    DUART <--> HOST[Comm 1 / Comm 2 endpoints]
+    ACIA <--> PRINTER[Serial printer endpoint]
     KBD[LK201 serial input model] --> CPU1
 
     CPU1 <--> RAM[64 KiB shared XDATA RAM]
@@ -91,7 +93,10 @@ request-specific retained pulse without changing the startup event sequence.
 - E61 is modeled with MAME's SCN2681 DUART and drives CPU1 INT0.  Channel A is
   exposed as the Comm 1 RS-232/DEC-423 endpoint and channel B as Comm 2; both
   accept standard MAME serial devices including a macOS pseudo-terminal.
-- E81 is modeled with MAME's SCN2641 interface and drives CPU1 INT1.
+- E81 is modeled with MAME's SCN2641 interface and drives CPU1 INT1. Its TxD,
+  RxD, and RTS paths are exposed through a standard MAME `printer` RS-232
+  slot for PTY, serial-printer image, null-modem, and loopback endpoints;
+  board-grounded CTS and DCD remain asserted locally.
 - Disconnected receive inputs idle at the serial marking level.
 - The keyboard uses CPU1's internal UART and MAME's ROM-driven `lk201_device`.
   CPU1 P3.1/TXD drives the keyboard receive input and the keyboard transmitter

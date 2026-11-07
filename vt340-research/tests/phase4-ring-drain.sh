@@ -5,14 +5,15 @@ binary=${1:-./vt340}
 test_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 . "$test_dir/lib/artifacts.sh"
 log=$(mktemp -t vt340-phase4-ring-drain.XXXXXX)
-trap 'vt340_artifact_copy "$log" "mame.log"; rm -f "$log"' EXIT HUP INT TERM
+nvram=$(mktemp -d -t vt340-phase4-ring-drain-nvram.XXXXXX)
+trap 'vt340_artifact_copy "$log" "mame.log"; rm -f "$log"; rm -rf "$nvram"' EXIT HUP INT TERM
 
 if rg -n 'pc == 0x0047.*|data &= ~0x01' src/mame/dec/vt340.cpp; then
 	echo "PC-qualified DC323 status inversion found in production driver" >&2
 	exit 1
 fi
 
-"$binary" vt340 -rompath roms -video none -sound none -nothrottle \
+"$binary" vt340 -rompath roms -nvram_directory "$nvram" -video none -sound none -nothrottle \
 	-seconds_to_run 125 -debug -debugger none -autoboot_delay 0 \
 	-autoboot_script vt340-research/traces/phase4-cpu2-ring-drain.lua \
 	>"$log" 2>&1

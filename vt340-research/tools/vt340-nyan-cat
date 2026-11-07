@@ -1,0 +1,259 @@
+#!/bin/sh
+# Animate a small text-mode Nyan Cat across a DEC VT340 session.
+#
+# Usage: vt340-nyan-cat left-to-right|right-to-left
+#
+# Environment overrides:
+#   NYAN_COLUMNS  visible animation width (use 40/66 for a vertical split)
+#   NYAN_ROWS     terminal height, excluding the status line
+#   NYAN_DELAY    delay between frames in seconds (default: 0.20)
+#   NYAN_LAPS     number of screen-width scroll cycles, or 0 for continuous
+
+set -eu
+
+direction=${1:-}
+case "$direction" in
+	left-to-right|right-to-left) ;;
+	*)
+		echo "usage: ${0##*/} left-to-right|right-to-left" >&2
+		exit 2
+		;;
+esac
+
+set -- $(stty size 2>/dev/null || printf '24 80\n')
+rows=${NYAN_ROWS:-${1:-24}}
+columns=${NYAN_COLUMNS:-${2:-80}}
+delay=${NYAN_DELAY:-0.20}
+lap_limit=${NYAN_LAPS:-0}
+
+case "$rows" in *[!0-9]*|'') rows=24 ;; esac
+case "$columns" in *[!0-9]*|'') columns=80 ;; esac
+case "$lap_limit" in *[!0-9]*|'') lap_limit=0 ;; esac
+
+sprite_width=24
+scene_height=7
+star_margin=2
+band_height=$((scene_height + (star_margin * 2)))
+if [ "$columns" -le "$sprite_width" ]; then
+	echo "${0##*/}: need more than $sprite_width visible columns" >&2
+	exit 1
+fi
+
+top=$(( (rows - band_height) / 2 ))
+[ "$top" -ge 1 ] || top=1
+scene_top=$((top + star_margin))
+last_column=$((columns - sprite_width + 1))
+
+# Hold the cat once its centre has crossed roughly three quarters of the
+# display in its direction of travel.  The scene then scrolls behind it.
+if [ "$direction" = left-to-right ]; then
+	cruise_column=$(( (columns * 3 / 4) - (sprite_width / 2) + 1 ))
+	[ "$cruise_column" -le "$last_column" ] || cruise_column=$last_column
+	[ "$cruise_column" -ge 1 ] || cruise_column=1
+else
+	cruise_column=$(( (columns / 4) - (sprite_width / 2) + 1 ))
+	[ "$cruise_column" -ge 1 ] || cruise_column=1
+	[ "$cruise_column" -le "$last_column" ] || cruise_column=$last_column
+fi
+
+cursor_to()
+{
+	printf '\033[%d;%dH' "$1" "$2"
+}
+
+clear_band()
+{
+	band_line=0
+	while [ "$band_line" -lt "$band_height" ]; do
+		cursor_to $((top + band_line)) 1
+		printf "%${columns}s" ''
+		band_line=$((band_line + 1))
+	done
+}
+
+draw_trail_pixel()
+{
+	trail_column=$1
+	trail_offset=$2
+	cursor_to $((scene_top + trail_offset)) "$trail_column"
+	printf '\033[31m=\033[0m'
+	cursor_to $((scene_top + trail_offset + 1)) "$trail_column"
+	printf '\033[33m=\033[0m'
+	cursor_to $((scene_top + trail_offset + 2)) "$trail_column"
+	printf '\033[36m=\033[0m'
+}
+
+wave_offset()
+{
+	case $(($1 % 8)) in
+		0) wave_value=2 ;;
+		1) wave_value=1 ;;
+		2) wave_value=0 ;;
+		3) wave_value=1 ;;
+		4) wave_value=2 ;;
+		5) wave_value=3 ;;
+		6) wave_value=4 ;;
+		7) wave_value=3 ;;
+	esac
+}
+
+draw_sprite()
+{
+	sprite_column=$1
+	sprite_offset=$2
+	if [ "$direction" = left-to-right ]; then
+		line1='[= POP-TART =]  /\_/\'
+		line2='[=   NYAN   =] ( o.o )'
+		line3='[===========]  > ^ <'
+	else
+		line1='/\_/\  [= POP-TART =]'
+		line2='( o.o ) [=   NYAN   =]'
+		line3='< ^ <  [===========]'
+	fi
+
+	cursor_to $((scene_top + sprite_offset)) "$sprite_column"
+	printf '\033[37m%-24s\033[0m' "$line1"
+	cursor_to $((scene_top + sprite_offset + 1)) "$sprite_column"
+	printf '\033[33m%-24s\033[0m' "$line2"
+	cursor_to $((scene_top + sprite_offset + 2)) "$sprite_column"
+	printf '\033[37m%-24s\033[0m' "$line3"
+}
+
+erase_scene_columns()
+{
+	erase_column=$1
+	erase_width=$2
+	erase_line=0
+	while [ "$erase_line" -lt "$scene_height" ]; do
+		cursor_to $((scene_top + erase_line)) "$erase_column"
+		printf '\033[%dX' "$erase_width"
+		erase_line=$((erase_line + 1))
+	done
+}
+
+draw_stars()
+{
+	star_frame=$1
+	# Four sparse rows surround the rainbow.  Updating only every fourth
+	# animation frame keeps the twinkle visible without flooding a 19,200-baud
+	# serial connection with full-width redraws.
+	[ $((star_frame % 4)) -eq 0 ] || return 0
+	star_phase=$(( (star_frame / 4) % 4 ))
+	star_index=0
+	for star_row in "$top" $((top + 1)) $((scene_top + scene_height)) $((scene_top + scene_height + 1)); do
+		star_number=0
+		while [ "$star_number" -lt 3 ]; do
+			star_column=$(( 3 + ((star_index * 17 + star_number * 23) % (columns - 4)) ))
+			cursor_to "$star_row" "$star_column"
+			case $((star_phase + star_index + star_number & 3)) in
+				0) printf '\033[37m*\033[0m' ;;
+				1) printf '\033[36m+\033[0m' ;;
+				2) printf '\033[34m.\033[0m' ;;
+				3) printf ' ' ;;
+			esac
+			star_number=$((star_number + 1))
+		done
+		star_index=$((star_index + 1))
+	done
+}
+
+scroll_scene()
+{
+	scroll_line=0
+	while [ "$scroll_line" -lt "$scene_height" ]; do
+		cursor_to $((scene_top + scroll_line)) 1
+		if [ "$direction" = left-to-right ]; then
+			# DCH moves the accumulated trail one cell to the left.
+			printf '\033[P'
+			cursor_to $((scene_top + scroll_line)) $((cruise_column - 1))
+			printf '\033[%dX' $((sprite_width + 1))
+		else
+			# ICH moves it right; the terminal discards the far edge.
+			printf '\033[@'
+			cursor_to $((scene_top + scroll_line)) "$cruise_column"
+			printf '\033[%dX' $((sprite_width + 1))
+		fi
+		scroll_line=$((scroll_line + 1))
+	done
+}
+
+finish()
+{
+	printf '\033[0m\033[?25h'
+	cursor_to $((top + band_height + 1)) 1
+	printf '\n'
+}
+
+stop_animation()
+{
+	exit 0
+}
+
+trap finish EXIT
+trap stop_animation HUP INT TERM
+printf '\033[?25l'
+
+clear_band
+wave_frame=0
+wave_offset "$wave_frame"
+previous_wave=$wave_value
+draw_stars "$wave_frame"
+
+if [ "$direction" = left-to-right ]; then
+	column=1
+	draw_sprite "$column" "$wave_value"
+	while [ "$column" -lt "$cruise_column" ]; do
+		previous=$column
+		previous_wave=$wave_value
+		column=$((column + 1))
+		wave_frame=$((wave_frame + 1))
+		wave_offset "$wave_frame"
+		erase_scene_columns "$previous" $((sprite_width + 1))
+		draw_trail_pixel "$previous" "$previous_wave"
+		draw_sprite "$column" "$wave_value"
+		draw_stars "$wave_frame"
+		sleep "$delay"
+	done
+else
+	column=$last_column
+	draw_sprite "$column" "$wave_value"
+	while [ "$column" -gt "$cruise_column" ]; do
+		previous=$column
+		previous_wave=$wave_value
+		column=$((column - 1))
+		wave_frame=$((wave_frame + 1))
+		wave_offset "$wave_frame"
+		erase_scene_columns "$column" $((sprite_width + 1))
+		draw_trail_pixel $((previous + sprite_width - 1)) "$previous_wave"
+		draw_sprite "$column" "$wave_value"
+		draw_stars "$wave_frame"
+		sleep "$delay"
+	done
+fi
+
+# Once the cat reaches cruising position, keep it there and scroll until
+# interrupted, or for the requested number of complete display widths.
+scroll_frame=0
+scroll_cycles=0
+while [ "$lap_limit" -eq 0 ] || [ "$scroll_cycles" -lt "$lap_limit" ]; do
+	previous_wave=$wave_value
+	wave_frame=$((wave_frame + 1))
+	wave_offset "$wave_frame"
+	scroll_scene
+	if [ "$direction" = left-to-right ]; then
+		draw_trail_pixel $((cruise_column - 1)) "$previous_wave"
+	else
+		draw_trail_pixel $((cruise_column + sprite_width)) "$previous_wave"
+	fi
+	draw_sprite "$cruise_column" "$wave_value"
+	draw_stars "$wave_frame"
+	scroll_frame=$((scroll_frame + 1))
+	if [ "$scroll_frame" -eq "$columns" ]; then
+		scroll_frame=0
+		scroll_cycles=$((scroll_cycles + 1))
+	fi
+	sleep "$delay"
+done
+
+exit 0
+

@@ -215,6 +215,8 @@ private:
 	std::array<u8, 16> m_palette_gb{};
 	u16 m_palette_rg_valid = 0;
 	u16 m_palette_gb_valid = 0;
+	bool m_display_dirty = true;
+	u64 m_display_dirty_frame = ~u64(0);
 	u16 m_cpu1_trace_events = 0;
 	u16 m_cpu2_trace_events = 0;
 	u16 m_cpu1_io_trace_events = 0;
@@ -550,12 +552,15 @@ void vt340_state::cpu2_xdata_w(offs_t offset, u8 data)
 	{
 		unsigned const index = offset & 0x0f;
 		u16 const entry = 1U << index;
+		bool const changed = !(m_palette_rg_valid & entry) || (m_palette_rg[index] != data);
 		// Preserve colors already scanned before changing a complete E51/E52
 		// entry.  An incomplete entry still uses the monochrome fallback, and a
 		// repeated value cannot change the visible output.
-		if ((m_palette_gb_valid & entry) &&
-			(!(m_palette_rg_valid & entry) || (m_palette_rg[index] != data)))
+		if ((m_palette_gb_valid & entry) && changed)
+		{
 			m_screen->update_partial(m_screen->vpos());
+			m_display_dirty = true;
+		}
 		m_palette_rg[index] = data;
 		m_palette_rg_valid |= entry;
 		LOGMASKED(LOG_XDATA, "%s E51 palette[%X]=%02X (PC=%04X)\n", machine().describe_context(), offset & 0x0f, data, m_cpu2->pc());
@@ -565,9 +570,12 @@ void vt340_state::cpu2_xdata_w(offs_t offset, u8 data)
 	{
 		unsigned const index = offset & 0x0f;
 		u16 const entry = 1U << index;
-		if ((m_palette_rg_valid & entry) &&
-			(!(m_palette_gb_valid & entry) || (m_palette_gb[index] != data)))
+		bool const changed = !(m_palette_gb_valid & entry) || (m_palette_gb[index] != data);
+		if ((m_palette_rg_valid & entry) && changed)
+		{
 			m_screen->update_partial(m_screen->vpos());
+			m_display_dirty = true;
+		}
 		m_palette_gb[index] = data;
 		m_palette_gb_valid |= entry;
 		LOGMASKED(LOG_XDATA, "%s E52 palette[%X]=%02X (PC=%04X)\n", machine().describe_context(), offset & 0x0f, data, m_cpu2->pc());
@@ -809,6 +817,7 @@ void vt340_state::dc7051_post_load()
 	// Timers are restored by the scheduler/save system.  Re-drive the one
 	// persistent external level without replaying a frame event.
 	m_cpu2->set_input_line(MCS51_T0_LINE, m_dc7051_hsync_asserted ? ASSERT_LINE : CLEAR_LINE);
+	m_display_dirty = true;
 }
 
 TIMER_CALLBACK_MEMBER(vt340_state::dc7051_horizontal_tick)
@@ -837,8 +846,18 @@ TIMER_CALLBACK_MEMBER(vt340_state::dc7051_frame_tick)
 	m_dc323->frame_event();
 }
 
-u32 vt340_state::screen_update(screen_device &, bitmap_rgb32 &bitmap, rectangle const &cliprect)
+u32 vt340_state::screen_update(screen_device &screen, bitmap_rgb32 &bitmap, rectangle const &cliprect)
 {
+	u64 const frame = screen.frame_number();
+	bool const changed = std::exchange(m_display_dirty, false) | m_dc323->consume_display_dirty();
+	// Once any portion of a frame is dirty, render every later partial update
+	// in that frame. This preserves mid-frame palette changes while allowing a
+	// completely idle following frame to retain MAME's cached bitmap.
+	if (changed)
+		m_display_dirty_frame = frame;
+	else if (m_display_dirty_frame != frame)
+		return UPDATE_HAS_NOT_CHANGED;
+
 	// Four serial bitmap planes form a 16-entry E51/E52 color-map index.  Use
 	// genuine 12-bit RGB after firmware has programmed both halves of an entry.
 	// Entries not programmed after graphics POST retain a monochrome fallback
@@ -896,6 +915,7 @@ void vt340_state::machine_start()
 	save_item(NAME(m_palette_gb));
 	save_item(NAME(m_palette_rg_valid));
 	save_item(NAME(m_palette_gb_valid));
+	save_item(NAME(m_display_dirty));
 	save_item(NAME(m_cpu1_trace_events));
 	save_item(NAME(m_cpu2_trace_events));
 	save_item(NAME(m_cpu1_io_trace_events));
@@ -939,6 +959,8 @@ void vt340_state::machine_reset()
 	m_palette_gb.fill(0);
 	m_palette_rg_valid = 0;
 	m_palette_gb_valid = 0;
+	m_display_dirty = true;
+	m_display_dirty_frame = ~u64(0);
 	m_dc323->operational_w(0);
 	m_dc323->bitmap_clear();
 	m_cpu1_trace_events = 0;

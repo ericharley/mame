@@ -41,7 +41,7 @@ make -j4 REGENIE=1 USE_LIBSDL=1 \
   SOURCES=src/mame/dec/vt340.cpp,src/mame/dec/lk201.cpp \
   MACHINES='68681,SCN_PCI,EEPROMDEV'
 ./vt340 -verifyroms vt340 -rompath roms
-./vt340 vt340 -rompath roms -comm1 pty
+./vt340 vt340 -rompath roms -comm1 pty -printer pty
 ```
 
 See `BUILDING.md` for prerequisites and targeted builds,
@@ -81,8 +81,11 @@ The exact MAME checkout used for this sprint is commit
   rejected clock-skew hypothesis and the newly bounded startup phasing issue.
 - `UPSTREAM_MAME_WORK.md` separates reusable serial-device and CPU-core
   corrections from VT340-specific work and defines focused upstream tasks.
-- `hardware/serial-ports.md` documents Comm 1/Comm 2 wiring, macOS PTY use,
-  and the host-shell compatibility profile.
+- `hardware/serial-ports.md` documents Comm 1/Comm 2 and printer wiring,
+  macOS PTY use, media-copy capture, and the host-shell compatibility profile.
+- `PRINTER_ROUTING_REPORT.md` records the native SCN2641 printer-routing
+  investigation, exact unresolved firmware gate, and reproducible known-failure
+  test.
 - `hardware/dc323-device.md` documents the extracted Adder interface,
   ownership boundary, diagnostics, and unresolved hardware questions.
 - `hardware/dc7051-device.md` documents the driver-local timing-generator

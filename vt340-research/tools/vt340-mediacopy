@@ -1,0 +1,287 @@
+#!/bin/bash
+# Capture a VT340 ReGIS hardcopy as SIXEL through the host or printer port.
+
+set -euo pipefail
+
+program=${0##*/}
+destination=host
+printer_device=
+output=
+geometry=
+background=transparent
+png_output=false
+debug=false
+extract_input=
+idle_timeout=120
+host_state=
+printer_state=
+temporary_sixel=
+
+usage()
+{
+	cat <<EOF
+usage: $program [options]
+
+  --host                   receive the hardcopy on the current terminal
+  --printer                send it to the VT340 printer port without capture
+  --printer-device DEVICE  capture from the printer PTY (implies --printer)
+  -o, --output FILE        output .six or .png file
+  -g, --geometry GEOMETRY  crop as WIDTHxHEIGHT+X+Y
+  --small                  use a quick 100x100 crop at +350+190
+  --transparent            omit background pixels (default)
+  --opaque                 include background pixels
+  --png                    convert the result to PNG
+  --extract FILE           extract SIXEL DCS from an existing raw capture
+  --idle-timeout SECONDS   maximum pause while receiving (default: 120)
+  --debug                  report protocol progress
+  -h, --help               show this help
+
+Printer Set-Up must use Sixel Graphics Level 2.  With MAME started using
+"-printer pty", pass the printer PTY shown in the Pseudo Terminals menu to
+--printer-device.
+EOF
+}
+
+log()
+{
+	$debug && printf '%s: %s\n' "$program" "$*" >&2
+	return 0
+}
+
+stty_get()
+{
+	if stty -f "$1" -g >/dev/null 2>&1; then
+		stty -f "$1" -g
+	else
+		stty -F "$1" -g
+	fi
+}
+
+stty_set()
+{
+	local device=$1
+	shift
+	if stty -f "$device" "$@" >/dev/null 2>&1; then
+		return
+	fi
+	stty -F "$device" "$@"
+}
+
+restore_ttys()
+{
+	if [[ -n $host_state ]]; then
+		stty_set /dev/tty "$host_state" 2>/dev/null || true
+	fi
+	if [[ -n $printer_state && -n $printer_device ]]; then
+		stty_set "$printer_device" "$printer_state" 2>/dev/null || true
+	fi
+	if [[ -n $temporary_sixel ]]; then
+		rm -f "$temporary_sixel"
+	fi
+}
+
+trap restore_ttys EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+while (($#)); do
+	case $1 in
+	--host)
+		destination=host
+		shift
+		;;
+	--printer)
+		destination=printer
+		shift
+		;;
+	--printer-device)
+		[[ $# -ge 2 ]] || { printf '%s: missing printer device\n' "$program" >&2; exit 2; }
+		destination=printer
+		printer_device=$2
+		shift 2
+		;;
+	-o|--output)
+		[[ $# -ge 2 ]] || { printf '%s: missing output filename\n' "$program" >&2; exit 2; }
+		output=$2
+		shift 2
+		;;
+	-g|--geometry)
+		[[ $# -ge 2 ]] || { printf '%s: missing geometry\n' "$program" >&2; exit 2; }
+		geometry=$2
+		shift 2
+		;;
+	--small)
+		geometry=100x100+350+190
+		shift
+		;;
+	--transparent)
+		background=transparent
+		shift
+		;;
+	--opaque)
+		background=opaque
+		shift
+		;;
+	--png)
+		png_output=true
+		shift
+		;;
+	--extract)
+		[[ $# -ge 2 ]] || { printf '%s: missing capture filename\n' "$program" >&2; exit 2; }
+		extract_input=$2
+		shift 2
+		;;
+	--idle-timeout)
+		[[ $# -ge 2 ]] || { printf '%s: missing timeout\n' "$program" >&2; exit 2; }
+		idle_timeout=$2
+		shift 2
+		;;
+	--debug)
+		debug=true
+		shift
+		;;
+	-h|--help)
+		usage
+		exit 0
+		;;
+	*)
+		printf '%s: unknown option: %s\n' "$program" "$1" >&2
+		usage >&2
+		exit 2
+		;;
+	esac
+done
+
+case $idle_timeout in
+''|*[!0-9]*)
+	printf '%s: idle timeout must be an integer\n' "$program" >&2
+	exit 2
+	;;
+esac
+
+if [[ -z $output ]]; then
+	output="mediacopy-$(date +%Y%m%d-%H%M%S).six"
+fi
+if [[ $output == *.png ]]; then
+	png_output=true
+fi
+
+regis_h='S(H(P[0,0]))'
+if [[ -n $geometry ]]; then
+	if [[ $geometry =~ ^([0-9]+)x([0-9]+)\+([0-9]+)\+([0-9]+)$ ]]; then
+		width=${BASH_REMATCH[1]}
+		height=${BASH_REMATCH[2]}
+		x1=${BASH_REMATCH[3]}
+		y1=${BASH_REMATCH[4]}
+		((width > 0 && height > 0)) || { printf '%s: empty geometry\n' "$program" >&2; exit 2; }
+		x2=$((x1 + width - 1))
+		y2=$((y1 + height - 1))
+		((x2 < 800 && y2 < 480)) || { printf '%s: geometry exceeds 800x480 screen\n' "$program" >&2; exit 2; }
+		regis_h="S(H(P[0,0])[$x1,$y1][$x2,$y2])"
+	else
+		printf '%s: geometry must be WIDTHxHEIGHT+X+Y\n' "$program" >&2
+		exit 2
+	fi
+fi
+
+capture_sixel()
+{
+	local input_fd=$1
+	local sixel_file=$2
+	local byte next
+
+	: >"$sixel_file"
+	log 'waiting for SIXEL DCS'
+	while IFS= read -r -n 1 -d '' -t "$idle_timeout" -u "$input_fd" byte; do
+		[[ $byte == $'\e' ]] || continue
+		IFS= read -r -n 1 -d '' -t "$idle_timeout" -u "$input_fd" next || break
+		[[ $next == P ]] || continue
+		printf '\eP' >>"$sixel_file"
+		break
+	done
+
+	[[ -s $sixel_file ]] || {
+		printf '%s: timed out before the VT340 SIXEL response\n' "$program" >&2
+		return 1
+	}
+
+	log 'receiving SIXEL data'
+	while IFS= read -r -n 1 -d '' -t "$idle_timeout" -u "$input_fd" byte; do
+		printf '%s' "$byte" >>"$sixel_file"
+		if [[ $byte == $'\e' ]]; then
+			IFS= read -r -n 1 -d '' -t "$idle_timeout" -u "$input_fd" next || break
+			printf '%s' "$next" >>"$sixel_file"
+			if [[ $next == \\ ]]; then
+				log 'received SIXEL terminator'
+				return 0
+			fi
+		fi
+	done
+
+	printf '%s: timed out before the SIXEL terminator\n' "$program" >&2
+	return 1
+}
+
+convert_sixel()
+{
+	local sixel_file=$1
+	local png_file=$2
+	if command -v magick >/dev/null 2>&1; then
+		magick "six:$sixel_file" "png:$png_file"
+	elif command -v convert >/dev/null 2>&1; then
+		convert "six:$sixel_file" "png:$png_file"
+	else
+		printf '%s: PNG output requires ImageMagick (magick or convert)\n' "$program" >&2
+		return 1
+	fi
+}
+
+if $png_output; then
+	temporary_sixel=$(mktemp -t vt340-mediacopy.XXXXXX.six)
+	sixel_output=$temporary_sixel
+else
+	sixel_output=$output
+fi
+
+if [[ -n $extract_input ]]; then
+	exec 5<"$extract_input"
+	capture_sixel 5 "$sixel_output"
+elif [[ $destination == printer && -z $printer_device ]]; then
+	exec 3<>/dev/tty
+	printf '\e[?0i\e[?43h\e[?44h\e[?45h' >&3
+	[[ $background == transparent ]] && printf '\e[?46l' >&3 || printf '\e[?46h' >&3
+	printf '\e[?47l\ePp%s\e\\' "$regis_h" >&3
+	printf '%s: hardcopy sent to the VT340 printer port\n' "$program" >&2
+	printf '%s: use --printer-device with the MAME printer PTY to capture it\n' "$program" >&2
+	exit 0
+else
+	exec 3<>/dev/tty
+	host_state=$(stty_get /dev/tty)
+	stty_set /dev/tty -icanon -echo -echoe -echok -echoctl -echoke min 1 time 0 \
+		-icrnl -inlcr -igncr -istrip -opost ixoff
+
+	if [[ $destination == printer ]]; then
+		[[ -e $printer_device ]] || { printf '%s: printer device not found: %s\n' "$program" "$printer_device" >&2; exit 1; }
+		printer_state=$(stty_get "$printer_device")
+		stty_set "$printer_device" 9600 cs8 -parenb -cstopb -icanon -echo min 1 time 0 \
+			-icrnl -inlcr -igncr -istrip -opost
+		exec 4<>"$printer_device"
+		input_fd=4
+		media_copy_target=0
+	else
+		input_fd=3
+		media_copy_target=2
+	fi
+
+	printf '\e[?%di\e[?43h\e[?44h\e[?45h' "$media_copy_target" >&3
+	[[ $background == transparent ]] && printf '\e[?46l' >&3 || printf '\e[?46h' >&3
+	printf '\e[?47l\ePp%s\e\\' "$regis_h" >&3
+	capture_sixel "$input_fd" "$sixel_output"
+fi
+
+if $png_output; then
+	convert_sixel "$sixel_output" "$output"
+fi
+
+printf '%s: wrote %s\n' "$program" "$output" >&2

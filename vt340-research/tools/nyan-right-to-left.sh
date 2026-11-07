@@ -1,0 +1,5 @@
+#!/bin/sh
+
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec "$script_dir/vt340-nyan-cat" right-to-left "$@"
+

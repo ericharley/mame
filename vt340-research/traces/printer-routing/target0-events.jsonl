@@ -1,0 +1,7 @@
+{"event":"external_ready","time":140.006423286,"p1":"54"}
+{"event":"printer_uart_read","time":140.400211000,"pc":"4E8B","address":"F000","data":"11","meaning":"XON accepted by native SCN2641 receive handler"}
+{"event":"target_state","time":141.008377651,"target":0,"idata24":"86","idata2b":"02","queue_count":"00"}
+{"event":"printer_route","time":141.171655000,"pc":"AE37","name":"printer_reset","state24":"06","state2b":"00","queue_count":"00"}
+{"event":"printer_state_write","time":141.171680000,"pc":"AE4F","address":"7CCF","data":"00"}
+{"event":"printer_state_write","time":141.171684000,"pc":"AE53","address":"7CC7","data":"00"}
+{"event":"result","time":143.012286382,"target":0,"printer_bytes":0,"sixel":false,"host_input_bytes":70,"host_output_bytes":0}

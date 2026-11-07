@@ -1,0 +1,5 @@
+{"event":"external_ready","time":140.006423286,"p1":"54"}
+{"event":"printer_uart_read","time":140.400211000,"pc":"4E8B","address":"F000","data":"11","meaning":"XON accepted by native SCN2641 receive handler"}
+{"event":"target_state","time":141.008377651,"target":2,"idata24":"06","idata2b":"00","queue_count":"00"}
+{"event":"host_sixel_start","time":141.137888000,"byte":5}
+{"event":"result","time":143.012286382,"target":2,"printer_bytes":0,"sixel":true,"host_input_bytes":70,"host_output_bytes":214}
