@@ -86,7 +86,9 @@ static DEVICE_INPUT_DEFAULTS_START(comm1_defaults)
 	DEVICE_INPUT_DEFAULTS("RS232_DATABITS", 0xff, RS232_DATABITS_8)
 	DEVICE_INPUT_DEFAULTS("RS232_PARITY", 0xff, RS232_PARITY_NONE)
 	DEVICE_INPUT_DEFAULTS("RS232_STOPBITS", 0xff, RS232_STOPBITS_1)
-	DEVICE_INPUT_DEFAULTS("FLOW_CONTROL", 0x07, 0x00)
+	// The firmware uses software receive flow control while it moves or redraws
+	// large text/graphics regions, so the attached host must honor its XOFF.
+	DEVICE_INPUT_DEFAULTS("FLOW_CONTROL", 0x07, 0x04)
 DEVICE_INPUT_DEFAULTS_END
 
 static DEVICE_INPUT_DEFAULTS_START(comm2_defaults)
@@ -546,15 +548,28 @@ void vt340_state::cpu2_xdata_w(offs_t offset, u8 data)
 	}
 	if (selects(offset, PALETTE_RG_BASE, BOARD_REGISTER_MASK))
 	{
-		m_palette_rg[offset & 0x0f] = data;
-		m_palette_rg_valid |= 1U << (offset & 0x0f);
+		unsigned const index = offset & 0x0f;
+		u16 const entry = 1U << index;
+		// Preserve colors already scanned before changing a complete E51/E52
+		// entry.  An incomplete entry still uses the monochrome fallback, and a
+		// repeated value cannot change the visible output.
+		if ((m_palette_gb_valid & entry) &&
+			(!(m_palette_rg_valid & entry) || (m_palette_rg[index] != data)))
+			m_screen->update_partial(m_screen->vpos());
+		m_palette_rg[index] = data;
+		m_palette_rg_valid |= entry;
 		LOGMASKED(LOG_XDATA, "%s E51 palette[%X]=%02X (PC=%04X)\n", machine().describe_context(), offset & 0x0f, data, m_cpu2->pc());
 		return;
 	}
 	if (selects(offset, PALETTE_GB_BASE, BOARD_REGISTER_MASK))
 	{
-		m_palette_gb[offset & 0x0f] = data;
-		m_palette_gb_valid |= 1U << (offset & 0x0f);
+		unsigned const index = offset & 0x0f;
+		u16 const entry = 1U << index;
+		if ((m_palette_rg_valid & entry) &&
+			(!(m_palette_gb_valid & entry) || (m_palette_gb[index] != data)))
+			m_screen->update_partial(m_screen->vpos());
+		m_palette_gb[index] = data;
+		m_palette_gb_valid |= entry;
 		LOGMASKED(LOG_XDATA, "%s E52 palette[%X]=%02X (PC=%04X)\n", machine().describe_context(), offset & 0x0f, data, m_cpu2->pc());
 		return;
 	}
@@ -833,7 +848,7 @@ u32 vt340_state::screen_update(screen_device &, bitmap_rgb32 &bitmap, rectangle 
 		{
 			u8 planes = 0;
 			for (unsigned plane = 0; plane < dc323_device::BITMAP_PLANES; plane++)
-				planes |= m_dc323->pixel_r(plane, x, y) << plane;
+				planes |= m_dc323->display_pixel_r(plane, x, y) << plane;
 			u8 const color = output_map_address(planes);
 			if (BIT(m_palette_rg_valid & m_palette_gb_valid, color))
 			{

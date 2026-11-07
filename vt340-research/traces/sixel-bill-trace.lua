@@ -37,12 +37,13 @@ if not external_input then
 	assert(bitbanger, "Comm 1 bitbanger image is unavailable; use -comm1 null_modem")
 end
 
--- A sustained 93 KiB graphics stream must honor the terminal's XON/XOFF
--- backpressure.  This configures only the host-side null modem; the VT340
--- firmware remains responsible for generating the control characters.
+-- A sustained graphics stream must honor the terminal's XON/XOFF
+-- backpressure.  This is a property of the configured host connector, not
+-- something the workload should silently enable for itself.
 local flow_tag = external_input and ":comm1:pty:FLOW_CONTROL" or ":comm1:null_modem:FLOW_CONTROL"
 local flow_port = manager.machine.ioport.ports[flow_tag]
 assert(flow_port, "Comm 1 flow-control setting is unavailable")
+assert((flow_port:read() & 0x07) == 0x04, "Comm 1 host connector is not using XON/XOFF flow control")
 local baud_setting = tonumber(os.getenv("VT340_SIXEL_BAUD_SETTING"))
 if baud_setting then
 	manager.machine.ioport.ports[":comm1:null_modem:RS232_TXBAUD"].fields["TX Baud"]:set_value(baud_setting)
@@ -95,6 +96,9 @@ local duart_acr = 0
 local duart_mr_writes = {}
 local trace_ring = os.getenv("VT340_TRACE_RING") == "1"
 local trace_color_state = os.getenv("VT340_TRACE_COLOR_STATE") == "1"
+local trace_scroll = os.getenv("VT340_TRACE_SCROLL") == "1"
+local trace_raster = os.getenv("VT340_TRACE_RASTER") == "1"
+local raster_trace_events = 0
 local setup_enter = nil
 local setup_down = nil
 local setup_right = nil
@@ -227,6 +231,17 @@ sixel_dc323_write_tap = cpu2_xdata:install_write_tap(
 		local reg = offset & 0x3f
 		local register_value = (manager.machine.devices[":cpu2"].state["P1"].value << 8) | data
 		dc323_regs[reg] = register_value
+		if loaded and trace_scroll and reg == 0x14 then
+			print(string.format(
+				'VT340_SIXEL_JSON {"event":"scroll_command","time":%.9f,"value":"%04X","bounds":[%d,%d,%d,%d],"pause":%d,"offset":%d,"indexes":["%04X","%04X","%04X","%04X","%04X","%04X"]}',
+				manager.machine.time:as_double(), register_value,
+				(dc323_regs[0x0e] or 0) & 0x3fff, (dc323_regs[0x0f] or 0) & 0x3fff,
+				(dc323_regs[0x10] or 0) & 0x1fff, (dc323_regs[0x11] or 0) & 0x1fff,
+				(dc323_regs[0x12] or 0) & 0x07ff, (dc323_regs[0x13] or 0) & 0x1fff,
+				dc323_regs[0x15] or 0, dc323_regs[0x16] or 0,
+				dc323_regs[0x17] or 0, dc323_regs[0x18] or 0,
+				dc323_regs[0x19] or 0, dc323_regs[0x1a] or 0))
+		end
 		if reg == 0x08 and (register_value & 0xffe0) == 0x0180 then
 			local viper_reg = register_value & 0x1f
 			for plane = 0, 3 do
@@ -326,6 +341,54 @@ sixel_dc323_write_tap = cpu2_xdata:install_write_tap(
 				local y = (dc323_regs[0x25] or 0) & 0x3fff
 				local width = (dc323_regs[0x26] or 0) & 0x1fff
 				local height = (dc323_regs[0x29] or 0) & 0x1fff
+				if trace_raster and (command == 0x0ed4 or (y >= 220 and y < 280) or raster_trace_events < 1000) then
+					raster_trace_events = raster_trace_events + 1
+					if command == 0x0ed4 then
+						local source_counts = {}
+						local destination_counts = {}
+						local logic = {}
+						local mask1 = {}
+						local mask2 = {}
+						local background = {}
+						local foreground = {}
+						local source_y = (dc323_regs[0x23] or 0) & 0x1fff
+						for plane = 0, 3 do
+							local source_count = 0
+							local destination_count = 0
+							local plane_base = plane * 1024 * 2048
+							for pixel_x = 0, math.min(width, 800) - 1 do
+								source_count = source_count + (planes:read_u8(plane_base + source_y * 1024 + pixel_x) & 1)
+								for pixel_y = y, math.min(y + height, 500) - 1 do
+									destination_count = destination_count + (planes:read_u8(plane_base + pixel_y * 1024 + pixel_x) & 1)
+								end
+							end
+							source_counts[#source_counts + 1] = source_count
+							destination_counts[#destination_counts + 1] = destination_count
+							logic[#logic + 1] = string.format('"%02X"', viper_regs[plane][0x05] or 0)
+							mask1[#mask1 + 1] = string.format('"%04X"', viper_regs[plane][0x08] or 0)
+							mask2[#mask2 + 1] = string.format('"%04X"', viper_regs[plane][0x09] or 0)
+							background[#background + 1] = string.format('"%04X"', viper_regs[plane][0x0e] or 0)
+							foreground[#foreground + 1] = string.format('"%04X"', viper_regs[plane][0x0f] or 0)
+						end
+						print(string.format(
+							'VT340_SIXEL_JSON {"event":"raster_0ed4_state","time":%.9f,"destination":[%d,%d],"source_counts":[%s],"destination_counts":[%s],"select":"%X","logic":[%s],"mask1":[%s],"mask2":[%s],"background":[%s],"foreground":[%s]}',
+							manager.machine.time:as_double(), x, y,
+							table.concat(source_counts, ","), table.concat(destination_counts, ","), viper_select,
+							table.concat(logic, ","), table.concat(mask1, ","), table.concat(mask2, ","),
+							table.concat(background, ","), table.concat(foreground, ",")))
+					end
+					print(string.format(
+						'VT340_SIXEL_JSON {"event":"raster_command","time":%.9f,"command":"%04X","source":["%04X","%04X"],"destination":[%d,%d],"extent":[%d,%d],"vectors":["%04X","%04X","%04X","%04X"],"scale":["%04X","%04X"],"mode":"%04X","offset":"%04X","indexes":["%04X","%04X","%04X","%04X"]}',
+						manager.machine.time:as_double(), command,
+						dc323_regs[0x22] or 0, dc323_regs[0x23] or 0,
+						x, y, width, height,
+						dc323_regs[0x26] or 0, dc323_regs[0x27] or 0,
+						dc323_regs[0x28] or 0, dc323_regs[0x29] or 0,
+						dc323_regs[0x2a] or 0, dc323_regs[0x2b] or 0,
+						dc323_mode, dc323_regs[0x13] or 0,
+						dc323_regs[0x17] or 0, dc323_regs[0x18] or 0,
+						dc323_regs[0x19] or 0, dc323_regs[0x1a] or 0))
+				end
 				destination_min_x = math.min(destination_min_x, x)
 				destination_min_y = math.min(destination_min_y, y)
 				destination_max_x = math.max(destination_max_x, x + math.max(width, 1) - 1)
@@ -346,10 +409,13 @@ sixel_dc323_write_tap = cpu2_xdata:install_write_tap(
 local function capture_visible_bitmap()
 	local hash = 0x811c9dc5
 	local counts = {}
+	local y_limit = (dc323_regs[0x37] or 0) & 0x1fff
+	if y_limit == 0 then y_limit = 2048 end
+	local y_offset = ((dc323_regs[0x13] or 0) & 0x1fff) % y_limit
 	for color = 0, 15 do counts[color] = 0 end
 	for y = 0, 499 do
 		for x = 0, 799 do
-			local address = y * 1024 + x
+			local address = ((y + y_offset) % y_limit) * 1024 + x
 			local color = 0
 			for plane = 0, 3 do
 				color = color | ((planes:read_u8(plane * 1024 * 2048 + address) & 1) << plane)
@@ -415,7 +481,7 @@ local function capture_visible_bitmap()
 		'VT340_SIXEL_JSON {"event":"received_prefix","hex":"%s","csra":"%02X","acr":"%02X","mr_writes":"%s"}',
 		table.concat(received_prefix), duart_csra, duart_acr, table.concat(duart_mr_writes)))
 	print(string.format(
-		'VT340_SIXEL_JSON {"event":"capture","time":%.9f,"bitmap_hash":"%08X","color_counts":[%s],"received_bytes":%d,"received_mismatches":%d,"first_received_mismatch":%d,"flow_control":{"xoff":%d,"xon":%d},"graphics_commands":%d,"normal_commands":%d,"nonnormal_commands":%d,"operation_counts":[%d,%d,%d,%d],"raster_candidates":%d,"source1_rasters":%d,"destination_bounds":[%d,%d,%d,%d],"screen_intersections":%d,"nonzero_pixels":%d,"nonzero_bounds":[%d,%d,%d,%d],"y_offset":"%04X","y_scroll":"%04X","source2_commands":%d,"viper_loads":%d,"id_data_writes":%d,"palette_writes":{"rg":%d,"gb":%d},"snapshot":"%s"}',
+		'VT340_SIXEL_JSON {"event":"capture","time":%.9f,"bitmap_hash":"%08X","color_counts":[%s],"received_bytes":%d,"received_mismatches":%d,"first_received_mismatch":%d,"flow_control":{"xoff":%d,"xon":%d},"graphics_commands":%d,"normal_commands":%d,"nonnormal_commands":%d,"operation_counts":[%d,%d,%d,%d],"raster_candidates":%d,"source1_rasters":%d,"destination_bounds":[%d,%d,%d,%d],"screen_intersections":%d,"nonzero_pixels":%d,"nonzero_bounds":[%d,%d,%d,%d],"y_offset":"%04X","y_limit":"%04X","y_scroll":"%04X","source2_commands":%d,"viper_loads":%d,"id_data_writes":%d,"palette_writes":{"rg":%d,"gb":%d},"snapshot":"%s"}',
 		manager.machine.time:as_double(), hash, table.concat(count_text, ","),
 		received_bytes, received_mismatches, first_received_mismatch,
 		xoff_count, xon_count, graphics_commands, normal_commands,
@@ -424,7 +490,7 @@ local function capture_visible_bitmap()
 		source1_rasters, destination_min_x, destination_min_y,
 		destination_max_x, destination_max_y, screen_intersections,
 		nonzero_pixels, nonzero_min_x, nonzero_min_y, nonzero_max_x, nonzero_max_y,
-		dc323_regs[0x13] or 0, dc323_regs[0x14] or 0,
+		dc323_regs[0x13] or 0, dc323_regs[0x37] or 0, dc323_regs[0x14] or 0,
 		source2_commands, viper_loads, id_data_writes,
 		palette_rg_writes, palette_gb_writes, snapshot_path))
 end
@@ -478,10 +544,6 @@ emu.register_frame_done(function()
 	local load_time = input_ready_time or (select_color and 280 or 140)
 	if not loaded and now >= load_time then
 		loaded = true
-		-- Let the connector consume the terminal firmware's XON/XOFF bytes.
-		-- This applies equally to the reproducible bitbanger and the real PTY
-		-- path used by an interactive host.
-		flow_port.fields["Flow Control"]:set_value(0x04)
 		if external_input then
 			print(string.format(
 				'VT340_SIXEL_JSON {"event":"external_ready","time":%.9f,"path":"%s"}',

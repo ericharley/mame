@@ -276,6 +276,38 @@
       "outputs": ["mame.log", "events.jsonl", "sixel-bill.png"]
     },
     {
+      "id": "vttest-screen-features",
+      "script": "vttest-screen-features.sh",
+      "title": "VTTEST scrolling, rendition, and cursor save/restore",
+      "kind": "atomic",
+      "suites": ["graphics", "serial", "conformance"],
+      "estimated_seconds": 55,
+      "requires_roms": true,
+      "requires": ["jq", "perl", "python3", "rg"],
+      "fixtures": ["fixtures/fast-start.cfg", "fixtures/vttest-screen-features.sh"],
+      "dc323_commands": [
+        {"family": "scroll.frame-service", "level": "integration", "scope": "Exercises small and full-height smooth and jump scrolling in both directions before checking later display integrity."},
+        {"family": "raster.normal-bitmap", "level": "integration", "scope": "Checks text reconstruction, rendition attributes, and DECSC/DECRC output after the scroll sequence."}
+      ],
+      "outputs": ["mame.log", "events.jsonl", "vttest-screen-features.png"]
+    },
+    {
+      "id": "vttest-double-size-blink",
+      "script": "vttest-double-size-blink.sh",
+      "title": "VTTEST double-size line attributes and blink refresh",
+      "kind": "atomic",
+      "suites": ["graphics", "serial", "conformance"],
+      "estimated_seconds": 24,
+      "requires_roms": true,
+      "requires": ["awk", "perl", "python3", "rg"],
+      "fixtures": ["fixtures/fast-start.cfg", "fixtures/vttest-double-size-blink.sh"],
+      "dc323_commands": [
+        {"family": "raster.normal-e49", "level": "integration", "scope": "Checks 2x-scaled top/bottom DECDHL glyph construction from E49 character ROM data."},
+        {"family": "raster.normal-bitmap", "level": "integration", "scope": "Checks the periodic 1:20 bitmap-sourced blink refresh after a 132-to-80-column transition."}
+      ],
+      "outputs": ["mame.log", "vttest-double-size.png"]
+    },
+    {
       "id": "text-attributes",
       "script": "text-attributes.sh",
       "title": "Native text attributes and palette routing",
@@ -331,7 +363,7 @@
       "requires_roms": true,
       "requires": ["rg"],
       "fixtures": [],
-      "outputs": ["mame.log", "slots.txt", "devices.txt"]
+      "outputs": ["mame.log", "slots.txt", "devices.txt", "defaults.log"]
     },
     {
       "id": "phase4-scn2681-loopback",

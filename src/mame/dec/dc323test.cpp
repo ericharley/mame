@@ -45,6 +45,7 @@ private:
 	void viper_w(unsigned reg, u16 value);
 	void fill(unsigned x, unsigned y, unsigned width, unsigned height, bool value);
 	void expect_pixel(unsigned x, unsigned y, bool value, char const *message);
+	void expect_display_pixel(unsigned x, unsigned y, bool value, char const *message);
 	void write_visual(char const *name, unsigned x, unsigned y, unsigned width, unsigned height);
 	TIMER_CALLBACK_MEMBER(run_tests);
 };
@@ -96,6 +97,13 @@ void dc323_test_state::expect_pixel(unsigned x, unsigned y, bool value, char con
 {
 	for (unsigned plane = 0; plane < dc323_device::BITMAP_PLANES; plane++)
 		require(bool(m_dc323->pixel_r(plane, x, y)) == value, message);
+}
+
+
+void dc323_test_state::expect_display_pixel(unsigned x, unsigned y, bool value, char const *message)
+{
+	for (unsigned plane = 0; plane < dc323_device::BITMAP_PLANES; plane++)
+		require(bool(m_dc323->display_pixel_r(plane, x, y)) == value, message);
 }
 
 
@@ -297,6 +305,20 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	reg_w(dc323_device::REG_DESTINATION_X, 201);
 	reg_w(dc323_device::REG_COMMAND, 0x0ec0);
 	expect_pixel(201, 100, true, "raster phase uses old source index below refresh");
+
+	// Down-scroll changes PYOF with the backing-store rotation at the frame
+	// boundary.  Unlike progressive up-scroll, updates on both sides of the
+	// live raster therefore use the new index pair.
+	m_dc323->bitmap_clear();
+	reg_w(dc323_device::REG_PENDING_X_INDEX, 20);
+	reg_w(dc323_device::REG_PENDING_Y_INDEX, 0);
+	reg_w(dc323_device::REG_SCROLL_Y, 0x1001);
+	m_dc323->frame_event();
+	reg_w(dc323_device::REG_X_CONTROL, 0x00c0);
+	reg_w(dc323_device::REG_DESTINATION_X, 20);
+	reg_w(dc323_device::REG_DESTINATION_Y, 60);
+	reg_w(dc323_device::REG_COMMAND, 0x06c0);
+	expect_pixel(40, 60, true, "down-scroll frame uses new index below refresh");
 
 	// A following frame with no index transition collapses back to the new
 	// pair for the entire update region.
@@ -1218,6 +1240,7 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	reg_w(dc323_device::REG_SCROLL_X_MIN, 0);
 	reg_w(dc323_device::REG_SCROLL_X_MAX, 4);
 	reg_w(dc323_device::REG_SCROLL_Y_OFFSET, 0);
+	reg_w(dc323_device::REG_Y_LIMIT, dc323_device::BITMAP_HEIGHT);
 
 	// Upward one-line scroll executes only on the next frame.
 	m_dc323->bitmap_clear();
@@ -1266,17 +1289,22 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	// Downward scroll, zero distance, saturated distance, and erase mode.
 	m_dc323->bitmap_clear();
 	fill(0, 20, 4, 1, true);
+	fill(10, 50, 1, 1, true);
 	reg_w(dc323_device::REG_SCROLL_Y_MIN, 20);
 	reg_w(dc323_device::REG_SCROLL_Y_MAX, 23);
+	reg_w(dc323_device::REG_SCROLL_Y_OFFSET, dc323_device::BITMAP_HEIGHT - 1);
 	reg_w(dc323_device::REG_SCROLL_Y, 0x1001);
 	m_dc323->frame_event();
-	expect_pixel(0, 20, false, "down scroll fill row");
-	expect_pixel(0, 21, true, "down scroll copied row");
+	expect_display_pixel(0, 20, false, "down scroll fill row");
+	expect_display_pixel(0, 21, true, "down scroll retained row");
+	expect_display_pixel(10, 50, true, "down scroll preserves pixels outside region");
 	reg_w(dc323_device::REG_STATUS, 0x0000);
 	reg_w(dc323_device::REG_SCROLL_Y, 0x0000);
 	m_dc323->frame_event();
-	expect_pixel(0, 21, true, "zero-distance scroll preservation");
+	expect_display_pixel(0, 21, true, "zero-distance scroll preservation");
 	reg_w(dc323_device::REG_STATUS, 0x0000);
+	reg_w(dc323_device::REG_SCROLL_Y_OFFSET, 0);
+	m_dc323->bitmap_clear();
 	reg_w(dc323_device::REG_SCROLL_Y, 0x0fff);
 	m_dc323->frame_event();
 	m_dc323->scanline_event(22);
@@ -1321,7 +1349,34 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	expect_pixel(0, 0, false, "Y-offset wrapped fill row");
 	reg_w(dc323_device::REG_STATUS, 0x0000);
 
+	// Scroll memory addresses wrap at Y limit, not at the full bitmap backing
+	// store height.  The VT340 uses 522 rows: 500 visible scanlines plus its
+	// down-scroll reserve.
+	m_dc323->bitmap_clear();
+	reg_w(dc323_device::REG_Y_LIMIT, 522);
+	reg_w(dc323_device::REG_SCROLL_Y_OFFSET, 521);
+	reg_w(dc323_device::REG_SCROLL_Y_MIN, 0);
+	reg_w(dc323_device::REG_SCROLL_Y_MAX, 2);
+	reg_w(dc323_device::REG_SCROLL_Y, 0);
+	m_dc323->frame_event();
+	fill(0, 1, 1, 1, true);
+	reg_w(dc323_device::REG_SCROLL_Y, 1);
+	m_dc323->frame_event();
+	m_dc323->scanline_event(1);
+	expect_display_pixel(0, 0, true, "scroll source wraps at Y limit");
+	expect_display_pixel(0, 1, false, "scroll fill wraps at Y limit");
+
+	// Device coordinates outside the refresh ring address independent backing
+	// storage; they must not wrap through Y limit and overwrite visible rows.
+	m_dc323->bitmap_clear();
+	fill(0, 1500, 1, 1, true);
+	expect_pixel(0, 1500, true, "off-screen bitmap storage remains independently addressable");
+	expect_display_pixel(0, 0, false, "off-screen bitmap storage does not alias display memory");
+
 	reg_w(dc323_device::REG_SCROLL_Y_OFFSET, 0);
+	reg_w(dc323_device::REG_Y_LIMIT, dc323_device::BITMAP_HEIGHT);
+	reg_w(dc323_device::REG_SCROLL_Y, 0);
+	m_dc323->frame_event();
 	m_dc323->bitmap_clear();
 	fill(0, 31, 4, 1, true);
 	reg_w(dc323_device::REG_SCROLL_Y_MIN, 30);

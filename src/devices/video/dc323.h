@@ -55,7 +55,8 @@ public:
 		REG_SOURCE2_Y = 0x2d,
 		REG_SOURCE2_SIZE = 0x2e,
 		REG_ERROR_1 = 0x2f,
-		REG_ERROR_2 = 0x30
+		REG_ERROR_2 = 0x30,
+		REG_Y_LIMIT = 0x37
 	};
 
 	enum status_bit : u16
@@ -100,6 +101,7 @@ public:
 	u8 viper_select_r() const { return m_viper_select; }
 	u16 viper_register_r(unsigned plane, unsigned reg) const { return m_viper_registers[plane][reg & 0x1f]; }
 	u8 pixel_r(unsigned plane, unsigned x, unsigned y) const;
+	u8 display_pixel_r(unsigned plane, unsigned x, unsigned y) const;
 	void bitmap_clear(u8 data = 0);
 
 protected:
@@ -144,6 +146,15 @@ private:
 	{
 		return plane * BITMAP_PLANE_SIZE + y * BITMAP_WIDTH + x;
 	}
+	u32 device_bitmap_plane_address(unsigned plane, unsigned x, int y) const
+	{
+		// PYOF translates coordinates in the display portion of bitmap memory.
+		// Higher addresses are independent backing/scratch storage and must not
+		// alias into the refresh ring at YL.
+		int const memory_y = (y >= 0 && y < int(m_active_y_limit)) ?
+			(y + int(m_active_y_offset)) % int(m_active_y_limit) : y;
+		return bitmap_plane_address(plane, x, memory_y);
+	}
 	static constexpr bool bitmap_contains(int x, int y)
 	{
 		return (unsigned(x) < BITMAP_WIDTH) && (unsigned(y) < BITMAP_HEIGHT);
@@ -173,6 +184,7 @@ private:
 	void begin_scroll();
 	void finish_scroll();
 	void execute_scroll_line(u16 device_y);
+	void execute_down_scroll(u16 distance);
 	void route_source_cycle(unsigned csr, unsigned destination_x, std::array<bool, BITMAP_PLANES> const &source_bits);
 	void load_viper_bit(unsigned plane, unsigned target, unsigned word_bit, bool data);
 	void write_viper_pixel(unsigned plane, unsigned x, unsigned y, u16 command, bool source_bit);
@@ -203,6 +215,8 @@ private:
 	u16 m_active_scroll_y_min = 0;
 	u16 m_active_scroll_y_max = 0;
 	u16 m_active_scroll_y_offset = 0;
+	u16 m_active_y_offset = 0;
+	u16 m_active_y_limit = BITMAP_HEIGHT;
 	u16 m_active_scroll_line = 0;
 	std::array<u16, BITMAP_PLANES> m_active_scroll_fill{};
 	std::array<u16, BITMAP_PLANES> m_active_scroll_left{};

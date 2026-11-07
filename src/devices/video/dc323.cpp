@@ -179,6 +179,8 @@ void dc323_device::device_start()
 	save_item(NAME(m_active_scroll_y_min));
 	save_item(NAME(m_active_scroll_y_max));
 	save_item(NAME(m_active_scroll_y_offset));
+	save_item(NAME(m_active_y_offset));
+	save_item(NAME(m_active_y_limit));
 	save_item(NAME(m_active_scroll_line));
 	save_item(NAME(m_active_scroll_fill));
 	save_item(NAME(m_active_scroll_left));
@@ -251,6 +253,8 @@ void dc323_device::device_reset()
 	m_active_scroll_y_min = 0;
 	m_active_scroll_y_max = 0;
 	m_active_scroll_y_offset = 0;
+	m_active_y_offset = 0;
+	m_active_y_limit = BITMAP_HEIGHT;
 	m_active_scroll_line = 0;
 	m_active_scroll_fill.fill(0);
 	m_active_scroll_left.fill(0);
@@ -543,6 +547,13 @@ void dc323_device::frame_event()
 	m_registers[REG_OLD_Y_INDEX] = m_registers[REG_NEW_Y_INDEX];
 	m_registers[REG_NEW_X_INDEX] = m_registers[REG_PENDING_X_INDEX];
 	m_registers[REG_NEW_Y_INDEX] = m_registers[REG_PENDING_Y_INDEX];
+	// PYOF is the screen-to-memory offset and YL is the height of the refresh
+	// portion of bitmap memory, including any extra down-scroll scanlines.  Both
+	// are frame-buffered.  A zero/unprogrammed YL retains the backing-store
+	// extent for device tests and reset-time operation.
+	u16 const programmed_y_limit = m_registers[REG_Y_LIMIT] & FIELD_13_BIT_MASK;
+	m_active_y_limit = programmed_y_limit ? std::min<u16>(programmed_y_limit, BITMAP_HEIGHT) : BITMAP_HEIGHT;
+	m_active_y_offset = (m_registers[REG_SCROLL_Y_OFFSET] & FIELD_13_BIT_MASK) % m_active_y_limit;
 	m_active_pause = m_registers[REG_PAUSE] & 0x07ff;
 	m_pause_fired = false;
 	m_index_phase_active = was_pending &&
@@ -628,7 +639,7 @@ u16 dc323_device::pbt_read_word(u32 index)
 					continue;
 				unsigned const plane_address = m_viper_registers[plane][VIPER_REG_Z_ADDRESS] & Z_ADDRESS_MASK;
 				if ((plane_address >> Z_BLOCK_SHIFT) == z_block)
-					data |= u16(m_bitmap_planes[bitmap_plane_address(plane, source_x, source_y)]) << (plane_address & 15);
+					data |= u16(m_bitmap_planes[device_bitmap_plane_address(plane, source_x, source_y)]) << (plane_address & 15);
 			}
 		return data;
 	}
@@ -665,7 +676,7 @@ u16 dc323_device::pbt_read_word(u32 index)
 			}
 		if (output_enabled)
 			for (unsigned bit = 0; bit < 8 && (source_x + bit) < BITMAP_WIDTH; bit++)
-				data |= (m_bitmap_planes[bitmap_plane_address(output_plane, source_x + bit, source_y)] & 1) << bit;
+				data |= (m_bitmap_planes[device_bitmap_plane_address(output_plane, source_x + bit, source_y)] & 1) << bit;
 	}
 	return data;
 }
@@ -999,11 +1010,11 @@ void dc323_device::execute_rasterop(u16 command)
 					if (source_is_e49)
 						source1_bits[plane] = BIT(rom_source, rom_x & 7);
 					else if (bitmap_contains(source_pixel_x, source_pixel_y))
-						source1_bits[plane] = m_bitmap_planes[bitmap_plane_address(plane, source_pixel_x, source_pixel_y)];
+						source1_bits[plane] = m_bitmap_planes[device_bitmap_plane_address(plane, source_pixel_x, source_pixel_y)];
 				}
 				if (source2_enabled)
 					source2_bits[plane] = bitmap_contains(source2_pixel_x, source2_pixel_y) &&
-						m_bitmap_planes[bitmap_plane_address(plane, source2_pixel_x, source2_pixel_y)];
+						m_bitmap_planes[device_bitmap_plane_address(plane, source2_pixel_x, source2_pixel_y)];
 			}
 			if (source1_enabled && source2_enabled)
 			{
@@ -1144,10 +1155,10 @@ void dc323_device::execute_linear_pattern(u16 command)
 				if (!BIT(m_viper_select, plane))
 					continue;
 				if (source1_enabled)
-					source1_bits[plane] = m_bitmap_planes[bitmap_plane_address(plane, source_x, source_y)];
+					source1_bits[plane] = m_bitmap_planes[device_bitmap_plane_address(plane, source_x, source_y)];
 				if (source2_enabled)
 					source2_bits[plane] = bitmap_contains(source2_x, source2_y) &&
-						m_bitmap_planes[bitmap_plane_address(plane, source2_x, source2_y)];
+						m_bitmap_planes[device_bitmap_plane_address(plane, source2_x, source2_y)];
 			}
 			if (source1_enabled && source2_enabled)
 			{
@@ -1231,7 +1242,7 @@ void dc323_device::execute_fill(u16 command)
 				auto const &viper = m_viper_registers[plane];
 				bool const source_bit = source2_enabled ?
 					(bitmap_contains(source2_x, source2_y) &&
-						m_bitmap_planes[bitmap_plane_address(plane, source2_x, source2_y)]) :
+						m_bitmap_planes[device_bitmap_plane_address(plane, source2_x, source2_y)]) :
 					BIT(viper[VIPER_REG_SOURCE], unsigned(x) & 15);
 				write_viper_pixel(plane, x, y, command, source_bit);
 			}
@@ -1392,7 +1403,7 @@ void dc323_device::write_viper_pixel(unsigned plane, unsigned x, unsigned y, u16
 		return;
 	if (!BIT(logic, 6))
 		source_bit = !source_bit;
-	u32 const destination = bitmap_plane_address(plane, x, y);
+	u32 const destination = device_bitmap_plane_address(plane, x, y);
 	bool const destination_bit = m_bitmap_planes[destination];
 	unsigned const logic_input = (destination_bit << 1) | source_bit;
 	bool const select_foreground = BIT(logic, logic_input);
@@ -1403,7 +1414,11 @@ void dc323_device::write_viper_pixel(unsigned plane, unsigned x, unsigned y, u16
 
 std::pair<int, int> dc323_device::raster_index(int unindexed_y)
 {
-	bool const use_new = !m_index_phase_active ||
+	// Up-scroll moves rows behind refresh, so updates below the current raster
+	// still need the old index.  Down-scroll rotates the refresh store and PYOF
+	// together at the frame boundary; its entire frame therefore uses the new
+	// index rather than splitting a multi-scanline glyph at the live raster.
+	bool const use_new = !m_index_phase_active || BIT(m_active_scroll, 12) ||
 		(unindexed_y < int(m_raster_line_handler()));
 	unsigned const x_reg = use_new ? REG_NEW_X_INDEX : REG_OLD_X_INDEX;
 	unsigned const y_reg = use_new ? REG_NEW_Y_INDEX : REG_OLD_Y_INDEX;
@@ -1421,7 +1436,7 @@ void dc323_device::begin_scroll()
 	m_active_scroll_x_max = std::min<u16>(m_registers[REG_SCROLL_X_MAX] & 0x3ffc, BITMAP_WIDTH);
 	m_active_scroll_y_min = std::min<u16>(m_registers[REG_SCROLL_Y_MIN] & FIELD_13_BIT_MASK, BITMAP_HEIGHT);
 	m_active_scroll_y_max = std::min<u16>(m_registers[REG_SCROLL_Y_MAX] & FIELD_13_BIT_MASK, BITMAP_HEIGHT);
-	m_active_scroll_y_offset = m_registers[REG_SCROLL_Y_OFFSET] & FIELD_13_BIT_MASK;
+	m_active_scroll_y_offset = m_active_y_offset;
 	m_active_scroll_line = m_active_scroll_y_min;
 	for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
 	{
@@ -1442,10 +1457,9 @@ void dc323_device::begin_scroll()
 		(m_active_scroll_y_min >= m_active_scroll_y_max) || (!erase && !distance))
 		return;
 	m_scroll_active = true;
-	if (BIT(m_active_scroll, 12))
+	if (BIT(m_active_scroll, 12) && !erase)
 	{
-		for (u16 device_y = m_active_scroll_y_max; device_y-- > m_active_scroll_y_min; )
-			execute_scroll_line(device_y);
+		execute_down_scroll(distance);
 		m_scroll_active = false;
 	}
 }
@@ -1462,7 +1476,6 @@ void dc323_device::finish_scroll()
 void dc323_device::execute_scroll_line(u16 device_y)
 {
 	bool const erase = BIT(m_active_scroll, 13);
-	bool const down = BIT(m_active_scroll, 12);
 	u16 const distance = std::min<u16>(m_active_scroll & 0x0fff,
 		m_active_scroll_y_max - m_active_scroll_y_min);
 
@@ -1488,12 +1501,10 @@ void dc323_device::execute_scroll_line(u16 device_y)
 			return true;
 		};
 
-		u16 const destination_bitmap_y = (device_y + m_active_scroll_y_offset) & (BITMAP_HEIGHT - 1);
-		bool const fill = erase || (down ?
-			(device_y < m_active_scroll_y_min + distance) :
-			(device_y >= m_active_scroll_y_max - distance));
-		u16 const source_y = down ? device_y - distance : device_y + distance;
-		u16 const source_bitmap_y = (source_y + m_active_scroll_y_offset) & (BITMAP_HEIGHT - 1);
+		u16 const destination_bitmap_y = (device_y + m_active_scroll_y_offset) % m_active_y_limit;
+		bool const fill = erase || (device_y >= m_active_scroll_y_max - distance);
+		u16 const source_y = device_y + distance;
+		u16 const source_bitmap_y = (source_y + m_active_scroll_y_offset) % m_active_y_limit;
 		for (u16 x = operation_x_min; x < operation_x_max; x++)
 			if (scrolls_x(x))
 				m_bitmap_planes[bitmap_plane_address(plane, x, destination_bitmap_y)] = fill ?
@@ -1503,9 +1514,80 @@ void dc323_device::execute_scroll_line(u16 device_y)
 }
 
 
+void dc323_device::execute_down_scroll(u16 distance)
+{
+	// A down-scroll cannot copy the region from top to bottom without replacing
+	// data before refresh has read it.  The Adder instead advances all bitmap
+	// data outside the region by the scroll distance and lowers PYOF by the same
+	// amount.  With refresh starting at the new offset, the untouched data in
+	// the region appears to move down while everything outside it stays fixed.
+	//
+	// Firmware has already supplied the new PYOF.  Save the rows that wrap while
+	// rotating the rest of the refresh store toward lower addresses, matching
+	// the hardware's reserved down-scroll scanlines.
+	std::vector<u8> wrapped(BITMAP_PLANES * distance * BITMAP_WIDTH);
+	for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
+		for (u16 y = 0; y < distance; y++)
+			std::copy_n(&m_bitmap_planes[bitmap_plane_address(plane, 0, y)], BITMAP_WIDTH,
+				&wrapped[(plane * distance + y) * BITMAP_WIDTH]);
+
+	for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
+	{
+		u16 const scroll_word_width = m_active_scroll_word_width[plane];
+		u16 const left_word = m_active_scroll_x_min & ~(scroll_word_width - 1);
+		u16 const right_word = m_active_scroll_x_max & ~(scroll_word_width - 1);
+		u16 const left_mask = m_active_scroll_left[plane];
+		u16 const right_mask = m_active_scroll_right[plane];
+		auto const scrolls_x = [left_word, right_word, scroll_word_width, left_mask, right_mask](u16 x)
+		{
+			if ((x < left_word) || (x >= right_word + scroll_word_width))
+				return false;
+			unsigned const bit = x & (scroll_word_width - 1);
+			if (x < left_word + scroll_word_width)
+				return !BIT(left_mask, bit);
+			if (x >= right_word)
+				return !BIT(right_mask, bit);
+			return true;
+		};
+
+		for (u16 destination_y = 0; destination_y < m_active_y_limit; destination_y++)
+		{
+			u16 const device_y = (destination_y + m_active_y_limit - m_active_scroll_y_offset) % m_active_y_limit;
+			u16 const source_y = (destination_y + distance) % m_active_y_limit;
+			for (u16 x = 0; x < BITMAP_WIDTH; x++)
+			{
+				bool const in_scroll_region = (device_y >= m_active_scroll_y_min) &&
+					(device_y < m_active_scroll_y_max) && scrolls_x(x);
+				u32 const destination = bitmap_plane_address(plane, x, destination_y);
+				if (in_scroll_region)
+				{
+					if (device_y < m_active_scroll_y_min + distance)
+						m_bitmap_planes[destination] = BIT(m_active_scroll_fill[plane], x & 15);
+				}
+				else if (source_y < distance)
+				{
+					m_bitmap_planes[destination] = wrapped[(plane * distance + source_y) * BITMAP_WIDTH + x];
+				}
+				else
+				{
+					m_bitmap_planes[destination] = m_bitmap_planes[bitmap_plane_address(plane, x, source_y)];
+				}
+			}
+		}
+	}
+}
+
+
 u8 dc323_device::pixel_r(unsigned plane, unsigned x, unsigned y) const
 {
 	return m_bitmap_planes[bitmap_plane_address(plane, x, y)];
+}
+
+
+u8 dc323_device::display_pixel_r(unsigned plane, unsigned x, unsigned y) const
+{
+	u16 const memory_y = (y + m_active_y_offset) % m_active_y_limit;
+	return m_bitmap_planes[bitmap_plane_address(plane, x, memory_y)];
 }
 
 

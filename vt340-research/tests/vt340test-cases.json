@@ -105,7 +105,7 @@
       ],
       "expected_wire_bytes": 2564,
       "expected_bitmap_hash": "9DD92CE5",
-      "expected_nonzero_pixels": 293256
+      "expected_nonzero_pixels": 323784
     },
     {
       "id": "sixel-line-attributes",
