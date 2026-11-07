@@ -16,6 +16,8 @@ local external_input = os.getenv("VT340_SIXEL_EXTERNAL") == "1"
 local select_color = os.getenv("VT340_SELECT_COLOR") == "1"
 local snapshot_path = os.getenv("VT340_SIXEL_SNAPSHOT") or "/tmp/vt340-sixel-bill.png"
 local capture_time = tonumber(os.getenv("VT340_SIXEL_CAPTURE_TIME")) or 360
+local snapshot_interval = tonumber(os.getenv("VT340_SIXEL_SNAPSHOT_INTERVAL")) or 0
+local snapshot_count = tonumber(os.getenv("VT340_SIXEL_SNAPSHOT_COUNT")) or 0
 local leave_post_time = tonumber(os.getenv("VT340_LEAVE_POST_TIME")) or 130
 local input_ready_time = tonumber(os.getenv("VT340_INPUT_READY_TIME"))
 local bitbanger = nil
@@ -52,6 +54,8 @@ end
 
 local loaded = false
 local captured = false
+local snapshots_written = 0
+local next_snapshot_time = capture_time
 local left_post = false
 local received_bytes = 0
 local received_mismatches = 0
@@ -559,6 +563,16 @@ emu.register_frame_done(function()
 	if not captured and now >= capture_time then
 		capture_visible_bitmap()
 		captured = true
+		snapshots_written = 1
+		next_snapshot_time = capture_time + snapshot_interval
+	elseif captured and snapshot_interval > 0 and snapshots_written < snapshot_count and now >= next_snapshot_time then
+		local numbered_path = snapshot_path:gsub("(%.[^./]+)$", string.format("-%02d%%1", snapshots_written))
+		if numbered_path == snapshot_path then
+			numbered_path = snapshot_path .. string.format("-%02d", snapshots_written)
+		end
+		screen:snapshot(numbered_path)
+		snapshots_written = snapshots_written + 1
+		next_snapshot_time = capture_time + snapshots_written * snapshot_interval
 	end
 end)
 

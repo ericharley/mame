@@ -62,9 +62,11 @@ Once logged into a macOS shell, source the session profile:
 ```
 
 It advertises `TERM=vt340`, configures an 80-column by 24-row 8N1 tty with
-XON/XOFF output pacing, selects the ASCII `C` locale, disables automatic color
-and pagers, and installs a simple prompt. Output pacing is important for large
-SIXEL streams. Use `VT340_TERM=vt100` before the command when deliberately
+XON/XOFF output pacing, disables macOS `OXTABS` so horizontal-tab controls reach
+the terminal unchanged, selects the ASCII `C` locale, disables automatic color
+and pagers, and installs a simple prompt. Preserving tabs is required by
+VTTEST's double-width alignment patterns, while output pacing is important for
+large SIXEL streams. Use `VT340_TERM=vt100` before the command when deliberately
 testing with the conservative text-only capability set:
 
 ```sh

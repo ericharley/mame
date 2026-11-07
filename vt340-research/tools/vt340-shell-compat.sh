@@ -47,7 +47,11 @@ if [ -t 0 ]; then
 	# IXON lets the terminal pause a sustained SIXEL stream before its UART/parser
 	# queues overflow. IXOFF remains disabled because the host shell does not need
 	# the kernel to generate flow-control bytes on the terminal's behalf.
-	stty sane 19200 cs8 -parenb -cstopb -istrip ixon -ixoff \
+	# Preserve horizontal-tab controls for the terminal itself.  macOS can
+	# otherwise enable OXTABS and replace HT with spaces before VTTEST or other
+	# applications reach Comm 1; double-width lines then use the wrong cursor
+	# position because their tab-and-backup alignment sequence is destroyed.
+	stty sane 19200 cs8 -parenb -cstopb -istrip ixon -ixoff -oxtabs \
 		icrnl -inlcr -igncr opost onlcr \
 		echo echoe echok icanon isig iexten \
 		rows "$VT340_ROWS" columns "$VT340_COLUMNS"
@@ -85,5 +89,5 @@ vt340_restore_tty()
 	fi
 }
 
-printf 'VT340 shell compatibility enabled: TERM=%s, %sx%s, ASCII locale, XON/XOFF output pacing.\n' \
+printf 'VT340 shell compatibility enabled: TERM=%s, %sx%s, ASCII locale, XON/XOFF pacing, tabs preserved.\n' \
 	"$TERM" "$VT340_COLUMNS" "$VT340_ROWS"

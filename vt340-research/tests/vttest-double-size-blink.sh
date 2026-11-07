@@ -31,7 +31,16 @@ trap cleanup EXIT HUP INT TERM
 
 mkdir "$config" "$nvram"
 cp "$root/vt340-research/fixtures/fast-start.cfg" "$config/vt340.cfg"
-sh "$root/vt340-research/fixtures/vttest-double-size-blink.sh" >"$input"
+if test -n "${VT340_DOUBLE_SIZE_NVRAM:-}"; then
+	cp -R "$VT340_DOUBLE_SIZE_NVRAM"/. "$nvram"/
+fi
+if test -n "${VT340_DOUBLE_SIZE_FIXTURE:-}"; then
+	sh "$VT340_DOUBLE_SIZE_FIXTURE" >"$input"
+elif test -n "${VT340_DOUBLE_SIZE_INPUT:-}"; then
+	cp "$VT340_DOUBLE_SIZE_INPUT" "$input"
+else
+	sh "$root/vt340-research/fixtures/vttest-double-size-blink.sh" >"$input"
+fi
 # Darwin's slave PTY maps generated LF bytes to CRLF on the UART.
 perl -0777 -pe 's/\n/\r\n/g' "$input" >"$expected"
 
@@ -61,7 +70,9 @@ test -n "$endpoint"
 if ! stty -f "$endpoint" raw -echo 2>/dev/null; then
 	stty -F "$endpoint" raw -echo
 fi
-python3 "$root/vt340-research/tests/lib/serial_write.py" "$endpoint" "$input"
+python3 "$root/vt340-research/tests/lib/serial_write.py" "$endpoint" "$input" \
+	--baud "${VT340_DOUBLE_SIZE_HOST_BAUD:-19200}" \
+	--hold "${VT340_DOUBLE_SIZE_HOST_HOLD:-0}"
 wait "$pid"
 pid=
 
@@ -71,7 +82,9 @@ received_mismatches=$(sed -n 's/.*"event":"capture".*"received_mismatches":\([0-
 hash=$(sed -n 's/.*"event":"capture".*"bitmap_hash":"\([0-9A-F]*\)".*/\1/p' "$log")
 test "$received_bytes" -eq "$expected_bytes"
 test "$received_mismatches" -eq 0
-test "$hash" = "0FB2B197"
+if test -z "${VT340_DOUBLE_SIZE_INPUT:-}" && test -z "${VT340_DOUBLE_SIZE_FIXTURE:-}"; then
+	test "$hash" = "0FB2B197"
+fi
 test -s "$snapshot"
 echo "VTTEST double-size blink capture passed (bytes=$received_bytes hash=$hash)"
 echo "Snapshot: $snapshot"
