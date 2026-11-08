@@ -304,13 +304,19 @@
     {
       "id": "vt340test-corpus",
       "script": "vt340test-corpus.sh",
-      "title": "External VT340 hardware-observed ReGIS and SIXEL corpus",
+      "title": "VT340 ReGIS and external graphics conformance corpus",
       "kind": "atomic",
       "suites": ["graphics", "serial", "conformance"],
-      "estimated_seconds": 150,
+      "estimated_seconds": 510,
       "requires_roms": true,
       "requires": ["bash", "jq", "perl", "python3", "rg", "shasum"],
-      "fixtures": ["tests/vt340test-cases.json", "fixtures/fast-start.cfg"],
+      "fixtures": [
+        "tests/vt340test-cases.json",
+        "fixtures/fast-start.cfg",
+        "fixtures/regis-hex-linear-patterns.regis",
+        "fixtures/regis-hex-patterns.regis",
+        "tools/generate_regis_hex_patterns.py"
+      ],
       "external_inputs": [
         "../sources/vt340test/regis/registest.sh",
         "../sources/vt340test/j4james/repeat_introducer.sh",

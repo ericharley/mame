@@ -61,11 +61,31 @@ active early in the transfer.
 
 ![ReGIS RAF target](assets/regis-raf.png)
 
-Both images come from the external `vt340test` corpus, sent through the real
-serial and firmware command paths and checked with deterministic framebuffer
-hashes. RAF additionally enters native VT340 color mode through Set-Up and
-pins the rendered screenshot, preserving its intended red, white, and blue
-palette rather than accepting the same indices through a monochrome map.
+### Hexagonal pattern-fill composition
+
+![ReGIS hexagonal pattern fills](assets/regis-hex-patterns.png)
+
+The six regions use diagonal stripes, checkerboard, dots, crosshatch,
+chevrons, and a small bitmap-like diamond motif. They form one continuous
+honeycomb across the 800-by-480 graphics plane. ReGIS has no direct patterned
+polygon-fill operator, so the generated stream composes solid polygon fills
+with globally aligned, per-hexagon clipped vectors and sub-polygons.
+
+### Native linear-pattern vectors
+
+![ReGIS DC323 linear-pattern vectors](assets/regis-hex-linear-patterns.png)
+
+This companion scene selects six ReGIS binary writing patterns and pattern
+multipliers with `W(P...M...)`. Its trace requires DC323 X-control mode
+`00C2`; the pinned run contains 1,132 linear-pattern commands. Solid hexagon
+outlines remain normal-mode vectors so the two command paths are distinguishable.
+
+All four scenes are sent through the real serial and firmware command paths
+and checked with deterministic framebuffer hashes. The grid and RAF inputs
+come from the external `vt340test` corpus; the honeycombs are deterministic
+local ReGIS workloads. RAF and both honeycombs additionally enter native VT340
+color mode through Set-Up and pin their rendered screenshots rather than
+accepting the same bitmap indices through a monochrome map.
 
 ## SIXEL conformance scenes
 

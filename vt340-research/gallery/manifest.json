@@ -84,6 +84,24 @@
       "git_revision": "7b4640dae0a95bb0c88a56751242a82475e22c3a"
     },
     {
+      "path": "assets/regis-hex-patterns.png",
+      "sha256": "6e13a8f46cefa5bbdc3e20b94346322a80d110154196a1675a4662b98004f277",
+      "width": 800,
+      "height": 500,
+      "frames": 1,
+      "source": "vt340test-corpus/regis-hex-patterns in native color mode, focused passing run 2026-11-08",
+      "git_revision": "d16f9b1e67d"
+    },
+    {
+      "path": "assets/regis-hex-linear-patterns.png",
+      "sha256": "9230b4f720026668e579a3d1b376a9b4d5fb1b1ca0f6f761d8b47279f8ea6c70",
+      "width": 800,
+      "height": 500,
+      "frames": 1,
+      "source": "vt340test-corpus/regis-hex-linear-patterns in native color mode, focused passing run 2026-11-08",
+      "git_revision": "d16f9b1e67d"
+    },
+    {
       "path": "assets/sixel-overlap.png",
       "sha256": "73e84dc720503447a6420a8b7985cfc0f7e1d89daa52dce727bf71250758cce5",
       "width": 800,

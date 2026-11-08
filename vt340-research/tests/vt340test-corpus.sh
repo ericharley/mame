@@ -43,6 +43,12 @@ run_case()
 	local dc323_families=$8
 	local color_mode=$9
 	local expected_snapshot_sha=${10}
+	local source_scope=${11}
+	local source_kind=${12}
+	local case_input_ready_time=${13}
+	local case_capture_time=${14}
+	local case_run_time=${15}
+	local expected_linear_commands=${16}
 	local case_root="$run_root/$case_id"
 	local config="$case_root/cfg"
 	local nvram="$case_root/nvram"
@@ -56,16 +62,24 @@ run_case()
 	mkdir -p "$config" "$nvram"
 	cp "$root/vt340-research/fixtures/fast-start.cfg" "$config/vt340.cfg"
 
+	local source_file
+	if [[ "$source_scope" == "local" ]]; then
+		source_file="$root/$source_path"
+	else
+		source_file="$source_root/$source_path"
+	fi
 	local observed_source_sha
-	observed_source_sha=$(shasum -a 256 "$source_root/$source_path" | awk '{print $1}')
+	observed_source_sha=$(shasum -a 256 "$source_file" | awk '{print $1}')
 	if [[ "$observed_source_sha" != "$source_sha" ]]; then
 		echo "$case_id source hash: expected $source_sha, observed $observed_source_sha" >&2
 		exit 1
 	fi
-	if [[ "$source_arg" != "-" ]]; then
-		TERM=vt340 bash "$source_root/$source_path" "$source_arg" >"$input"
+	if [[ "$source_kind" == "stream" ]]; then
+		cp "$source_file" "$input"
+	elif [[ "$source_arg" != "-" ]]; then
+		TERM=vt340 bash "$source_file" "$source_arg" >"$input"
 	else
-		TERM=vt340 bash "$source_root/$source_path" >"$input"
+		TERM=vt340 bash "$source_file" >"$input"
 	fi
 	# Cursor blink phase depends on when the host finishes writing.  Hide the
 	# cursor after the unmodified source stream so framebuffer comparisons cover
@@ -87,6 +101,9 @@ run_case()
 		run_time=302
 		select_color=1
 	fi
+	if [[ "$case_input_ready_time" != "-" ]]; then input_ready_time=$case_input_ready_time; fi
+	if [[ "$case_capture_time" != "-" ]]; then capture_time=$case_capture_time; fi
+	if [[ "$case_run_time" != "-" ]]; then run_time=$case_run_time; fi
 
 	VT340_SIXEL_EXTERNAL=1 VT340_SIXEL_FILE="$expected" VT340_SELECT_COLOR="$select_color" \
 		VT340_SIXEL_SNAPSHOT="$snapshot" VT340_SIXEL_CAPTURE_TIME="$capture_time" \
@@ -156,6 +173,10 @@ run_case()
 				jq -e 'select(.event == "command_count" and .command == "07D1" and .count > 0)' "$json" >/dev/null ;;
 		esac
 	done
+	if [[ "$expected_linear_commands" != "-" ]]; then
+		jq -e --argjson expected "$expected_linear_commands" \
+			'select(.event == "mode_count" and .mode == "00C2" and .count == $expected)' "$json" >/dev/null
+	fi
 	local observed_nonzero
 	observed_nonzero=$(jq -r 'select(.event == "capture") | .nonzero_pixels' "$json")
 	if [[ ! -s "$snapshot" ]]; then
@@ -193,9 +214,10 @@ run_case()
 		"$expected_bytes" "$observed_nonzero" "$observed_snapshot_sha"
 }
 
-while IFS='|' read -r case_id source_path source_sha source_arg expected_bytes expected_hash expected_nonzero dc323_families color_mode expected_snapshot_sha; do
+while IFS='|' read -r case_id source_path source_sha source_arg expected_bytes expected_hash expected_nonzero dc323_families color_mode expected_snapshot_sha source_scope source_kind input_ready_time capture_time run_time expected_linear_commands; do
 	run_case "$case_id" "$source_path" "$source_sha" "$source_arg" \
-		"$expected_bytes" "$expected_hash" "$expected_nonzero" "$dc323_families" "$color_mode" "$expected_snapshot_sha"
+		"$expected_bytes" "$expected_hash" "$expected_nonzero" "$dc323_families" "$color_mode" "$expected_snapshot_sha" \
+		"$source_scope" "$source_kind" "$input_ready_time" "$capture_time" "$run_time" "$expected_linear_commands"
 done < <(jq --arg case_filter "${VT340_CORPUS_CASE:-}" -r '.cases[] |
 	select($case_filter == "" or .id == $case_filter) | [
 	.id, .source, .source_sha256, (.argument // "-"),
@@ -203,6 +225,9 @@ done < <(jq --arg case_filter "${VT340_CORPUS_CASE:-}" -r '.cases[] |
 	(.expected_nonzero_pixels | tostring),
 	([.dc323_commands[].family] | join(",")),
 	(.color_mode // false | tostring),
-	(.expected_snapshot_sha256 // "-")] | join("|")' "$cases_file")
+	(.expected_snapshot_sha256 // "-"),
+	(.source_scope // "external"), (.source_kind // "bash"),
+	(.input_ready_time // "-" | tostring), (.capture_time // "-" | tostring),
+	(.run_time // "-" | tostring), (.expected_linear_commands // "-" | tostring)] | join("|")' "$cases_file")
 
-echo "VT340 external conformance corpus regression passed"
+echo "VT340 graphics conformance corpus regression passed"

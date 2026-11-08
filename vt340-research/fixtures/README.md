@@ -27,3 +27,25 @@ python vt340-research/tools/png_to_sixel.py bill_16colors.png \
 `tests/fast-start.sh`. It selects the optional CPU1 checkpoint ROM patch
 without changing the developer's normal `cfg/vt340.cfg` or the default
 research behavior.
+
+`regis-hex-patterns.regis` is a generated ReGIS conformance stream containing
+six honeycomb panels: diagonal stripes, checkerboard, dots, crosshatch,
+chevrons, and a small bitmap-like diamond motif. Patterns use global screen
+coordinates and are clipped independently to every hexagon, so adjacent cells
+expose discontinuities in vector clipping or polygon composition. Regenerate
+it deterministically with:
+
+```sh
+python3 vt340-research/tools/generate_regis_hex_patterns.py \
+    vt340-research/fixtures/regis-hex-patterns.regis
+```
+
+`regis-hex-linear-patterns.regis` uses the same continuous honeycomb, but its
+interior strokes select six combinations of ReGIS binary writing patterns and
+pattern multipliers with `W(P...M...)`. This is the focused firmware-level
+exercise of DC323 linear-pattern mode. Regenerate it with:
+
+```sh
+python3 vt340-research/tools/generate_regis_hex_patterns.py \
+    --linear-patterns vt340-research/fixtures/regis-hex-linear-patterns.regis
+```
