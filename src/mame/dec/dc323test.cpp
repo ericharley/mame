@@ -530,6 +530,23 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 		"independent foreground registers retain final color");
 	m_dc323->bitmap_clear();
 
+	// Operation 3 assigns exactly one of D and S1 to select transfer direction.
+	// The other two combinations have no established data-path semantics and
+	// must neither start a FIFO transfer nor alter bitmap memory.
+	reg_w(dc323_device::REG_DESTINATION_X, 8);
+	reg_w(dc323_device::REG_DESTINATION_Y, 10);
+	reg_w(dc323_device::REG_WIDTH, 1);
+	reg_w(dc323_device::REG_HEIGHT, 1);
+	reg_w(dc323_device::REG_COMMAND, 0x0300); // D=0, S1=0
+	require((m_dc323->status_r() & dc323_device::STATUS_ID_DATA_READY) == 0,
+		"unsupported transfer does not produce processor data");
+	expect_pixel(8, 10, false, "unsupported transfer does not alter bitmap");
+	reg_w(dc323_device::REG_COMMAND, 0x0f00); // D=1, S1=1
+	require((m_dc323->status_r() & dc323_device::STATUS_ID_DATA_READY) == 0,
+		"opposed transfer enables do not produce processor data");
+	expect_pixel(8, 10, false, "opposed transfer enables do not alter bitmap");
+	reg_w(dc323_device::REG_COMMAND, 0x0000);
+
 	// X-mode processor-to-bitmap transfers consume one I/D FIFO word per
 	// destination bus word and scanline.  The sixel firmware uses the 1x6 form
 	// to stage one sixel column in off-screen bitmap memory.
@@ -820,6 +837,18 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 	reg_w(dc323_device::REG_HEIGHT, 2);
 	reg_w(dc323_device::REG_COMMAND, 0x06c0);
 	expect_pixel(45, 45, false, "reserved mode 01 does not draw");
+
+	// Fill mode defines the source-vector registers as the second polygon edge,
+	// not as an enabled Source-1 bitmap path.  Keep that unidentified encoding
+	// at an explicit no-draw boundary until physical behavior is established.
+	m_dc323->bitmap_clear();
+	reg_w(dc323_device::REG_X_CONTROL, 0x0083);
+	reg_w(dc323_device::REG_DESTINATION_X, 45);
+	reg_w(dc323_device::REG_DESTINATION_Y, 45);
+	reg_w(dc323_device::REG_WIDTH, 2);
+	reg_w(dc323_device::REG_HEIGHT, 2);
+	reg_w(dc323_device::REG_COMMAND, 0x0ec0);
+	expect_pixel(45, 45, false, "fill with Source 1 does not invent output");
 
 	// Fill mode uses the destination slow generator for edge A and the source
 	// generator for edge B.  X fill scans horizontally between two edges while

@@ -63,6 +63,50 @@
       "expected_snapshot_sha256": "8b3a3e9e1a2fac275e8246094bcad2b05e8e57d96cbab2aa5be3ff6887e75faa"
     },
     {
+      "id": "tek-basic-vectors",
+      "source": "kermitdemos/tek.tst",
+      "source_sha256": "31d92c7cdb979e379d9900cd445c60cdf05efb1ac8b2c6e1b58c36220321c584",
+      "input_mode": "raw",
+      "stop_before_tek_exit": true,
+      "coverage": [
+        "Tektronix 4010/4014 mode entry",
+        "vector coordinate decoding",
+        "point and line drawing",
+        "Tek Alpha mode text"
+      ],
+      "dc323_commands": [
+        {"family": "raster.normal-constant", "level": "integration", "scope": "Exact Tek fan, circle, house, and box pixels cover native constant-source vector drawing."},
+        {"family": "raster.normal-bitmap", "level": "integration", "scope": "Exact framebuffer and screenshot checks cover native Tek Alpha text composition."},
+        {"family": "raster.linear-source1", "level": "integration", "scope": "The trace contains X-control mode 00C2 while rendering Tek line styles and stippled vectors."}
+      ],
+      "expected_wire_bytes": 2612,
+      "expected_bitmap_hash": "77C4EC0B",
+      "expected_nonzero_pixels": 252385,
+      "expected_snapshot_sha256": "6337ae126cb4161237923fb24b9a5caf5fec27148b79409a3ba012e9798e2d61"
+    },
+    {
+      "id": "tek-usa-map",
+      "source": "kermitdemos/USA.TEK",
+      "source_sha256": "48e65a966277f44fcf37b84f601a619245803b0bd6231e37870a68c56f3f5844",
+      "input_mode": "raw",
+      "stop_before_tek_exit": true,
+      "coverage": [
+        "Tektronix 4010/4014 mode entry",
+        "compressed coordinate decoding",
+        "large retained vector display",
+        "Tek line styles and Alpha mode labels"
+      ],
+      "dc323_commands": [
+        {"family": "raster.normal-constant", "level": "integration", "scope": "The exact USA outline and state-boundary framebuffer covers native constant-source vectors."},
+        {"family": "raster.normal-bitmap", "level": "integration", "scope": "Exact framebuffer and screenshot checks cover native Tek Alpha labels."},
+        {"family": "raster.linear-source1", "level": "integration", "scope": "The trace contains X-control mode 00C2 while rendering the retained Tek vector map."}
+      ],
+      "expected_wire_bytes": 5952,
+      "expected_bitmap_hash": "69799ABD",
+      "expected_nonzero_pixels": 254403,
+      "expected_snapshot_sha256": "6c50f1229ee1f9ff67a0474efd83888c0453e2c2c9bc33eb88e290ab4109a8eb"
+    },
+    {
       "id": "sixel-repeat",
       "source": "j4james/repeat_introducer.sh",
       "source_sha256": "e5b6976d77ab029d82fa7e9230a8dc7fafbbf534c67948ce14f559904d174d8f",

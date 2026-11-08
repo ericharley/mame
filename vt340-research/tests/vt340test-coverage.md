@@ -54,11 +54,19 @@ catalog, ending the captured wire stream at the first ReGIS String Terminator.
 This prevents closed stdin from immediately satisfying the prompt and changing
 the intended reference image before capture.
 
+Raw terminal demonstration files use `input_mode: raw`. Tektronix cases also
+set `stop_before_tek_exit`, because the VT340 replaces its separate Tek page
+as soon as DECTEK is reset. The retained page immediately before that reset is
+the stable output under test. The harness finishes in Tek graph mode to remove
+the blinking Alpha cursor from framebuffer comparisons.
+
 | Case | Original program | Functional coverage |
 | --- | --- | --- |
 | `regis-raf` | `regis/registest.sh raf` | ReGIS circles, color-index selection, nested fill |
 | `regis-grid` | `regis/registest.sh grid` | ReGIS vectors, patterned lines, rotated text, coordinates |
 | `regis-bitplane` | `regis/registest.sh bitplane` | ReGIS field masks, individual bitmap planes, plane intersections, color-map programming |
+| `tek-basic-vectors` | `kermitdemos/tek.tst` | Tek 4010/4014 entry, coordinates, points, vectors, line styles, Alpha text |
+| `tek-usa-map` | `kermitdemos/USA.TEK` | Large retained Tek vector map, compressed coordinates, line styles, labels |
 | `sixel-repeat` | `j4james/repeat_introducer.sh` | SIXEL repeat introducer, omitted/zero counts, clipping |
 | `sixel-raster-size` | `j4james/raster_dimensions.sh` | DECGRA raster dimensions, omitted/zero dimensions |
 | `sixel-overlap` | `j4james/image_overlap.sh` | Transparent background, palette selection, image layering |
@@ -120,9 +128,12 @@ and the harness can inject deterministic coordinates and button transitions.
 
 ### Tektronix, Kermit, VMS, and reference results
 
-Tektronix and Kermit demos require explicit mode/setup assumptions and curated
-capture points. VMS command procedures may need a compatible host environment
-or conversion into byte-stream fixtures. Reference screenshots and documented
+The Kermit `tek.tst` and `USA.TEK` demonstrations now have explicit mode and
+capture-point handling. Remaining Tektronix/Kermit demonstrations need the
+same review before inclusion, particularly files that mix SIXEL escape
+sequences into Tek mode despite the VT340 documentation saying they are
+ignored. VMS command procedures may need a compatible host environment or
+conversion into byte-stream fixtures. Reference screenshots and documented
 results should be used as review evidence, not executed or declared passing by
 filename alone.
 

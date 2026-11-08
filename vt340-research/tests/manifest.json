@@ -77,12 +77,14 @@
         {"family": "raster.reserved-mode", "level": "direct", "scope": "Verifies X-control mode 01 produces no drawing."},
         {"family": "raster.linear-source1", "level": "direct", "scope": "Checks rotation, fast up/down scaling, retained slow position and fractional phase, pen-up advancement, origin reset, and raster-phase indexing."},
         {"family": "raster.linear-constant", "level": "direct", "scope": "Verifies the undocumented source-free linear-pattern encoding does not invent visible output."},
+        {"family": "raster.fill-source1", "level": "negative", "scope": "Verifies fill mode with Source 1 enabled remains at the explicit no-draw boundary."},
         {"family": "raster.fill-two-edge", "level": "direct", "scope": "Checks X-fill and Y-fill interiors, exteriors, and excluded endpoints."},
         {"family": "raster.fill-baseline", "level": "direct", "scope": "Checks sloped X and Y edges against fixed baselines."},
         {"family": "raster.fill-chained", "level": "direct", "scope": "Checks X/Y diamonds, explicit restart, unequal edge expiration with one-sided reload, and scan reversal after crossing."},
         {"family": "transfer.bitmap-to-processor-x", "level": "direct", "scope": "Checks selected-plane packing, six-entry FIFO prefetch/drain, I/D readback, and completion status."},
         {"family": "transfer.processor-to-bitmap-x", "level": "direct", "scope": "Checks aligned/unaligned writes, masks, CSR routing, six-word back-pressure, cancel, and asynchronous status."},
         {"family": "transfer.z-mode", "level": "direct", "scope": "Checks plane-addressed PTB unpacking and BTP packing for two adjacent pixels in a Z block."},
+        {"family": "transfer.other", "level": "negative", "scope": "Checks that unsupported D/S1 transfer combinations neither produce FIFO data nor modify bitmap memory."},
         {"family": "scroll.frame-service", "level": "direct", "scope": "Checks deferred up/down scroll, scanline-progressive upward movement, erase, edge masks, offsets, pending-command replacement, exact pause-coordinate matching, and the two-event pause queue."}
       ],
       "outputs": ["source2-tiled-polygon-fill.png", "source2-untiled-baseline-fill.png"]
@@ -370,10 +372,10 @@
     {
       "id": "vt340test-corpus",
       "script": "vt340test-corpus.sh",
-      "title": "External VT340 hardware-observed ReGIS and SIXEL corpus",
+      "title": "External VT340 ReGIS, SIXEL, and Tektronix corpus",
       "kind": "atomic",
       "suites": ["graphics", "serial", "conformance"],
-      "estimated_seconds": 150,
+      "estimated_seconds": 180,
       "requires_roms": true,
       "requires": ["bash", "jq", "perl", "python3", "rg", "shasum"],
       "fixtures": ["tests/vt340test-cases.json", "fixtures/fast-start.cfg"],
@@ -384,7 +386,9 @@
         "../sources/vt340test/j4james/image_overlap.sh",
         "../sources/vt340test/j4james/image_movement.sh",
         "../sources/vt340test/j4james/scrolling.sh",
-        "../sources/vt340test/j4james/line_attributes.sh"
+        "../sources/vt340test/j4james/line_attributes.sh",
+        "../sources/vt340test/kermitdemos/tek.tst",
+        "../sources/vt340test/kermitdemos/USA.TEK"
       ],
       "outputs": ["*/input.stream", "*/mame.log", "*/events.jsonl", "*/screen.png"]
     },

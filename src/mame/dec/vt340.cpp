@@ -8,6 +8,62 @@
     emulated processors, serial devices and Dragon graphics hardware; the
     driver does not replace terminal protocols or synthesize display text.
 
+    Emulation status
+
+    The available firmware completes POST, displays VT340 OK, enters Set-Up,
+    and operates as an interactive text and graphics terminal through Comm 1
+    or Comm 2.  Firmware-generated text, scrolling, ReGIS, Tektronix graphics,
+    and color SIXEL exercise the native display command paths.
+
+    Modeled:
+      * Both 8031 processors, cartridge ROM reconstruction and CPU2 banking
+      * Shared XDATA RAM and the established CPU1/CPU2 startup handshakes
+      * ROM-driven LK201 keyboard and persistent E80 configuration EEPROM
+      * SCN2681 Comm 1/Comm 2 UARTs with MAME RS-232 endpoints
+      * SCN2641 register interface, interrupt, modem inputs and local loopback
+      * DC323 command engine, four Viper planes, E49 character ROM and bitmap
+      * E51/E52 output map, 16-entry color palette and an 800 by 500 display
+      * Frame-synchronous scrolling and the established DC7051 raster timing
+
+    Partial or compatibility behavior:
+      * DC7051 timing uses fixed, driver-local frame/scanline waveforms rather
+        than a complete programmable DC7051 device.
+      * Several short board-strobe and DAT9 rendezvous remain qualified by the
+        firmware instruction which samples them, pending lower-level bus and
+        MCS-51 timing support.
+      * The separate bitmap POST aperture models the observed diagnostic state
+        machine rather than general-purpose memory arbitration.
+      * The optional startup setting patches one reconstructed ROM byte to
+        avoid the native approximately 100.8-second missed-checkpoint timeout.
+      * DC323/Viper fidelity limits are documented in video/dc323.cpp.
+
+    Not modeled:
+      * Printer support.  E81's SCN2641 is sufficient for firmware POST, but
+        its external TxD/RxD/RTS connector, printer-ready wiring, attached
+        printer and Media Copy output path are not connected in this driver.
+      * Mouse/locator support.  There is no VSXXX mouse or tablet device,
+        locator-port signaling, coordinate/button input, or deterministic
+        ReGIS locator event injection.
+      * Shared-bus contention and cycle-exact arbitration between processors.
+      * Terminal bell/speaker audio.
+
+                              VT340 data flow
+
+        LK201 ------> internal UART                         DC7051 timing
+                         |                                      |
+        Comm 1/2 <-> SCN2681                               frame/scanline
+                         |                                      |
+        E80 EEPROM <-> CPU1 <------ shared XDATA ------> CPU2   |
+                         |             and DAT9              |   |
+        SCN2641 registers|                                    v v
+        (no printer I/O) +-----------------------------> DC323/Vipers
+                                                               |
+                                  E49 character ROM -----------+
+                                                               v
+                                 four bitmap planes -> E51/E52 -> screen
+
+        VSXXX mouse/tablet/locator: not connected
+
     Terminal control module (54-16965-01):
       E57  Intel 8031, processor 1 (see reserved-SFR compatibility note)
       E24  Intel 8031, processor 2
@@ -1068,7 +1124,9 @@ void vt340_state::vt340(machine_config &config)
 
 	// E81 is the SCN2641 printer communications interface.  Its interrupt
 	// output is connected to processor-1 INT1; the keyboard instead uses the
-	// processor's internal UART on P3.0/P3.1.
+	// processor's internal UART on P3.0/P3.1.  Only the chip-side interface is
+	// modeled here: the external printer connector and its TxD/RxD/RTS wiring
+	// are intentionally absent until their board behavior is integrated.
 	SCN2641(config, m_printer_uart, 3.6864_MHz_XTAL);
 	m_printer_uart->intr_handler().set_inputline(m_cpu1, MCS51_INT1_LINE);
 

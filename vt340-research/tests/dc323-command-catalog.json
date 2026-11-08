@@ -105,6 +105,14 @@
       "remaining": "Dragon defines linear-pattern mode around source 1; the no-source form is an illegal command combination with undefined hardware results."
     },
     {
+      "id": "raster.fill-source1",
+      "title": "Fill mode with Source 1 enabled",
+      "encoding": "op=2 D=1 S1=1, X-control mode 11",
+      "status": "unsupported",
+      "required_level": "negative",
+      "remaining": "Fill mode repurposes the source vector as polygon edge B; no separate Source-1 bitmap behavior has been established."
+    },
+    {
       "id": "raster.fill-two-edge",
       "title": "X/Y two-edge fill",
       "encoding": "op=2 D=1 S1=0 S2=0, X-control mode 11, baseline=0",
@@ -165,7 +173,7 @@
       "title": "Other operation-3 source/destination forms",
       "encoding": "op=3 excluding established X- and Z-mode PBT/PTB forms",
       "status": "unsupported",
-      "required_level": "none",
+      "required_level": "negative",
       "remaining": "No defined behavior has been established."
     },
     {

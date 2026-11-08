@@ -20,6 +20,18 @@ vt340-research/tests/run.py run graphics serial
 vt340-research/tests/run.py run conformance
 vt340-research/tests/run.py run dc323-device graphics-raster-commands
 
+# Run an individual external-corpus Tektronix case.
+VT340_CORPUS_CASE=tek-basic-vectors vt340-research/tests/vt340test-corpus.sh ./vt340
+VT340_CORPUS_CASE=tek-usa-map vt340-research/tests/vt340test-corpus.sh ./vt340
+
+# Explain and reproduce VT340 Pan Down/Up behavior versus VTTEST 11.2.2.
+# See vttest-pan.md before treating its diagonal-star result as a failure.
+sh vt340-research/fixtures/vttest-pan.sh pan-down
+
+# Isolate VTTEST 11.2.3's unsupported DECALN prefill from page formatting.
+# See vttest-page-format.md for the valid VT340 page sizes and expected result.
+sh vt340-research/fixtures/vttest-page-format.sh lines-36-message
+
 # Verify native normal/bold/underline/reverse/blink rendering and palette routing.
 vt340-research/tests/run.py run text-attributes
 vt340-research/tests/run.py run color-map-redraw

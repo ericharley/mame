@@ -68,7 +68,9 @@ public:
 		STATUS_ADDRESS_COMPLETE = 0x0010,
 		STATUS_ID_DATA_READY = 0x0020,
 		STATUS_ID_DATA_TRANSMIT_READY = 0x0040,
-		STATUS_RASTEROP_MASK = STATUS_RASTEROP_INITIALIZED | STATUS_RASTEROP_COMPLETE | STATUS_ADDRESS_COMPLETE,
+		STATUS_RASTEROP_MASK = STATUS_RASTEROP_INITIALIZED |
+							   STATUS_RASTEROP_COMPLETE |
+							   STATUS_ADDRESS_COMPLETE,
 		STATUS_COMMAND_MASK = STATUS_RASTEROP_MASK | STATUS_ID_DATA_READY
 	};
 
@@ -77,11 +79,16 @@ public:
 	static constexpr unsigned BITMAP_PLANES = 4;
 	static constexpr unsigned BITMAP_PLANE_SIZE = BITMAP_WIDTH * BITMAP_HEIGHT;
 
-	dc323_device(machine_config const &mconfig, char const *tag, device_t *owner, u32 clock);
+	dc323_device(machine_config const &mconfig, char const *tag,
+				 device_t *owner, u32 clock);
 
+	// Bind the level-sensitive interrupt output.
 	auto irq_handler() { return m_irq_handler.bind(); }
+	// Bind the current display-raster input used for old/new index selection.
 	auto raster_line_handler() { return m_raster_line_handler.bind(); }
+	// Select the ROM region that supplies E49 character-generator data.
 	void set_chargen_tag(char const *tag) { m_chargen_rom.set_tag(tag); }
+	// Select the shared storage that represents the four bitmap planes.
 	void set_bitmap_tag(char const *tag) { m_bitmap_planes.set_tag(tag); }
 
 	u8 read(offs_t offset);
@@ -93,13 +100,22 @@ public:
 
 	// Board compatibility and video-backend accessors.  These expose state,
 	// but never CPU identity or firmware addresses, so policy remains outside.
-	u16 register_r(offs_t offset) const { return m_registers[offset & REGISTER_MASK]; }
+	// Read a retained Adder register without host-bus side effects.
+	u16 register_r(offs_t offset) const
+	{
+		return m_registers[offset & REGISTER_MASK];
+	}
+	// Read the internal status latch without operational gating.
 	u16 status_r() const { return m_status; }
-	u16 interrupt_enable_r() const { return m_registers[REG_INTERRUPT_ENABLE]; }
-	bool video_operational() const { return m_video_operational; }
+	// Report whether firmware has queued a scroll for the next frame boundary.
 	bool scroll_pending() const { return m_scroll_pending; }
+	// Read the active four-plane Viper selection mask.
 	u8 viper_select_r() const { return m_viper_select; }
-	u16 viper_register_r(unsigned plane, unsigned reg) const { return m_viper_registers[plane][reg & VIPER_REGISTER_MASK]; }
+	// Read retained state from one Viper register bank.
+	u16 viper_register_r(unsigned plane, unsigned reg) const
+	{
+		return m_viper_registers[plane][reg & VIPER_REGISTER_MASK];
+	}
 	u8 pixel_r(unsigned plane, unsigned x, unsigned y) const;
 	u8 display_pixel_r(unsigned plane, unsigned x, unsigned y) const;
 	// Consume the accumulated bitmap/view-change notification used by a host
@@ -166,33 +182,46 @@ private:
 	static constexpr u16 Z_ADDRESS_MASK = 0x003f;
 	static constexpr unsigned Z_BLOCK_SHIFT = 4;
 
-	static constexpr u32 bitmap_plane_address(unsigned plane, unsigned x, unsigned y)
+	// Convert plane and physical X/Y coordinates to a linear bitmap address.
+	static constexpr u32 bitmap_plane_address(unsigned plane, unsigned x,
+											  unsigned y)
 	{
 		return plane * BITMAP_PLANE_SIZE + y * BITMAP_WIDTH + x;
 	}
+	// Apply PYOF within the refresh ring before forming a bitmap address.
 	u32 device_bitmap_plane_address(unsigned plane, unsigned x, int y) const
 	{
 		// PYOF translates coordinates in the display portion of bitmap memory.
 		// Higher addresses are independent backing/scratch storage and must not
 		// alias into the refresh ring at YL.
-		int const memory_y = (y >= 0 && y < int(m_active_y_limit)) ?
-			(y + int(m_active_y_offset)) % int(m_active_y_limit) : y;
+		int const memory_y =
+				(y >= 0 && y < int(m_active_y_limit))
+						? (y + int(m_active_y_offset)) % int(m_active_y_limit)
+						: y;
 		return bitmap_plane_address(plane, x, memory_y);
 	}
+	// Test coordinates against the full physical bitmap allocation.
 	static constexpr bool bitmap_contains(int x, int y)
 	{
 		return (unsigned(x) < BITMAP_WIDTH) && (unsigned(y) < BITMAP_HEIGHT);
 	}
+
+	// Raster geometry and register decoding.
 	static int signed_14(u16 value);
 	static unsigned viper_bus_width(u16 value);
-	static int source2_coordinate(u16 origin, int coordinate, unsigned tile_size, bool tiled);
+	static int source2_coordinate(u16 origin, int coordinate,
+								  unsigned tile_size, bool tiled);
 	source2_format source2_format_r() const;
-	bool scroll_mask_allows(unsigned plane, u16 x) const;
-	static std::vector<axis_sample> scaled_axis(unsigned destination_length, u16 scale,
-		unsigned &source, unsigned &accumulator);
-	static std::vector<axis_sample> scaled_axis(unsigned destination_length, u16 scale);
-	static std::vector<raster_point> raster_vector(int dx, int dy, int error_adjustment, unsigned limit);
+	static std::vector<axis_sample> scaled_axis(unsigned destination_length,
+												u16 scale, unsigned &source,
+												unsigned &accumulator);
+	static std::vector<axis_sample> scaled_axis(unsigned destination_length,
+												u16 scale);
+	static std::vector<raster_point>
+	raster_vector(int dx, int dy, int error_adjustment, unsigned limit);
+	std::pair<int, int> raster_index(int unindexed_y);
 
+	// Processor/bitmap transfer data path and its six-word I/D FIFO.
 	u8 id_data_r();
 	void id_data_w(u16 data);
 	u16 pbt_read_word(u32 index);
@@ -202,23 +231,33 @@ private:
 	u16 fifo_pop();
 	void update_fifo_status();
 	void schedule_pbt_service();
+
+	// Command lifecycle and interrupt delivery.
 	void stop_command_activity();
+	TIMER_CALLBACK_MEMBER(command_initialize_tick);
+	TIMER_CALLBACK_MEMBER(command_complete_tick);
+	TIMER_CALLBACK_MEMBER(pbt_service_tick);
 	void command_w(u16 command);
+	void unsupported_transfer(u16 command);
+	void update_interrupt(char const *event);
+
+	// Raster command execution and Viper source routing.
 	void execute_rasterop(u16 command);
 	void execute_linear_pattern(u16 command);
 	void execute_fill(u16 command);
+	void route_source_cycle(unsigned csr, unsigned destination_x,
+							std::array<bool, BITMAP_PLANES> const &source_bits);
+	void load_viper_bit(unsigned plane, unsigned target, unsigned word_bit,
+						bool data);
+	void write_viper_pixel(unsigned plane, unsigned x, unsigned y, u16 command,
+						   bool source_bit);
+
+	// Raster-synchronous scrolling and display address translation.
+	bool scroll_mask_allows(unsigned plane, u16 x) const;
 	void begin_scroll();
 	void finish_scroll();
 	void execute_scroll_line(u16 device_y);
 	void execute_down_scroll(u16 distance);
-	void route_source_cycle(unsigned csr, unsigned destination_x, std::array<bool, BITMAP_PLANES> const &source_bits);
-	void load_viper_bit(unsigned plane, unsigned target, unsigned word_bit, bool data);
-	void write_viper_pixel(unsigned plane, unsigned x, unsigned y, u16 command, bool source_bit);
-	std::pair<int, int> raster_index(int unindexed_y);
-	void update_interrupt(char const *event);
-	TIMER_CALLBACK_MEMBER(command_initialize_tick);
-	TIMER_CALLBACK_MEMBER(command_complete_tick);
-	TIMER_CALLBACK_MEMBER(pbt_service_tick);
 
 	required_region_ptr<u8> m_chargen_rom;
 	memory_share_creator<u8> m_bitmap_planes;
@@ -229,8 +268,7 @@ private:
 	std::array<std::array<u16, 0x20>, BITMAP_PLANES> m_viper_registers{};
 	u8 m_viper_select = 0;
 	u16 m_status = 0;
-	// The board release input gates command/status activity.  Video operational
-	// separately records that a visible character raster has executed.
+	// The board release input gates command/status activity.
 	bool m_operational = false;
 	u16 m_active_pause = 0;
 	u8 m_pause_events = 0;
@@ -273,7 +311,6 @@ private:
 	emu_timer *m_pbt_service_timer = nullptr;
 	u8 m_diagnostic_data = 0;
 	bool m_raster_diagnostic = false;
-	bool m_video_operational = false;
 	u16 m_linear_pattern_slow_position = 0;
 	u16 m_linear_pattern_slow_accumulator = 0;
 	bool m_fill_position_valid = false;

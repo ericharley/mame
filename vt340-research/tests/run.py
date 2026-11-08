@@ -130,6 +130,13 @@ def validate_selection(tests: list[dict]) -> None:
         for external in test.get("external_inputs", []):
             path = ROOT / external
             if not path.exists():
+                # A linked worktree lives below the main checkout, so paths
+                # relative to the checkout's parent must be resolved from the
+                # common Git directory rather than the worktree directory.
+                common_dir = git_value("rev-parse", "--path-format=absolute", "--git-common-dir")
+                if common_dir:
+                    path = Path(common_dir).parent / external
+            if not path.exists():
                 problems.append(f"{test['id']}: external input is missing: {path}")
     if any(test.get("requires_roms") for test in tests):
         catalog_path = ROOT / "vt340-research" / "roms" / "catalog.json"

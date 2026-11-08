@@ -19,6 +19,7 @@ SATISFIES = {
     "none": LEVELS,
     "integration": {"direct", "integration"},
     "direct": {"direct"},
+    "negative": {"negative"},
 }
 
 
@@ -138,8 +139,10 @@ def main() -> int:
             errors.append(f"{family['id']}: invalid implementation status")
         if family["required_level"] not in SATISFIES:
             errors.append(f"{family['id']}: invalid required level")
-        elif family["status"] == "unsupported" and family["required_level"] != "none":
-            errors.append(f"{family['id']}: unsupported family must not require positive coverage")
+        elif (family["status"] == "unsupported" and
+              family["required_level"] not in {"none", "negative"}):
+            errors.append(
+                f"{family['id']}: unsupported family may require only negative coverage")
         elif family["status"] != "unsupported" and family["required_level"] == "none":
             errors.append(f"{family['id']}: implemented/partial/no-op family requires coverage")
     claims, claim_errors = collect_claims(manifest, cases, set(ids))

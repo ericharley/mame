@@ -45,6 +45,8 @@ run_case()
 	local color_mode=$9
 	local expected_snapshot_sha=${10}
 	local stop_at_first_st=${11}
+	local input_mode=${12}
+	local stop_before_tek_exit=${13}
 	local case_root="$run_root/$case_id"
 	local config="$case_root/cfg"
 	local nvram="$case_root/nvram"
@@ -64,7 +66,9 @@ run_case()
 		echo "$case_id source hash: expected $source_sha, observed $observed_source_sha" >&2
 		exit 1
 	fi
-	if [[ "$source_arg" != "-" ]]; then
+	if [[ "$input_mode" == "raw" ]]; then
+		cp "$source_root/$source_path" "$input"
+	elif [[ "$source_arg" != "-" ]]; then
 		TERM=vt340 bash "$source_root/$source_path" "$source_arg" >"$input"
 	else
 		TERM=vt340 bash "$source_root/$source_path" >"$input"
@@ -76,8 +80,16 @@ run_case()
 		# comparison point by ending the wire stream at its first String Terminator.
 		perl -0777 -i -pe 's/(\e\\).*/$1/s' "$input"
 	fi
+	if [[ "$stop_before_tek_exit" == "true" ]]; then
+		# Leaving Tek mode immediately replaces its separate graphics page.
+		# Stop before DECTEK reset so the native 4010/4014 result remains
+		# visible long enough for a stable framebuffer comparison. End in
+		# graph mode so the Tek Alpha cursor does not add a blinking overlay.
+		perl -0777 -i -pe 's/\e\[\?38l.*//s' "$input"
+		printf '\035' >>"$input"
+	fi
 	# Cursor blink phase depends on when the host finishes writing.  Hide the
-	# cursor after the unmodified source stream so framebuffer comparisons cover
+	# cursor after the prepared source stream so framebuffer comparisons cover
 	# the program's stable output rather than a periodic 8x16 overlay.
 	printf '\033[?25l' >>"$input"
 	# Darwin's slave PTY maps generated LF bytes to CRLF on the UART even
@@ -202,9 +214,9 @@ run_case()
 		"$expected_bytes" "$observed_nonzero" "$observed_snapshot_sha"
 }
 
-while IFS='|' read -r case_id source_path source_sha source_arg expected_bytes expected_hash expected_nonzero dc323_families color_mode expected_snapshot_sha stop_at_first_st; do
+while IFS='|' read -r case_id source_path source_sha source_arg expected_bytes expected_hash expected_nonzero dc323_families color_mode expected_snapshot_sha stop_at_first_st input_mode stop_before_tek_exit; do
 	run_case "$case_id" "$source_path" "$source_sha" "$source_arg" \
-		"$expected_bytes" "$expected_hash" "$expected_nonzero" "$dc323_families" "$color_mode" "$expected_snapshot_sha" "$stop_at_first_st"
+		"$expected_bytes" "$expected_hash" "$expected_nonzero" "$dc323_families" "$color_mode" "$expected_snapshot_sha" "$stop_at_first_st" "$input_mode" "$stop_before_tek_exit"
 done < <(jq --arg case_filter "${VT340_CORPUS_CASE:-}" -r '.cases[] |
 	select($case_filter == "" or .id == $case_filter) | [
 	.id, .source, .source_sha256, (.argument // "-"),
@@ -213,6 +225,8 @@ done < <(jq --arg case_filter "${VT340_CORPUS_CASE:-}" -r '.cases[] |
 	([.dc323_commands[].family] | join(",")),
 	(.color_mode // false | tostring),
 	(.expected_snapshot_sha256 // "-"),
-	(.stop_at_first_st // false | tostring)] | join("|")' "$cases_file")
+	(.stop_at_first_st // false | tostring),
+	(.input_mode // "script"),
+	(.stop_before_tek_exit // false | tostring)] | join("|")' "$cases_file")
 
 echo "VT340 external conformance corpus regression passed"
