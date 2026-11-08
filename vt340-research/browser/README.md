@@ -36,13 +36,44 @@ its bind address, forwarded-header, and origin policy deliberately.
 
 A different raw binary WebSocket endpoint can be entered in the page. The
 protocol is unframed serial bytes in binary WebSocket messages, with the `binary`
-subprotocol. It is not Telnet, Socket.IO, or an SSH wire protocol.
+subprotocol. It is not Telnet, Socket.IO, or an SSH wire protocol. Software
+flow control is enabled by default: the frontend immediately pauses queued
+host data on XOFF and resumes it on XON, while the bridge applies the same
+state to PTY output and consumes those two control bytes. Use
+`--no-xon-xoff` only when all 256 byte values must pass through as application
+data.
+
+## Capture and replay
+
+Capture the exact byte stream in both directions while running a command:
+
+```sh
+./run.sh \
+  --capture-rx /tmp/vt340-host-to-terminal.bin \
+  --capture-tx /tmp/vt340-terminal-to-host.bin \
+  -- ssh -tt user@server
+```
+
+`--capture-rx` records host-to-terminal data before it enters the browser.
+`--capture-tx` records terminal-to-host data, including XON and XOFF. Each file
+is overwritten when a new browser serial connection opens.
+
+Replay a captured receive stream without starting a PTY command:
+
+```sh
+./run.sh --replay /tmp/vt340-host-to-terminal.bin
+```
+
+Replay uses the same authenticated WebSocket path and honors XON/XOFF. The
+start delay, chunk size, and inter-chunk delay can be adjusted with
+`--replay-start-delay`, `--replay-chunk-size`, and `--replay-chunk-delay`.
 
 ## Terminal settings and persistence
 
 The package carries the current keyboard configuration alongside the EEPROM
 seed. The browser serial adapter uses the VT340 driver defaults: 19200 baud,
-8 data bits, no parity, one stop bit, and no flow control.
+8 data bits, no parity, one stop bit, with XON/XOFF handled by the frontend and
+bridge.
 Set the terminal's communications settings to match in Set-Up. In the VT340
 Set-Up Directory, use Save Current Settings. Then click Save settings in the
 page; this stops the emulator, flushes MAME's EEPROM/configuration files and
@@ -83,7 +114,9 @@ virtual environment, leave `./run.sh` active on port 8080, and run:
 The current build was tested in Chromium with a local PTY shell: firmware boot, keyboard-generated
 `echo ok` and its visible reply, incoming serial data, EEPROM flush, and browser
 storage surviving a reload. `test_bridge.py` checks all 256 byte values through
-a raw PTY and rejects invalid tokens/origins. `test_browser.py` additionally
+a raw PTY with flow control disabled, verifies XOFF pause/XON resume with flow
+control enabled, verifies byte-exact capture/replay, and rejects invalid
+tokens/origins. `test_browser.py` additionally
 requires Playwright/Chromium and the bridge running on port 8080.
 SSH forwarding is provided through the system SSH client; a remote login has
 not been tested because no destination was supplied.

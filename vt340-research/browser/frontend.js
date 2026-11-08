@@ -11,6 +11,7 @@ let offset = 0;
 let queued = 0;
 let outgoing = [];
 let started = false;
+let inputPaused = false;
 
 $('endpoint').value =
   `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/serial`;
@@ -24,6 +25,7 @@ function disconnect(message) {
   offset = 0;
   queued = 0;
   outgoing = [];
+  inputPaused = false;
   if (message) {
     status(message);
   }
@@ -81,11 +83,19 @@ var Module = {
     }
   },
   serialOutput: byte => {
+    if (byte === 0x13) {
+      inputPaused = true;
+    } else if (byte === 0x11) {
+      inputPaused = false;
+    }
     if (socket?.readyState === WebSocket.OPEN && outgoing.length < 65536) {
       outgoing.push(byte);
     }
   },
   serialInput: (pointer, length) => {
+    if (inputPaused) {
+      return 0;
+    }
     let copied = 0;
     while (copied < length && chunks.length) {
       const chunk = chunks[0];
@@ -179,6 +189,8 @@ $('start').onclick = () => {
     '-bitb', '/browser-serial',
     '-video', 'soft',
     '-window',
+    '-cheat',
+    '-ui_active',
     '-skip_gameinfo',
     '-scalemode', $('smooth').checked ? 'hwblit' : 'none',
     '-prescale', $('scale').value,

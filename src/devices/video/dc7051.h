@@ -1,5 +1,5 @@
 // license:BSD-3-Clause
-// copyright-holders:Harley Card
+// copyright-holders:Eric Harley
 /***************************************************************************
 
     Digital Equipment Corporation DC7051 video timing generator
@@ -61,6 +61,9 @@ protected:
 	virtual void device_post_load() override;
 
 private:
+	static constexpr u32 DIAGNOSTIC_FRAME_US = 16'698;
+	static constexpr u32 DIAGNOSTIC_PULSE_US = 27;
+
 	TIMER_CALLBACK_MEMBER(horizontal_tick);
 	TIMER_CALLBACK_MEMBER(scanline_tick);
 	TIMER_CALLBACK_MEMBER(frame_tick);

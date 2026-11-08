@@ -1,5 +1,5 @@
 // license:BSD-3-Clause
-// copyright-holders:Harley Card
+// copyright-holders:Eric Harley
 /***************************************************************************
 
     Firmware-free regression harness for the DEC DC7051 device
@@ -8,9 +8,9 @@
 
 #include "emu.h"
 
-#include "emuopts.h"
-
 #include "video/dc7051.h"
+
+#include "emuopts.h"
 
 
 namespace {

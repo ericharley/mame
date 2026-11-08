@@ -63,6 +63,12 @@ channels consequently reported a parity error.
 Mask the supplied value to `m_df_word_length` and use that framed value for
 odd/even parity calculation.  Mark, space, and no-parity modes are unchanged.
 
+This correction was accepted upstream as MAME pull request
+[#16726](https://github.com/mamedev/mame/pull/16726), merge commit
+`034db06a61debb37cddbadeea8e937818627b422`.  The VT340-only transmit-register
+masking used during review has been removed; the driver now relies on the
+shared serial implementation.
+
 ### Minimal focused regression
 
 Add a direct `device_serial_interface` framing test covering at least:
@@ -86,7 +92,7 @@ status is `0d` before each receive read, and no `70` error bits occur.
 ### Evidence
 
 - `vt340-research/traces/phase4-scn2681-loopback-report.md`
-- current implementation: `src/emu/diserial.cpp`
+- upstream implementation: `src/emu/diserial.cpp`
 - Philips SCN2681 product specification: character length and parity fields
 
 ## 2. MCS-51 SBUF receive/transmit latch separation

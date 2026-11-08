@@ -1,5 +1,5 @@
 // license:BSD-3-Clause
-// copyright-holders:Harley Card
+// copyright-holders:Eric Harley
 /***************************************************************************
 
     Digital Equipment Corporation DC323 Adder
@@ -40,47 +40,31 @@
 	} while (false)
 
 
-namespace {
-
-struct raster_point
+int dc323_device::signed_14(u16 value)
 {
-	int x;
-	int y;
-};
-
-
-struct axis_sample
-{
-	unsigned destination;
-	unsigned source;
-};
-
-
-int signed_14(u16 value)
-{
-	value &= 0x3fff;
+	value &= COORDINATE_MASK;
 	return BIT(value, 13) ? int(value) - 0x4000 : int(value);
 }
 
 
-unsigned viper_bus_width(u16 value)
+unsigned dc323_device::viper_bus_width(u16 value)
 {
 	unsigned const select = (value >> 2) & 3;
 	return (select == 0) ? 4 : (select == 3) ? 16 : 8;
 }
 
 
-int source2_coordinate(u16 origin, int coordinate, unsigned tile_size, bool tiled)
+int dc323_device::source2_coordinate(u16 origin, int coordinate, unsigned tile_size, bool tiled)
 {
 	return signed_14(origin + (tiled ? (coordinate & (tile_size - 1)) : coordinate));
 }
 
 
-std::vector<axis_sample> scaled_axis(unsigned destination_length, u16 scale,
+std::vector<dc323_device::axis_sample> dc323_device::scaled_axis(unsigned destination_length, u16 scale,
 	unsigned &source, unsigned &accumulator)
 {
 	std::vector<axis_sample> result;
-	unsigned const step = (scale & 0x1fff) + 1;
+	unsigned const step = (scale & FIELD_13_BIT_MASK) + 1;
 	unsigned destination = 0;
 	if (!BIT(scale, 13))
 	{
@@ -115,7 +99,7 @@ std::vector<axis_sample> scaled_axis(unsigned destination_length, u16 scale,
 }
 
 
-std::vector<axis_sample> scaled_axis(unsigned destination_length, u16 scale)
+std::vector<dc323_device::axis_sample> dc323_device::scaled_axis(unsigned destination_length, u16 scale)
 {
 	unsigned source = 0;
 	unsigned accumulator = 0;
@@ -123,7 +107,7 @@ std::vector<axis_sample> scaled_axis(unsigned destination_length, u16 scale)
 }
 
 
-std::vector<raster_point> raster_vector(int dx, int dy, int error_adjustment, unsigned limit)
+std::vector<dc323_device::raster_point> dc323_device::raster_vector(int dx, int dy, int error_adjustment, unsigned limit)
 {
 	unsigned const abs_dx = unsigned(std::abs(dx));
 	unsigned const abs_dy = unsigned(std::abs(dy));
@@ -160,9 +144,6 @@ std::vector<raster_point> raster_vector(int dx, int dy, int error_adjustment, un
 	}
 	return result;
 }
-
-} // anonymous namespace
-
 
 DEFINE_DEVICE_TYPE(DC323, dc323_device, "dc323", "DEC DC323 Adder")
 
@@ -452,10 +433,10 @@ void dc323_device::id_data_w(u16 data)
 
 void dc323_device::pbt_write_word(u32 index, u16 data)
 {
-	u16 const destination_x = m_registers[REG_DESTINATION_X] & 0x3fff;
-	u16 const destination_y = m_registers[REG_DESTINATION_Y] & 0x3fff;
-	u16 const width = m_registers[REG_WIDTH] & 0x1fff;
-	u16 const height = m_registers[REG_HEIGHT] & 0x1fff;
+	u16 const destination_x = m_registers[REG_DESTINATION_X] & COORDINATE_MASK;
+	u16 const destination_y = m_registers[REG_DESTINATION_Y] & COORDINATE_MASK;
+	u16 const width = m_registers[REG_WIDTH] & FIELD_13_BIT_MASK;
+	u16 const height = m_registers[REG_HEIGHT] & FIELD_13_BIT_MASK;
 	if (m_pbt_write_z_mode)
 	{
 		u32 const row = width ? index / width : 0;
@@ -469,14 +450,14 @@ void dc323_device::pbt_write_word(u32 index, u16 data)
 		unsigned const z_block = m_pbt_write_command & 3;
 		unsigned const color_register = BIT(m_pbt_write_command, 3) ?
 			VIPER_REG_BACKGROUND : VIPER_REG_FOREGROUND;
-		if ((x >= 0) && (x < BITMAP_WIDTH) && (y >= 0) && (y < BITMAP_HEIGHT))
+		if (bitmap_contains(x, y))
 			for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
 			{
 				if (!BIT(m_viper_select, plane))
 					continue;
 				auto &viper = m_viper_registers[plane];
-				unsigned const plane_address = viper[0x03] & 0x3f;
-				if ((plane_address >> 4) != z_block)
+				unsigned const plane_address = viper[VIPER_REG_Z_ADDRESS] & Z_ADDRESS_MASK;
+				if ((plane_address >> Z_BLOCK_SHIFT) != z_block)
 					continue;
 				bool const plane_data = BIT(data, plane_address & 15);
 				viper[color_register] = plane_data ? 0xffff : 0x0000;
@@ -625,29 +606,28 @@ u8 dc323_device::id_data_r()
 
 u16 dc323_device::pbt_read_word(u32 index)
 {
-	u16 const width = m_registers[REG_WIDTH] & 0x1fff;
+	u16 const width = m_registers[REG_WIDTH] & FIELD_13_BIT_MASK;
 	if (m_pbt_read_z_mode)
 	{
 		u32 const row = width ? index / width : 0;
 		u32 const column = width ? index % width : 0;
 		int const source_x_step = BIT(m_registers[REG_SOURCE_FAST_DX], 13) ? -1 : 1;
 		int const source_y_step = BIT(m_registers[REG_SOURCE_SLOW_DY], 13) ? -1 : 1;
-		int const unindexed_source_x = int(m_registers[REG_SOURCE_X] & 0x3fff) + int(column) * source_x_step;
-		int const unindexed_source_y = int(m_registers[REG_SOURCE_Y] & 0x3fff) + int(row) * source_y_step;
+		int const unindexed_source_x = int(m_registers[REG_SOURCE_X] & COORDINATE_MASK) + int(column) * source_x_step;
+		int const unindexed_source_y = int(m_registers[REG_SOURCE_Y] & COORDINATE_MASK) + int(row) * source_y_step;
 		auto const raster_offset = BIT(m_registers[REG_X_CONTROL], 5) ?
 			raster_index(unindexed_source_y) : std::pair<int, int>{ 0, 0 };
 		int const source_x = unindexed_source_x + raster_offset.first;
 		int const source_y = unindexed_source_y + raster_offset.second;
 		unsigned const z_block = m_pbt_read_command & 3;
 		u16 data = 0;
-		if ((source_x >= 0) && (source_x < BITMAP_WIDTH) &&
-			(source_y >= 0) && (source_y < BITMAP_HEIGHT))
+		if (bitmap_contains(source_x, source_y))
 			for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
 			{
 				if (!BIT(m_viper_select, plane))
 					continue;
-				unsigned const plane_address = m_viper_registers[plane][0x03] & 0x3f;
-				if ((plane_address >> 4) == z_block)
+				unsigned const plane_address = m_viper_registers[plane][VIPER_REG_Z_ADDRESS] & Z_ADDRESS_MASK;
+				if ((plane_address >> Z_BLOCK_SHIFT) == z_block)
 					data |= u16(m_bitmap_planes[bitmap_plane_address(plane, source_x, source_y)]) << (plane_address & 15);
 			}
 		return data;
@@ -656,8 +636,8 @@ u16 dc323_device::pbt_read_word(u32 index)
 	u32 const bytes_per_row = (width + 7) / 8;
 	u32 const row = bytes_per_row ? index / bytes_per_row : 0;
 	u32 const column = bytes_per_row ? index % bytes_per_row : 0;
-	u16 const source_origin_x = m_registers[REG_SOURCE_X] & 0x3fff;
-	u16 const source_origin_y = m_registers[REG_SOURCE_Y] & 0x1fff;
+	u16 const source_origin_x = m_registers[REG_SOURCE_X] & COORDINATE_MASK;
+	u16 const source_origin_y = m_registers[REG_SOURCE_Y] & FIELD_13_BIT_MASK;
 	u16 const source_x = source_origin_x + column * 8;
 	u16 const source_y = source_origin_y + row;
 	u8 data = 0;
@@ -833,8 +813,8 @@ void dc323_device::command_w(u16 command)
 
 	if ((operation == 3) && BIT(command, 11) && !BIT(command, 10))
 	{
-		u32 const width = m_registers[REG_WIDTH] & 0x1fff;
-		u32 const height = m_registers[REG_HEIGHT] & 0x1fff;
+		u32 const width = m_registers[REG_WIDTH] & FIELD_13_BIT_MASK;
+		u32 const height = m_registers[REG_HEIGHT] & FIELD_13_BIT_MASK;
 		m_pbt_read_z_mode = (command & 0xfffc) == 0x0bd8;
 		m_pbt_read_index = 0;
 		m_pbt_read_command = command;
@@ -854,9 +834,9 @@ void dc323_device::command_w(u16 command)
 	}
 	else if ((operation == 3) && !BIT(command, 11) && BIT(command, 10))
 	{
-		u16 const destination_x = m_registers[REG_DESTINATION_X] & 0x3fff;
-		u16 const width = m_registers[REG_WIDTH] & 0x1fff;
-		u16 const height = m_registers[REG_HEIGHT] & 0x1fff;
+		u16 const destination_x = m_registers[REG_DESTINATION_X] & COORDINATE_MASK;
+		u16 const width = m_registers[REG_WIDTH] & FIELD_13_BIT_MASK;
+		u16 const height = m_registers[REG_HEIGHT] & FIELD_13_BIT_MASK;
 		m_pbt_write_z_mode = (command & 0xfff4) == 0x07a4;
 		m_pbt_write_bus_width = viper_bus_width(m_viper_registers[0][VIPER_REG_BUS_WIDTH]);
 		m_pbt_write_words_per_row = (width != 0) ?
@@ -926,8 +906,8 @@ void dc323_device::execute_rasterop(u16 command)
 
 	int const source_x = signed_14(m_registers[REG_SOURCE_X]);
 	int const source_y = signed_14(m_registers[REG_SOURCE_Y]);
-	int const unindexed_destination_x = m_registers[REG_DESTINATION_X] & 0x3fff;
-	int const unindexed_destination_y = m_registers[REG_DESTINATION_Y] & 0x3fff;
+	int const unindexed_destination_x = m_registers[REG_DESTINATION_X] & COORDINATE_MASK;
+	int const unindexed_destination_y = m_registers[REG_DESTINATION_Y] & COORDINATE_MASK;
 	auto const origin_destination_index = BIT(x_control, 6) ?
 		raster_index(unindexed_destination_y) : std::pair<int, int>{ 0, 0 };
 	int const destination_x = signed_14(unindexed_destination_x + origin_destination_index.first);
@@ -996,7 +976,7 @@ void dc323_device::execute_rasterop(u16 command)
 				(source2_tiled ? (unindexed_pixel_x & (source2_width - 1)) : unindexed_pixel_x));
 			int const source2_pixel_y = signed_14(m_registers[REG_SOURCE2_Y] +
 				(source2_tiled ? (unindexed_pixel_y & (source2_height - 1)) : unindexed_pixel_y));
-			if (pixel_x < 0 || pixel_x >= BITMAP_WIDTH || pixel_y < 0 || pixel_y >= BITMAP_HEIGHT)
+			if (!bitmap_contains(pixel_x, pixel_y))
 				continue;
 			if (fill_holes)
 			{
@@ -1018,13 +998,11 @@ void dc323_device::execute_rasterop(u16 command)
 				{
 					if (source_is_e49)
 						source1_bits[plane] = BIT(rom_source, rom_x & 7);
-					else if ((source_pixel_x >= 0) && (source_pixel_x < BITMAP_WIDTH) &&
-						(source_pixel_y >= 0) && (source_pixel_y < BITMAP_HEIGHT))
+					else if (bitmap_contains(source_pixel_x, source_pixel_y))
 						source1_bits[plane] = m_bitmap_planes[bitmap_plane_address(plane, source_pixel_x, source_pixel_y)];
 				}
 				if (source2_enabled)
-					source2_bits[plane] = (source2_pixel_x >= 0) && (source2_pixel_x < BITMAP_WIDTH) &&
-						(source2_pixel_y >= 0) && (source2_pixel_y < BITMAP_HEIGHT) &&
+					source2_bits[plane] = bitmap_contains(source2_pixel_x, source2_pixel_y) &&
 						m_bitmap_planes[bitmap_plane_address(plane, source2_pixel_x, source2_pixel_y)];
 			}
 			if (source1_enabled && source2_enabled)
@@ -1102,7 +1080,7 @@ void dc323_device::execute_linear_pattern(u16 command)
 	unsigned slow_source = source1_enabled ? m_linear_pattern_slow_position % source_height : 0;
 	unsigned slow_accumulator = source1_enabled ? m_linear_pattern_slow_accumulator : 0;
 	auto const slow_samples = scaled_axis(destination_height,
-		source1_enabled ? m_registers[REG_SLOW_SCALE] : 0x1fff, slow_source, slow_accumulator);
+		source1_enabled ? m_registers[REG_SLOW_SCALE] : UNITY_SCALE, slow_source, slow_accumulator);
 	if (source1_enabled)
 	{
 		m_linear_pattern_slow_position = slow_source % source_height;
@@ -1112,8 +1090,8 @@ void dc323_device::execute_linear_pattern(u16 command)
 	int const source_y_step = source_slow_dy < 0 ? -1 : 1;
 	int const source_origin_x = signed_14(m_registers[REG_SOURCE_X]);
 	int const source_origin_y = signed_14(m_registers[REG_SOURCE_Y]);
-	int const unindexed_destination_origin_x = m_registers[REG_DESTINATION_X] & 0x3fff;
-	int const unindexed_destination_origin_y = m_registers[REG_DESTINATION_Y] & 0x3fff;
+	int const unindexed_destination_origin_x = m_registers[REG_DESTINATION_X] & COORDINATE_MASK;
+	int const unindexed_destination_origin_y = m_registers[REG_DESTINATION_Y] & COORDINATE_MASK;
 	u16 const x_control = m_registers[REG_X_CONTROL];
 	auto const destination_origin_index = BIT(x_control, 6) ?
 		raster_index(unindexed_destination_origin_y) : std::pair<int, int>{ 0, 0 };
@@ -1138,12 +1116,12 @@ void dc323_device::execute_linear_pattern(u16 command)
 		auto const source_index = BIT(x_control, 5) ?
 			raster_index(unindexed_source_y) : std::pair<int, int>{ 0, 0 };
 		int const source_y = unindexed_source_y + source_index.second;
-		if (source1_enabled && (source_y < 0 || source_y >= BITMAP_HEIGHT))
+		if (source1_enabled && (unsigned(source_y) >= BITMAP_HEIGHT))
 			continue;
 		unsigned fast_source = 0;
 		unsigned fast_accumulator = 0;
 		auto const fast_samples = scaled_axis(destination_width,
-			source1_enabled ? m_registers[REG_FAST_SCALE] : 0x1fff, fast_source, fast_accumulator);
+			source1_enabled ? m_registers[REG_FAST_SCALE] : UNITY_SCALE, fast_source, fast_accumulator);
 		for (axis_sample const fast : fast_samples)
 		{
 			raster_point const fast_point = fast_path[fast.destination];
@@ -1156,9 +1134,8 @@ void dc323_device::execute_linear_pattern(u16 command)
 			int const source_x = source_origin_x + int(fast.source % source_width) * source_x_step + source_index.first;
 			int const source2_x = source2_coordinate(m_registers[REG_SOURCE2_X], unindexed_destination_x, source2_width, source2_tiled);
 			int const source2_y = source2_coordinate(m_registers[REG_SOURCE2_Y], unindexed_destination_y, source2_height, source2_tiled);
-			if (destination_x < 0 || destination_x >= BITMAP_WIDTH ||
-				destination_y < 0 || destination_y >= BITMAP_HEIGHT ||
-				(source1_enabled && (source_x < 0 || source_x >= BITMAP_WIDTH)))
+			if (!bitmap_contains(destination_x, destination_y) ||
+				(source1_enabled && (unsigned(source_x) >= BITMAP_WIDTH)))
 				continue;
 			std::array<bool, BITMAP_PLANES> source1_bits{};
 			std::array<bool, BITMAP_PLANES> source2_bits{};
@@ -1169,8 +1146,7 @@ void dc323_device::execute_linear_pattern(u16 command)
 				if (source1_enabled)
 					source1_bits[plane] = m_bitmap_planes[bitmap_plane_address(plane, source_x, source_y)];
 				if (source2_enabled)
-					source2_bits[plane] = (source2_x >= 0) && (source2_x < BITMAP_WIDTH) &&
-						(source2_y >= 0) && (source2_y < BITMAP_HEIGHT) &&
+					source2_bits[plane] = bitmap_contains(source2_x, source2_y) &&
 						m_bitmap_planes[bitmap_plane_address(plane, source2_x, source2_y)];
 			}
 			if (source1_enabled && source2_enabled)
@@ -1209,10 +1185,10 @@ void dc323_device::execute_fill(u16 command)
 	unsigned const source2_height = 1U << (((source2_size >> 4) & 0x0007) + 2);
 	if (!m_fill_position_valid)
 	{
-		m_fill_a_x = m_registers[REG_DESTINATION_X] & 0x3fff;
-		m_fill_a_y = m_registers[REG_DESTINATION_Y] & 0x1fff;
-		m_fill_b_x = y_fill ? m_fill_a_x : int(m_registers[REG_SOURCE_X] & 0x3fff);
-		m_fill_b_y = y_fill ? int(m_registers[REG_SOURCE_Y] & 0x1fff) : m_fill_a_y;
+		m_fill_a_x = m_registers[REG_DESTINATION_X] & COORDINATE_MASK;
+		m_fill_a_y = m_registers[REG_DESTINATION_Y] & FIELD_13_BIT_MASK;
+		m_fill_b_x = y_fill ? m_fill_a_x : int(m_registers[REG_SOURCE_X] & COORDINATE_MASK);
+		m_fill_b_y = y_fill ? int(m_registers[REG_SOURCE_Y] & FIELD_13_BIT_MASK) : m_fill_a_y;
 		m_fill_position_valid = true;
 		m_fill_a_vector_valid = false;
 		m_fill_b_vector_valid = false;
@@ -1244,7 +1220,7 @@ void dc323_device::execute_fill(u16 command)
 		{
 			int const x = y_fill ? fixed : position;
 			int const y = y_fill ? position : fixed;
-			if (x < 0 || x >= BITMAP_WIDTH || y < 0 || y >= BITMAP_HEIGHT)
+			if (!bitmap_contains(x, y))
 				continue;
 			int const source2_x = source2_coordinate(m_registers[REG_SOURCE2_X], x, source2_width, source2_tiled);
 			int const source2_y = source2_coordinate(m_registers[REG_SOURCE2_Y], y, source2_height, source2_tiled);
@@ -1254,8 +1230,7 @@ void dc323_device::execute_fill(u16 command)
 					continue;
 				auto const &viper = m_viper_registers[plane];
 				bool const source_bit = source2_enabled ?
-					((source2_x >= 0) && (source2_x < BITMAP_WIDTH) &&
-						(source2_y >= 0) && (source2_y < BITMAP_HEIGHT) &&
+					(bitmap_contains(source2_x, source2_y) &&
 						m_bitmap_planes[bitmap_plane_address(plane, source2_x, source2_y)]) :
 					BIT(viper[VIPER_REG_SOURCE], unsigned(x) & 15);
 				write_viper_pixel(plane, x, y, command, source_bit);
@@ -1444,9 +1419,9 @@ void dc323_device::begin_scroll()
 	m_active_scroll = m_registers[REG_SCROLL_Y];
 	m_active_scroll_x_min = std::min<u16>(m_registers[REG_SCROLL_X_MIN] & 0x3ffc, BITMAP_WIDTH);
 	m_active_scroll_x_max = std::min<u16>(m_registers[REG_SCROLL_X_MAX] & 0x3ffc, BITMAP_WIDTH);
-	m_active_scroll_y_min = std::min<u16>(m_registers[REG_SCROLL_Y_MIN] & 0x1fff, BITMAP_HEIGHT);
-	m_active_scroll_y_max = std::min<u16>(m_registers[REG_SCROLL_Y_MAX] & 0x1fff, BITMAP_HEIGHT);
-	m_active_scroll_y_offset = m_registers[REG_SCROLL_Y_OFFSET] & 0x1fff;
+	m_active_scroll_y_min = std::min<u16>(m_registers[REG_SCROLL_Y_MIN] & FIELD_13_BIT_MASK, BITMAP_HEIGHT);
+	m_active_scroll_y_max = std::min<u16>(m_registers[REG_SCROLL_Y_MAX] & FIELD_13_BIT_MASK, BITMAP_HEIGHT);
+	m_active_scroll_y_offset = m_registers[REG_SCROLL_Y_OFFSET] & FIELD_13_BIT_MASK;
 	m_active_scroll_line = m_active_scroll_y_min;
 	for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
 	{

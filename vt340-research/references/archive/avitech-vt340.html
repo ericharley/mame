@@ -1,0 +1,936 @@
+
+<!DOCTYPE html>
+<html lang="en-AU" class="no-js">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="pingback" href="https://avitech.com.au/xmlrpc.php">
+<title>DEC VT340 Internals &#8211; vintage bits</title>
+<meta name='robots' content='max-image-preview:large' />
+<link rel='dns-prefetch' href='//secure.gravatar.com' />
+<link rel='dns-prefetch' href='//fonts.googleapis.com' />
+<link rel='dns-prefetch' href='//v0.wordpress.com' />
+<link rel='preconnect' href='//i0.wp.com' />
+<link rel='preconnect' href='//c0.wp.com' />
+<link rel="alternate" type="application/rss+xml" title="vintage bits &raquo; Feed" href="https://avitech.com.au/?feed=rss2" />
+<link rel="alternate" type="application/rss+xml" title="vintage bits &raquo; Comments Feed" href="https://avitech.com.au/?feed=comments-rss2" />
+<link rel="alternate" title="oEmbed (JSON)" type="application/json+oembed" href="https://avitech.com.au/index.php?rest_route=%2Foembed%2F1.0%2Fembed&#038;url=https%3A%2F%2Favitech.com.au%2F%3Fpage_id%3D1964" />
+<link rel="alternate" title="oEmbed (XML)" type="text/xml+oembed" href="https://avitech.com.au/index.php?rest_route=%2Foembed%2F1.0%2Fembed&#038;url=https%3A%2F%2Favitech.com.au%2F%3Fpage_id%3D1964&#038;format=xml" />
+<style id="wp-img-auto-sizes-contain-inline-css">
+img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
+/*# sourceURL=wp-img-auto-sizes-contain-inline-css */
+</style>
+<style id="wp-emoji-styles-inline-css">
+
+	img.wp-smiley, img.emoji {
+		display: inline !important;
+		border: none !important;
+		box-shadow: none !important;
+		height: 1em !important;
+		width: 1em !important;
+		margin: 0 0.07em !important;
+		vertical-align: -0.1em !important;
+		background: none !important;
+		padding: 0 !important;
+	}
+/*# sourceURL=wp-emoji-styles-inline-css */
+</style>
+<style id="wp-block-library-inline-css">
+:root{--wp-block-synced-color:#7a00df;--wp-block-synced-color--rgb:122,0,223;--wp-bound-block-color:var(--wp-block-synced-color);--wp-editor-canvas-background:#ddd;--wp-admin-theme-color:#007cba;--wp-admin-theme-color--rgb:0,124,186;--wp-admin-theme-color-darker-10:#006ba1;--wp-admin-theme-color-darker-10--rgb:0,107,160.5;--wp-admin-theme-color-darker-20:#005a87;--wp-admin-theme-color-darker-20--rgb:0,90,135;--wp-admin-border-width-focus:2px}@media (min-resolution:192dpi){:root{--wp-admin-border-width-focus:1.5px}}.wp-element-button{cursor:pointer}:root .has-very-light-gray-background-color{background-color:#eee}:root .has-very-dark-gray-background-color{background-color:#313131}:root .has-very-light-gray-color{color:#eee}:root .has-very-dark-gray-color{color:#313131}:root .has-vivid-green-cyan-to-vivid-cyan-blue-gradient-background{background:linear-gradient(135deg,#00d084,#0693e3)}:root .has-purple-crush-gradient-background{background:linear-gradient(135deg,#34e2e4,#4721fb 50%,#ab1dfe)}:root .has-hazy-dawn-gradient-background{background:linear-gradient(135deg,#faaca8,#dad0ec)}:root .has-subdued-olive-gradient-background{background:linear-gradient(135deg,#fafae1,#67a671)}:root .has-atomic-cream-gradient-background{background:linear-gradient(135deg,#fdd79a,#004a59)}:root .has-nightshade-gradient-background{background:linear-gradient(135deg,#330968,#31cdcf)}:root .has-midnight-gradient-background{background:linear-gradient(135deg,#020381,#2874fc)}:root{--wp--preset--font-size--normal:16px;--wp--preset--font-size--huge:42px}.has-regular-font-size{font-size:1em}.has-larger-font-size{font-size:2.625em}.has-normal-font-size{font-size:var(--wp--preset--font-size--normal)}.has-huge-font-size{font-size:var(--wp--preset--font-size--huge)}:root .has-text-align-center{text-align:center}:root .has-text-align-left{text-align:left}:root .has-text-align-right{text-align:right}.has-fit-text{white-space:nowrap!important}#end-resizable-editor-section{display:none}.aligncenter{clear:both}.items-justified-left{justify-content:flex-start}.items-justified-center{justify-content:center}.items-justified-right{justify-content:flex-end}.items-justified-space-between{justify-content:space-between}.screen-reader-text{word-wrap:normal!important;border:0;clip-path:inset(50%);height:1px;margin:-1px;overflow:hidden;padding:0;position:absolute;width:1px;word-break:normal!important}.screen-reader-text:focus{background-color:#ddd;clip-path:none;color:#444;display:block;font-size:1em;height:auto;left:5px;line-height:normal;padding:15px 23px 14px;text-decoration:none;top:5px;width:auto;z-index:100000}html :where(.has-border-color){border-style:solid}html :where([style^=border-color],[style*=";border-color"],[style*="; border-color"]){border-style:solid}html :where([style^=border-top-color],[style*=";border-top-color"],[style*="; border-top-color"]){border-top-style:solid}html :where([style^=border-right-color],[style*=";border-right-color"],[style*="; border-right-color"]){border-right-style:solid}html :where([style^=border-bottom-color],[style*=";border-bottom-color"],[style*="; border-bottom-color"]){border-bottom-style:solid}html :where([style^=border-left-color],[style*=";border-left-color"],[style*="; border-left-color"]){border-left-style:solid}html :where([style^=border-width],[style*=";border-width"],[style*="; border-width"]){border-style:solid}html :where([style^=border-top-width],[style*=";border-top-width"],[style*="; border-top-width"]){border-top-style:solid}html :where([style^=border-right-width],[style*=";border-right-width"],[style*="; border-right-width"]){border-right-style:solid}html :where([style^=border-bottom-width],[style*=";border-bottom-width"],[style*="; border-bottom-width"]){border-bottom-style:solid}html :where([style^=border-left-width],[style*=";border-left-width"],[style*="; border-left-width"]){border-left-style:solid}html :where(img[class*=wp-image-]){height:auto;max-width:100%}:where(figure){margin:0 0 1em}html :where(.is-position-sticky){--wp-admin--admin-bar--position-offset:var(--wp-admin--admin-bar--height,0px)}@media screen and (max-width:600px){html :where(.is-position-sticky){--wp-admin--admin-bar--position-offset:0px}}
+
+/*# sourceURL=/wp-includes/css/dist/block-library/common.min.css */
+</style>
+<style id="classic-theme-styles-inline-css">
+/*! This file is auto-generated */
+.wp-block-button__link{color:#fff;background-color:#32373c;border-radius:9999px;box-shadow:none;text-decoration:none;padding:calc(.667em + 2px) calc(1.333em + 2px);font-size:1.125em}.wp-block-file__button{background:#32373c;color:#fff;text-decoration:none}
+/*# sourceURL=/wp-includes/css/classic-themes.min.css */
+</style>
+
+<style id="global-styles-inline-css">
+:root{--wp--preset--aspect-ratio--square: 1;--wp--preset--aspect-ratio--4-3: 4/3;--wp--preset--aspect-ratio--3-4: 3/4;--wp--preset--aspect-ratio--3-2: 3/2;--wp--preset--aspect-ratio--2-3: 2/3;--wp--preset--aspect-ratio--16-9: 16/9;--wp--preset--aspect-ratio--9-16: 9/16;--wp--preset--color--black: #000000;--wp--preset--color--cyan-bluish-gray: #abb8c3;--wp--preset--color--white: #ffffff;--wp--preset--color--pale-pink: #f78da7;--wp--preset--color--vivid-red: #cf2e2e;--wp--preset--color--luminous-vivid-orange: #ff6900;--wp--preset--color--luminous-vivid-amber: #fcb900;--wp--preset--color--light-green-cyan: #7bdcb5;--wp--preset--color--vivid-green-cyan: #00d084;--wp--preset--color--pale-cyan-blue: #8ed1fc;--wp--preset--color--vivid-cyan-blue: #0693e3;--wp--preset--color--vivid-purple: #9b51e0;--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple: linear-gradient(135deg,rgb(6,147,227) 0%,rgb(155,81,224) 100%);--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan: linear-gradient(135deg,rgb(122,220,180) 0%,rgb(0,208,130) 100%);--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange: linear-gradient(135deg,rgb(252,185,0) 0%,rgb(255,105,0) 100%);--wp--preset--gradient--luminous-vivid-orange-to-vivid-red: linear-gradient(135deg,rgb(255,105,0) 0%,rgb(207,46,46) 100%);--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray: linear-gradient(135deg,rgb(238,238,238) 0%,rgb(169,184,195) 100%);--wp--preset--gradient--cool-to-warm-spectrum: linear-gradient(135deg,rgb(74,234,220) 0%,rgb(151,120,209) 20%,rgb(207,42,186) 40%,rgb(238,44,130) 60%,rgb(251,105,98) 80%,rgb(254,248,76) 100%);--wp--preset--gradient--blush-light-purple: linear-gradient(135deg,rgb(255,206,236) 0%,rgb(152,150,240) 100%);--wp--preset--gradient--blush-bordeaux: linear-gradient(135deg,rgb(254,205,165) 0%,rgb(254,45,45) 50%,rgb(107,0,62) 100%);--wp--preset--gradient--luminous-dusk: linear-gradient(135deg,rgb(255,203,112) 0%,rgb(199,81,192) 50%,rgb(65,88,208) 100%);--wp--preset--gradient--pale-ocean: linear-gradient(135deg,rgb(255,245,203) 0%,rgb(182,227,212) 50%,rgb(51,167,181) 100%);--wp--preset--gradient--electric-grass: linear-gradient(135deg,rgb(202,248,128) 0%,rgb(113,206,126) 100%);--wp--preset--gradient--midnight: linear-gradient(135deg,rgb(2,3,129) 0%,rgb(40,116,252) 100%);--wp--preset--font-size--small: 13px;--wp--preset--font-size--medium: 20px;--wp--preset--font-size--large: 36px;--wp--preset--font-size--x-large: 42px;--wp--preset--spacing--20: 0.44rem;--wp--preset--spacing--30: 0.67rem;--wp--preset--spacing--40: 1rem;--wp--preset--spacing--50: 1.5rem;--wp--preset--spacing--60: 2.25rem;--wp--preset--spacing--70: 3.38rem;--wp--preset--spacing--80: 5.06rem;--wp--preset--shadow--natural: 6px 6px 9px rgba(0, 0, 0, 0.2);--wp--preset--shadow--deep: 12px 12px 50px rgba(0, 0, 0, 0.4);--wp--preset--shadow--sharp: 6px 6px 0px rgba(0, 0, 0, 0.2);--wp--preset--shadow--outlined: 6px 6px 0px -3px rgb(255, 255, 255), 6px 6px rgb(0, 0, 0);--wp--preset--shadow--crisp: 6px 6px 0px rgb(0, 0, 0);}.wp-block-button{--wp--preset--dimension--25: 25%;--wp--preset--dimension--50: 50%;--wp--preset--dimension--75: 75%;--wp--preset--dimension--100: 100%;}:where(body) { margin: 0; }:where(.is-layout-flex){gap: 0.5em;}:where(.is-layout-grid){gap: 0.5em;}body .is-layout-flex{display: flex;}.is-layout-flex{flex-wrap: wrap;align-items: center;}.is-layout-flex > :is(*, div){margin: 0;}body .is-layout-grid{display: grid;}.is-layout-grid > :is(*, div){margin: 0;}body{padding-top: 0px;padding-right: 0px;padding-bottom: 0px;padding-left: 0px;}:root :where(.wp-element-button, .wp-block-button__link){background-color: #32373c;border-width: 0;color: #fff;font-family: inherit;font-size: inherit;font-style: inherit;font-weight: inherit;letter-spacing: inherit;line-height: inherit;padding-top: calc(0.667em + 2px);padding-right: calc(1.333em + 2px);padding-bottom: calc(0.667em + 2px);padding-left: calc(1.333em + 2px);text-decoration: none;text-transform: inherit;}.has-black-color{color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-color{color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-color{color: var(--wp--preset--color--white) !important;}.has-pale-pink-color{color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-color{color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-color{color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-color{color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-color{color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-color{color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-color{color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-color{color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-color{color: var(--wp--preset--color--vivid-purple) !important;}.has-black-background-color{background-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-background-color{background-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-background-color{background-color: var(--wp--preset--color--white) !important;}.has-pale-pink-background-color{background-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-background-color{background-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-background-color{background-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-background-color{background-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-background-color{background-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-background-color{background-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-background-color{background-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-background-color{background-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-background-color{background-color: var(--wp--preset--color--vivid-purple) !important;}.has-black-border-color{border-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-border-color{border-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-border-color{border-color: var(--wp--preset--color--white) !important;}.has-pale-pink-border-color{border-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-border-color{border-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-border-color{border-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-border-color{border-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-border-color{border-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-border-color{border-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-border-color{border-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-border-color{border-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-border-color{border-color: var(--wp--preset--color--vivid-purple) !important;}.has-vivid-cyan-blue-to-vivid-purple-gradient-background{background: var(--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple) !important;}.has-light-green-cyan-to-vivid-green-cyan-gradient-background{background: var(--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan) !important;}.has-luminous-vivid-amber-to-luminous-vivid-orange-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange) !important;}.has-luminous-vivid-orange-to-vivid-red-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-orange-to-vivid-red) !important;}.has-very-light-gray-to-cyan-bluish-gray-gradient-background{background: var(--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray) !important;}.has-cool-to-warm-spectrum-gradient-background{background: var(--wp--preset--gradient--cool-to-warm-spectrum) !important;}.has-blush-light-purple-gradient-background{background: var(--wp--preset--gradient--blush-light-purple) !important;}.has-blush-bordeaux-gradient-background{background: var(--wp--preset--gradient--blush-bordeaux) !important;}.has-luminous-dusk-gradient-background{background: var(--wp--preset--gradient--luminous-dusk) !important;}.has-pale-ocean-gradient-background{background: var(--wp--preset--gradient--pale-ocean) !important;}.has-electric-grass-gradient-background{background: var(--wp--preset--gradient--electric-grass) !important;}.has-midnight-gradient-background{background: var(--wp--preset--gradient--midnight) !important;}.has-small-font-size{font-size: var(--wp--preset--font-size--small) !important;}.has-medium-font-size{font-size: var(--wp--preset--font-size--medium) !important;}.has-large-font-size{font-size: var(--wp--preset--font-size--large) !important;}.has-x-large-font-size{font-size: var(--wp--preset--font-size--x-large) !important;}
+/*# sourceURL=global-styles-inline-css */
+</style>
+
+<style id="jetpack-stats-inline-css">
+img#wpstats{display:none}
+/*# sourceURL=jetpack-stats-inline-css */
+</style>
+<link rel='stylesheet' id='google-fonts-lato-css' href='//fonts.googleapis.com/css?family=Lato&#038;ver=7.1.3' media='all' />
+<link rel='stylesheet' id='google-fonts-cabin-css' href='//fonts.googleapis.com/css?family=Cabin&#038;ver=7.1.3' media='all' />
+<link rel='stylesheet' id='bootstrap-css' href='https://avitech.com.au/wp-content/themes/mywiki/css/bootstrap.css?ver=7.1.3' media='all' />
+<link rel='stylesheet' id='font-awesome-css' href='https://avitech.com.au/wp-content/themes/mywiki/css/font-awesome.css?ver=7.1.3' media='all' />
+<link rel='stylesheet' id='mywiki-style-css' href='https://avitech.com.au/wp-content/themes/mywiki/style.css?ver=7.1.3' media='all' />
+<style id="jetpack-subscriptions-inline-css">
+#subscribe-email input{width:95%}.comment-subscription-form{margin-bottom:1em}.comment-subscription-form .subscribe-label{display:inline!important}.screen-reader-text{border:0;clip-path:inset(50%);height:1px;margin:-1px;overflow:hidden;overflow-wrap:normal!important;padding:0;position:absolute!important;width:1px}
+/*# sourceURL=https://avitech.com.au/wp-content/plugins/jetpack/_inc/build/subscriptions/subscriptions.min.css */
+</style>
+<script id="jquery-core-js" src="https://c0.wp.com/c/7.1.3/wp-includes/js/jquery/jquery.min.js"></script>
+<script id="jquery-migrate-js" src="https://c0.wp.com/c/7.1.3/wp-includes/js/jquery/jquery-migrate.min.js"></script>
+<script id="bootstrap-js" src="https://avitech.com.au/wp-content/themes/mywiki/js/bootstrap.js?ver=3.0.1"></script>
+<script id="mywiki-general-js-extra">
+var my_ajax = {"ajaxurl":"https://avitech.com.au/wp-admin/admin-ajax.php"};
+//# sourceURL=mywiki-general-js-extra
+</script>
+<script id="mywiki-general-js" src="https://avitech.com.au/wp-content/themes/mywiki/js/general.js?ver=7.1.3"></script>
+<link rel="https://api.w.org/" href="https://avitech.com.au/index.php?rest_route=/" /><link rel="alternate" title="JSON" type="application/json" href="https://avitech.com.au/index.php?rest_route=/wp/v2/pages/1964" /><link rel="EditURI" type="application/rsd+xml" title="RSD" href="https://avitech.com.au/xmlrpc.php?rsd" />
+<meta name="generator" content="WordPress 7.1.3" />
+<link rel="canonical" href="https://avitech.com.au/?page_id=1964" />
+<link rel='shortlink' href='https://wp.me/P7xTsk-vG' />
+<link rel="describedby" href="https://avitech.com.au/llms.txt" />
+
+	<style type="text/css" id="mywiki-header-css">
+	
+		.site-title,
+		.site-description {
+			clip: rect(1px 1px 1px 1px); /* IE7 */
+			clip: rect(1px, 1px, 1px, 1px);
+			position: absolute;
+		}
+	
+	</style>
+	
+<!-- Jetpack Open Graph Tags -->
+<meta property="og:type" content="article" />
+<meta property="og:title" content="DEC VT340 Internals" />
+<meta property="og:url" content="https://avitech.com.au/?page_id=1964" />
+<meta property="og:description" content="In early 2017 there was some discussion on the SIMH mailing list regarding the simulation of various DEC VT-series terminals. Part of that discussion related to the ROMs and architecture inside DEC…" />
+<meta property="article:published_time" content="2017-04-26T16:32:48+00:00" />
+<meta property="article:modified_time" content="2017-04-26T16:32:48+00:00" />
+<meta property="og:site_name" content="vintage bits" />
+<meta property="og:image" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170418_224430_1492519519228_resized-e1492520859459.jpg" />
+<meta property="og:image:secure_url" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170418_224430_1492519519228_resized-e1492520859459.jpg" />
+<meta property="og:image" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170418_224443_1492519517950_resized-e1492520783835.jpg" />
+<meta property="og:image:secure_url" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170418_224443_1492519517950_resized-e1492520783835.jpg" />
+<meta property="og:image" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115413_1493222122863_resized.jpg" />
+<meta property="og:image:secure_url" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115413_1493222122863_resized.jpg" />
+<meta property="og:image" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115426_1493222121984_resized.jpg" />
+<meta property="og:image:secure_url" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115426_1493222121984_resized.jpg" />
+<meta property="og:image" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115443_1493222121225_resized.jpg" />
+<meta property="og:image:secure_url" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115443_1493222121225_resized.jpg" />
+<meta property="og:image" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115458_1493222120042_resized.jpg" />
+<meta property="og:image:secure_url" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115458_1493222120042_resized.jpg" />
+<meta property="og:image" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092050_1492299099706_resized.jpg" />
+<meta property="og:image:secure_url" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092050_1492299099706_resized.jpg" />
+<meta property="og:image" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092059_1492299098375_resized.jpg" />
+<meta property="og:image:secure_url" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092059_1492299098375_resized.jpg" />
+<meta property="og:image" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092253_1492299096958_resized.jpg" />
+<meta property="og:image:secure_url" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092253_1492299096958_resized.jpg" />
+<meta property="og:image" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092301_1492299095735_resized.jpg" />
+<meta property="og:image:secure_url" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092301_1492299095735_resized.jpg" />
+<meta property="og:image" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092316_1492299094408_resized.jpg" />
+<meta property="og:image:secure_url" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092316_1492299094408_resized.jpg" />
+<meta property="og:image" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092340_1492299093299_resized.jpg" />
+<meta property="og:image:secure_url" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092340_1492299093299_resized.jpg" />
+<meta property="og:image" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092347_1492299092005_resized.jpg" />
+<meta property="og:image:secure_url" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092347_1492299092005_resized.jpg" />
+<meta property="og:image" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092355_1492299090574_resized.jpg" />
+<meta property="og:image:secure_url" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092355_1492299090574_resized.jpg" />
+<meta property="og:image" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092415_1492299088980_resized.jpg" />
+<meta property="og:image:secure_url" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092415_1492299088980_resized.jpg" />
+<meta property="og:image" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092940_1492299087242_resized.jpg" />
+<meta property="og:image:secure_url" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092940_1492299087242_resized.jpg" />
+<meta property="og:image" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092952_1492299085797_resized.jpg" />
+<meta property="og:image:secure_url" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092952_1492299085797_resized.jpg" />
+<meta property="og:image" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093001_1492299083834_resized.jpg" />
+<meta property="og:image:secure_url" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093001_1492299083834_resized.jpg" />
+<meta property="og:image" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093010_1492299082310_resized.jpg" />
+<meta property="og:image:secure_url" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093010_1492299082310_resized.jpg" />
+<meta property="og:image" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093018_1492299080644_resized.jpg" />
+<meta property="og:image:secure_url" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093018_1492299080644_resized.jpg" />
+<meta property="og:image:width" content="1632" />
+<meta property="og:image:height" content="918" />
+<meta property="og:image:alt" content="" />
+<meta name="twitter:text:title" content="DEC VT340 Internals" />
+<meta name="twitter:image" content="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170418_224430_1492519519228_resized-e1492520859459.jpg?w=640" />
+<meta name="twitter:card" content="summary_large_image" />
+
+<!-- End Jetpack Open Graph Tags -->
+<style id="wp-custom-css">
+/*
+Welcome to Custom CSS!
+
+To learn how this works, see http://wp.me/PEmnE-Bt
+*/
+#main ul li {
+	color: #333;
+	display: list-item;
+	list-style-type: disc;
+	list-style-position: outside;
+	margin: 0 30px 10px;
+}
+
+.sd-content ul li {
+	display: inline-block !important;
+}
+
+td {
+	border: 1px none #000;
+	padding: 5px 10px 5px 0;
+}
+
+th {
+	padding: 5px 10px 5px 0;
+}
+
+tr.bb th {
+	border-bottom: 2px solid black;
+	text-align: center;
+}
+
+tr.topjust {
+	vertical-align: top;
+}
+
+td.center {
+	text-align: center;
+}
+
+/* hr added 17.05.2021 for For Sale page */
+hr {
+	position: relative;
+	top: 20px;
+	border: none;
+	height: 4px;
+	background: grey;
+	margin-bottom: 50px;
+}
+
+/* tables */
+table.report {
+    font-family: 'Courier New', sans-serif;
+    font-size: 9pt;
+    color: black;
+    border: 1px solid rgba(0,0,0,1);
+    border-collapse: collapse;
+}
+ 
+/* table headers */
+th.report {
+    background-color: rgba(221,221,208,1);
+    border: 1px solid rgba(0,0,0,1);
+    padding: 4px;
+	  text-align: center;
+}
+
+/* table columns */
+td.report {
+    border-left: 1px dotted rgba(0,0,0,1);
+    border-collapse: collapse;
+    padding: 4px;
+}
+
+td.nowrap {
+    white-space: nowrap;
+    text-align: left;
+    border-left: 1px dotted rgba(0,0,0,1);
+    border-collapse: collapse;
+    padding: 4px;
+}
+
+/* table rows */
+tr.subheader {
+    background-color: rgba(255,255,255,1);
+    border-bottom: 1px dotted rgba(128,128,128,0.3);
+    border-collapse: collapse;
+}
+
+tr.report:nth-child(odd) {
+    background-color: rgba(255,255,255,1);
+    border-bottom: 1px dotted rgba(128,128,128,0.3);
+    border-collapse: collapse;
+}
+
+tr.report:nth-child(even) {
+    background-color: rgba(0,0,0,0.01);
+    border-bottom: 1px dotted rgba(128,128,128,0.3);
+    border-collapse: collapse;
+}
+
+.crt-input {
+	color: blue;
+}
+
+.crt-notes {
+	color: blue;
+}
+</style>
+
+<link rel='stylesheet' id='jetpack-swiper-library-css' href='https://c0.wp.com/p/jetpack/16.3/_inc/blocks/swiper.css' media='all' />
+<link rel='stylesheet' id='jetpack-carousel-css' href='https://c0.wp.com/p/jetpack/16.3/modules/carousel/jetpack-carousel.css' media='all' />
+
+</head>
+<body class="wp-singular page-template-default page page-id-1964 wp-theme-mywiki">
+
+<div id="wrap">
+<header role="banner">
+  <div id="inner-header" class="clearfix">
+    <div class="navbar navbar-default">
+      <div class="container" id="navbarcont">
+        <div class="row">
+        <div class="nav-container col-md-9">
+          <nav role="navigation">
+            <div class="navbar-header">
+              <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse"> <span class="icon-bar"></span> <span class="icon-bar"></span> <span class="icon-bar"></span> </button>
+              
+            </div>
+            <!-- end .navbar-header -->
+          </nav>
+        </div>
+        <div class="navbar-collapse collapse top-menu">
+          <div class="menu-main-menu-container"><ul id="menu" class="nav navbar-nav navbar-right mywiki-header-menu"><li id="menu-item-290" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-home menu-item-290"><a href="http://avitech.com.au">Home</a></li>
+<li id="menu-item-293" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-293"><a href="https://avitech.com.au/?page_id=199">Blog</a></li>
+</ul></div>
+        </div>
+        <!-- end .nav-container -->
+        </div>  
+      </div>
+      <!-- end #navcont -->
+    </div>
+    <!-- end .navbar --> 
+  </div>
+  <!-- end #inner-header --> 
+</header>
+<!-- end header -->
+<div class="searchwrap ">
+  <div class="container" id="search-main">
+    <div class="row">
+      <form class="asholder search-main col-md-12 col-sm-12 col-xs-12" role="get_search_form()" method="get" id="searchformtop" action="https://avitech.com.au">        
+          <div class="input-group" id="suggest">
+            <input name="s" id="s" type="text" onKeyUp="suggest(this.value);" onBlur="fill();" class="search-query form-control pull-right" autocomplete="off" placeholder="Have a Question? Write here and press enter" data-provide="typeahead" data-items="4" data-source="">
+            <div class="suggestionsbox" id="suggestions" style="display: none;">
+            <div class="suggestionlist" id="suggestionslist"></div>
+            </div>        
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<div class="container " id="maincnot"><div id="content" class="row clearfix">
+  <div id="main" class="col-sm-8 clearfix" role="main">
+        <article id="post-1964" class="clearfix post-1964 page type-page status-publish hentry" role="article" itemscope itemtype="http://schema.org/BlogPosting">
+      <header>
+          <h1 class="page-title main-page-title" itemprop="headline">
+            DEC VT340 Internals          </h1>          
+      </header>
+      <!-- end article header -->
+      <section class="post_content clearfix" itemprop="articleBody">
+        <p>In early 2017 there was <a href="http://mailman.trailing-edge.com/pipermail/simh/2017-April/016556.html" target="_blank">some discussion</a> on the SIMH mailing list regarding the simulation of various DEC VT-series terminals. Part of that discussion related to the ROMs and architecture inside DEC&#8217;s VT340 terminal.</p>
+<p>According to that discussion the firmware for the VT340 includes the following:</p>
+<ul>
+<li>512 x 8 2804 EEPROM on E80</li>
+<li>32K x 8 27256 UV EPROM on E49</li>
+<li>ROMs in the cartridge that plugs in through the back panel</li>
+</ul>
+<p>This page captures some information about the internals of the VT340.</p>
+<h4>27256 EPROM at E49</h4>
+<p>I have dumped the content of the 27256 EPROM.  Download it here -> <a href="http://www.avitech.com.au/mm-files/vt340/vt340e49.bin" target="_blank">E49 CG EPROM</a>.</p>
+<h4>XICOR EEPROM at E80</h4>
+<p>I haven&#8217;t dumped E80, as the XICOR X2804AP-45 is soldered in to the board.</p>
+<h4>ROMs in the cartridge</h4>
+<p>The ROM cartridge is a plastic enclosure that houses a single PCB with 5 surface-mount ROMs.</p>
+<p>The cartridge is glued or plastic-welded closed (it has no fasteners or clips).  With brute force I was able to open it, with minimal damage to the housing.</p>
+<p>Inside are 5 x Intel N27C256 surface-mount ROMs in PLCC packaging, soldered to the PCB, and numbered E1 through E5.</p>
+<p>Here are some pictures of the cartridge internals:</p>
+<div data-carousel-extra='{&quot;blog_id&quot;:1,&quot;permalink&quot;:&quot;https://avitech.com.au/?page_id=1964&quot;}' id='gallery-10' class='gallery galleryid-1964 gallery-columns-4 gallery-size-thumbnail'><dl class='gallery-item'>
+			<dt class='gallery-icon landscape'>
+				<a href="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170418_224430_1492519519228_resized-e1492520859459.jpg?ssl=1"><img decoding="async" width="150" height="150" src="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170418_224430_1492519519228_resized-e1492520859459.jpg?resize=150%2C150&amp;ssl=1" class="attachment-thumbnail size-thumbnail" alt="" srcset="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170418_224430_1492519519228_resized-e1492520859459.jpg?resize=150%2C150&amp;ssl=1 150w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170418_224430_1492519519228_resized-e1492520859459.jpg?zoom=2&amp;resize=150%2C150&amp;ssl=1 300w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170418_224430_1492519519228_resized-e1492520859459.jpg?zoom=3&amp;resize=150%2C150&amp;ssl=1 450w" sizes="(max-width: 150px) 100vw, 150px" data-attachment-id="1909" data-permalink="https://avitech.com.au/?attachment_id=1909" data-orig-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170418_224430_1492519519228_resized-e1492520859459.jpg?fit=1632%2C918&amp;ssl=1" data-orig-size="1632,918" data-comments-opened="1" data-image-title="20170418_224430_1492519519228_resized" data-image-description="" data-image-caption="" data-large-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170418_224430_1492519519228_resized-e1492520859459.jpg?fit=900%2C506&amp;ssl=1" /></a>
+			</dt></dl><dl class='gallery-item'>
+			<dt class='gallery-icon landscape'>
+				<a href="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170418_224443_1492519517950_resized-e1492520783835.jpg?ssl=1"><img decoding="async" width="150" height="150" src="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170418_224443_1492519517950_resized-e1492520783835.jpg?resize=150%2C150&amp;ssl=1" class="attachment-thumbnail size-thumbnail" alt="" srcset="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170418_224443_1492519517950_resized-e1492520783835.jpg?resize=150%2C150&amp;ssl=1 150w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170418_224443_1492519517950_resized-e1492520783835.jpg?zoom=2&amp;resize=150%2C150&amp;ssl=1 300w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170418_224443_1492519517950_resized-e1492520783835.jpg?zoom=3&amp;resize=150%2C150&amp;ssl=1 450w" sizes="(max-width: 150px) 100vw, 150px" data-attachment-id="1910" data-permalink="https://avitech.com.au/?attachment_id=1910" data-orig-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170418_224443_1492519517950_resized-e1492520783835.jpg?fit=1632%2C918&amp;ssl=1" data-orig-size="1632,918" data-comments-opened="1" data-image-title="20170418_224443_1492519517950_resized" data-image-description="" data-image-caption="" data-large-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170418_224443_1492519517950_resized-e1492520783835.jpg?fit=900%2C506&amp;ssl=1" /></a>
+			</dt></dl>
+			<br style='clear: both' />
+		</div>
+
+<p>ROMs E1 and E2 share one address bus and one data bus.  ROMs E3, E4 and E5 share a second address bus and a second data bus. There are no other components in the ROM cartridge.</p>
+<p>I removed the cartridge socket from a VT340 main board, then used this socket to connect the cartridge to an Arduino Mega 2560. Using the Arduino Sketch below, I was then able to then dump the ROM contents out via the Mega 2560&#8217;s Serial Port at 115,200 baud in Intel Hex format. The Sketch will dump either the E1/E2 ROMs, or the E3/E4/E5 ROMs, depending on which address and data bus the Mega 2560 is currently wired to. The connections required are listed in the <em>cartridge-internal-wiring</em> Word document and at the top of the Arduino Sketch source file (see the links below). The output stream from the Serial Port including some headings to identify the ROM number (E1, E2, etc) that follows.</p>
+<p>The cartridge has 60 pins, all of which are small pads on the upper surface of the PCB. They are arranged as two staggered rows each of 30 pads. The odd-numbered Pins are closest to the edge of the PCB, with Pin 1 being at the E1 end of the PCB. The even-numbered Pins are inboard from the edge of the PCB, with Pin 2 being at the E1 end of the PCB.  On the cartridge socket, the odd numbered pins are the outboard row.</p>
+<p>The following files may be useful if you want to know more about the process that I used to dump the ROM contents:</p>
+<table style="width:90%;margin-left:5%;">
+<tr class="topjust">
+<td><a href="http://bitsavers.trailing-edge.com/pdf/dec/terminal/vt340/" target="_blank">VT340 Schematic</a> (link to Bitsavers)</td>
+</tr>
+<tr class="topjust">
+<td><a href="http://www.avitech.com.au/mm-files/vt340/cartridge-connector.tif" target="_blank">Cartridge connector pinout</a> (extracted from the above schematic)</td>
+</tr>
+<tr class="topjust">
+<td><a href="http://www.avitech.com.au/mm-files/vt340/cartridge-internal-wiring.docx" target="_blank">Word document showing cartridge internal wiring</a> (buzzed out by hand)</td>
+</tr>
+<tr class="topjust">
+<td><a href="http://www.avitech.com.au/mm-files/vt340/27c256-plcc-pinout.tif" target="_blank">27C256 PLCC EPROM pinout</a> (from Fairchild NM27C256 datasheet)</td>
+</tr>
+<tr class="topjust">
+<td><a href="http://www.avitech.com.au/mm-files/vt340/vt340-rom-dump.ino" target="_blank">Program (Sketch) downloaded to the Arduino Mega 2560</a> (plain text file)</td>
+</tr>
+<tr class="topjust">
+<td><a href="http://www.avitech.com.au/mm-files/vt340/arduino-mega-pinout-diagram.png" target="_blank">Arduino Mega pinout diagram</a></td>
+</tr>
+</table>
+<p></p>
+<p>Here are some pictures of the ROM Cartridge connected up to the Arduino Mega 2560:</p>
+<div data-carousel-extra='{&quot;blog_id&quot;:1,&quot;permalink&quot;:&quot;https://avitech.com.au/?page_id=1964&quot;}' id='gallery-11' class='gallery galleryid-1964 gallery-columns-4 gallery-size-thumbnail'><dl class='gallery-item'>
+			<dt class='gallery-icon landscape'>
+				<a href="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115413_1493222122863_resized.jpg?ssl=1"><img decoding="async" width="150" height="150" src="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115413_1493222122863_resized.jpg?resize=150%2C150&amp;ssl=1" class="attachment-thumbnail size-thumbnail" alt="" srcset="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115413_1493222122863_resized.jpg?resize=150%2C150&amp;ssl=1 150w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115413_1493222122863_resized.jpg?zoom=2&amp;resize=150%2C150&amp;ssl=1 300w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115413_1493222122863_resized.jpg?zoom=3&amp;resize=150%2C150&amp;ssl=1 450w" sizes="(max-width: 150px) 100vw, 150px" data-attachment-id="1956" data-permalink="https://avitech.com.au/?attachment_id=1956" data-orig-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115413_1493222122863_resized.jpg?fit=1632%2C918&amp;ssl=1" data-orig-size="1632,918" data-comments-opened="1" data-image-title="20170426_115413_1493222122863_resized" data-image-description="" data-image-caption="" data-large-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115413_1493222122863_resized.jpg?fit=900%2C506&amp;ssl=1" /></a>
+			</dt></dl><dl class='gallery-item'>
+			<dt class='gallery-icon landscape'>
+				<a href="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115426_1493222121984_resized.jpg?ssl=1"><img loading="lazy" decoding="async" width="150" height="150" src="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115426_1493222121984_resized.jpg?resize=150%2C150&amp;ssl=1" class="attachment-thumbnail size-thumbnail" alt="" srcset="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115426_1493222121984_resized.jpg?resize=150%2C150&amp;ssl=1 150w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115426_1493222121984_resized.jpg?zoom=2&amp;resize=150%2C150&amp;ssl=1 300w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115426_1493222121984_resized.jpg?zoom=3&amp;resize=150%2C150&amp;ssl=1 450w" sizes="auto, (max-width: 150px) 100vw, 150px" data-attachment-id="1957" data-permalink="https://avitech.com.au/?attachment_id=1957" data-orig-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115426_1493222121984_resized.jpg?fit=1632%2C918&amp;ssl=1" data-orig-size="1632,918" data-comments-opened="1" data-image-title="20170426_115426_1493222121984_resized" data-image-description="" data-image-caption="" data-large-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115426_1493222121984_resized.jpg?fit=900%2C506&amp;ssl=1" /></a>
+			</dt></dl><dl class='gallery-item'>
+			<dt class='gallery-icon landscape'>
+				<a href="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115443_1493222121225_resized.jpg?ssl=1"><img loading="lazy" decoding="async" width="150" height="150" src="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115443_1493222121225_resized.jpg?resize=150%2C150&amp;ssl=1" class="attachment-thumbnail size-thumbnail" alt="" srcset="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115443_1493222121225_resized.jpg?resize=150%2C150&amp;ssl=1 150w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115443_1493222121225_resized.jpg?zoom=2&amp;resize=150%2C150&amp;ssl=1 300w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115443_1493222121225_resized.jpg?zoom=3&amp;resize=150%2C150&amp;ssl=1 450w" sizes="auto, (max-width: 150px) 100vw, 150px" data-attachment-id="1958" data-permalink="https://avitech.com.au/?attachment_id=1958" data-orig-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115443_1493222121225_resized.jpg?fit=1632%2C918&amp;ssl=1" data-orig-size="1632,918" data-comments-opened="1" data-image-title="20170426_115443_1493222121225_resized" data-image-description="" data-image-caption="" data-large-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115443_1493222121225_resized.jpg?fit=900%2C506&amp;ssl=1" /></a>
+			</dt></dl><dl class='gallery-item'>
+			<dt class='gallery-icon landscape'>
+				<a href="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115458_1493222120042_resized.jpg?ssl=1"><img loading="lazy" decoding="async" width="150" height="150" src="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115458_1493222120042_resized.jpg?resize=150%2C150&amp;ssl=1" class="attachment-thumbnail size-thumbnail" alt="" srcset="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115458_1493222120042_resized.jpg?resize=150%2C150&amp;ssl=1 150w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115458_1493222120042_resized.jpg?zoom=2&amp;resize=150%2C150&amp;ssl=1 300w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115458_1493222120042_resized.jpg?zoom=3&amp;resize=150%2C150&amp;ssl=1 450w" sizes="auto, (max-width: 150px) 100vw, 150px" data-attachment-id="1959" data-permalink="https://avitech.com.au/?attachment_id=1959" data-orig-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115458_1493222120042_resized.jpg?fit=1632%2C918&amp;ssl=1" data-orig-size="1632,918" data-comments-opened="1" data-image-title="20170426_115458_1493222120042_resized" data-image-description="" data-image-caption="" data-large-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170426_115458_1493222120042_resized.jpg?fit=900%2C506&amp;ssl=1" /></a>
+			</dt></dl><br style="clear: both" />
+		</div>
+
+<p>Here are the ROM contents, in Intel Hex format:</p>
+<table style="width:90%;margin-left:5%;">
+<tr class="topjust">
+<td><a href="http://www.avitech.com.au/mm-files/vt340/e1.hex" target="_blank">E1 ROM in Intel Hex format</a></td>
+</tr>
+<tr class="topjust">
+<td><a href="http://www.avitech.com.au/mm-files/vt340/e2.hex" target="_blank">E2 ROM in Intel Hex format</a></td>
+</tr>
+<tr class="topjust">
+<td><a href="http://www.avitech.com.au/mm-files/vt340/e3.hex" target="_blank">E3 ROM in Intel Hex format</a></td>
+</tr>
+<tr class="topjust">
+<td><a href="http://www.avitech.com.au/mm-files/vt340/e4.hex" target="_blank">E4 ROM in Intel Hex format</a></td>
+</tr>
+<tr class="topjust">
+<td><a href="http://www.avitech.com.au/mm-files/vt340/e5.hex" target="_blank">E5 ROM in Intel Hex format</a></td>
+</tr>
+</table>
+<p></p>
+<p>Here are the ROM contents, in Binary format:</p>
+<table style="width:90%;margin-left:5%;">
+<tr class="topjust">
+<td><a href="http://www.avitech.com.au/mm-files/vt340/e1.bin" target="_blank">E1 ROM in binary format</a> (Checksum = 0xBF64, CRC-16 = 5D72)</td>
+</tr>
+<tr class="topjust">
+<td><a href="http://www.avitech.com.au/mm-files/vt340/e2.bin" target="_blank">E2 ROM in binary format</a> (Checksum = 0x6517, CRC-16 = C093)</td>
+</tr>
+<tr class="topjust">
+<td><a href="http://www.avitech.com.au/mm-files/vt340/e3.bin" target="_blank">E3 ROM in binary format</a> (Checksum = 0x58F0, CRC-16 = A63A)</td>
+</tr>
+<tr class="topjust">
+<td><a href="http://www.avitech.com.au/mm-files/vt340/e4.bin" target="_blank">E4 ROM in binary format</a> (Checksum = 0x9E0D, CRC-16 = 166E)</td>
+</tr>
+<tr class="topjust">
+<td><a href="http://www.avitech.com.au/mm-files/vt340/e5.bin" target="_blank">E5 ROM in binary format</a> (Checksum = 0xCABA, CRC-16 = CD49)</td>
+</tr>
+</table>
+<h4>Photos of VT340 internals</h4>
+<p>Below are some photos of the insides of a VT340, including some photos of both sides of the logic board and RGB driver board.</p>
+<div data-carousel-extra='{&quot;blog_id&quot;:1,&quot;permalink&quot;:&quot;https://avitech.com.au/?page_id=1964&quot;}' id='gallery-12' class='gallery galleryid-1964 gallery-columns-4 gallery-size-thumbnail'><dl class='gallery-item'>
+			<dt class='gallery-icon landscape'>
+				<a href="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092050_1492299099706_resized.jpg?ssl=1"><img loading="lazy" decoding="async" width="150" height="150" src="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092050_1492299099706_resized.jpg?resize=150%2C150&amp;ssl=1" class="attachment-thumbnail size-thumbnail" alt="" srcset="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092050_1492299099706_resized.jpg?resize=150%2C150&amp;ssl=1 150w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092050_1492299099706_resized.jpg?zoom=2&amp;resize=150%2C150&amp;ssl=1 300w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092050_1492299099706_resized.jpg?zoom=3&amp;resize=150%2C150&amp;ssl=1 450w" sizes="auto, (max-width: 150px) 100vw, 150px" data-attachment-id="1819" data-permalink="https://avitech.com.au/?attachment_id=1819" data-orig-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092050_1492299099706_resized.jpg?fit=1632%2C918&amp;ssl=1" data-orig-size="1632,918" data-comments-opened="1" data-image-title="20170416_092050_1492299099706_resized" data-image-description="" data-image-caption="" data-large-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092050_1492299099706_resized.jpg?fit=900%2C506&amp;ssl=1" /></a>
+			</dt></dl><dl class='gallery-item'>
+			<dt class='gallery-icon landscape'>
+				<a href="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092059_1492299098375_resized.jpg?ssl=1"><img loading="lazy" decoding="async" width="150" height="150" src="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092059_1492299098375_resized.jpg?resize=150%2C150&amp;ssl=1" class="attachment-thumbnail size-thumbnail" alt="" srcset="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092059_1492299098375_resized.jpg?resize=150%2C150&amp;ssl=1 150w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092059_1492299098375_resized.jpg?zoom=2&amp;resize=150%2C150&amp;ssl=1 300w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092059_1492299098375_resized.jpg?zoom=3&amp;resize=150%2C150&amp;ssl=1 450w" sizes="auto, (max-width: 150px) 100vw, 150px" data-attachment-id="1820" data-permalink="https://avitech.com.au/?attachment_id=1820" data-orig-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092059_1492299098375_resized.jpg?fit=1632%2C918&amp;ssl=1" data-orig-size="1632,918" data-comments-opened="1" data-image-title="20170416_092059_1492299098375_resized" data-image-description="" data-image-caption="" data-large-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092059_1492299098375_resized.jpg?fit=900%2C506&amp;ssl=1" /></a>
+			</dt></dl><dl class='gallery-item'>
+			<dt class='gallery-icon landscape'>
+				<a href="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092253_1492299096958_resized.jpg?ssl=1"><img loading="lazy" decoding="async" width="150" height="150" src="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092253_1492299096958_resized.jpg?resize=150%2C150&amp;ssl=1" class="attachment-thumbnail size-thumbnail" alt="" srcset="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092253_1492299096958_resized.jpg?resize=150%2C150&amp;ssl=1 150w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092253_1492299096958_resized.jpg?zoom=2&amp;resize=150%2C150&amp;ssl=1 300w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092253_1492299096958_resized.jpg?zoom=3&amp;resize=150%2C150&amp;ssl=1 450w" sizes="auto, (max-width: 150px) 100vw, 150px" data-attachment-id="1821" data-permalink="https://avitech.com.au/?attachment_id=1821" data-orig-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092253_1492299096958_resized.jpg?fit=1632%2C918&amp;ssl=1" data-orig-size="1632,918" data-comments-opened="1" data-image-title="20170416_092253_1492299096958_resized" data-image-description="" data-image-caption="" data-large-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092253_1492299096958_resized.jpg?fit=900%2C506&amp;ssl=1" /></a>
+			</dt></dl><dl class='gallery-item'>
+			<dt class='gallery-icon landscape'>
+				<a href="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092301_1492299095735_resized.jpg?ssl=1"><img loading="lazy" decoding="async" width="150" height="150" src="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092301_1492299095735_resized.jpg?resize=150%2C150&amp;ssl=1" class="attachment-thumbnail size-thumbnail" alt="" srcset="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092301_1492299095735_resized.jpg?resize=150%2C150&amp;ssl=1 150w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092301_1492299095735_resized.jpg?zoom=2&amp;resize=150%2C150&amp;ssl=1 300w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092301_1492299095735_resized.jpg?zoom=3&amp;resize=150%2C150&amp;ssl=1 450w" sizes="auto, (max-width: 150px) 100vw, 150px" data-attachment-id="1822" data-permalink="https://avitech.com.au/?attachment_id=1822" data-orig-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092301_1492299095735_resized.jpg?fit=1632%2C918&amp;ssl=1" data-orig-size="1632,918" data-comments-opened="1" data-image-title="20170416_092301_1492299095735_resized" data-image-description="" data-image-caption="" data-large-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092301_1492299095735_resized.jpg?fit=900%2C506&amp;ssl=1" /></a>
+			</dt></dl><br style="clear: both" /><dl class='gallery-item'>
+			<dt class='gallery-icon landscape'>
+				<a href="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092316_1492299094408_resized.jpg?ssl=1"><img loading="lazy" decoding="async" width="150" height="150" src="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092316_1492299094408_resized.jpg?resize=150%2C150&amp;ssl=1" class="attachment-thumbnail size-thumbnail" alt="" srcset="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092316_1492299094408_resized.jpg?resize=150%2C150&amp;ssl=1 150w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092316_1492299094408_resized.jpg?zoom=2&amp;resize=150%2C150&amp;ssl=1 300w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092316_1492299094408_resized.jpg?zoom=3&amp;resize=150%2C150&amp;ssl=1 450w" sizes="auto, (max-width: 150px) 100vw, 150px" data-attachment-id="1823" data-permalink="https://avitech.com.au/?attachment_id=1823" data-orig-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092316_1492299094408_resized.jpg?fit=1632%2C918&amp;ssl=1" data-orig-size="1632,918" data-comments-opened="1" data-image-title="20170416_092316_1492299094408_resized" data-image-description="" data-image-caption="" data-large-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092316_1492299094408_resized.jpg?fit=900%2C506&amp;ssl=1" /></a>
+			</dt></dl><dl class='gallery-item'>
+			<dt class='gallery-icon landscape'>
+				<a href="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092340_1492299093299_resized.jpg?ssl=1"><img loading="lazy" decoding="async" width="150" height="150" src="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092340_1492299093299_resized.jpg?resize=150%2C150&amp;ssl=1" class="attachment-thumbnail size-thumbnail" alt="" srcset="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092340_1492299093299_resized.jpg?resize=150%2C150&amp;ssl=1 150w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092340_1492299093299_resized.jpg?zoom=2&amp;resize=150%2C150&amp;ssl=1 300w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092340_1492299093299_resized.jpg?zoom=3&amp;resize=150%2C150&amp;ssl=1 450w" sizes="auto, (max-width: 150px) 100vw, 150px" data-attachment-id="1824" data-permalink="https://avitech.com.au/?attachment_id=1824" data-orig-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092340_1492299093299_resized.jpg?fit=1632%2C918&amp;ssl=1" data-orig-size="1632,918" data-comments-opened="1" data-image-title="20170416_092340_1492299093299_resized" data-image-description="" data-image-caption="" data-large-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092340_1492299093299_resized.jpg?fit=900%2C506&amp;ssl=1" /></a>
+			</dt></dl><dl class='gallery-item'>
+			<dt class='gallery-icon landscape'>
+				<a href="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092347_1492299092005_resized.jpg?ssl=1"><img loading="lazy" decoding="async" width="150" height="150" src="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092347_1492299092005_resized.jpg?resize=150%2C150&amp;ssl=1" class="attachment-thumbnail size-thumbnail" alt="" srcset="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092347_1492299092005_resized.jpg?resize=150%2C150&amp;ssl=1 150w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092347_1492299092005_resized.jpg?zoom=2&amp;resize=150%2C150&amp;ssl=1 300w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092347_1492299092005_resized.jpg?zoom=3&amp;resize=150%2C150&amp;ssl=1 450w" sizes="auto, (max-width: 150px) 100vw, 150px" data-attachment-id="1825" data-permalink="https://avitech.com.au/?attachment_id=1825" data-orig-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092347_1492299092005_resized.jpg?fit=1632%2C918&amp;ssl=1" data-orig-size="1632,918" data-comments-opened="1" data-image-title="20170416_092347_1492299092005_resized" data-image-description="" data-image-caption="" data-large-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092347_1492299092005_resized.jpg?fit=900%2C506&amp;ssl=1" /></a>
+			</dt></dl><dl class='gallery-item'>
+			<dt class='gallery-icon landscape'>
+				<a href="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092355_1492299090574_resized.jpg?ssl=1"><img loading="lazy" decoding="async" width="150" height="150" src="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092355_1492299090574_resized.jpg?resize=150%2C150&amp;ssl=1" class="attachment-thumbnail size-thumbnail" alt="" srcset="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092355_1492299090574_resized.jpg?resize=150%2C150&amp;ssl=1 150w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092355_1492299090574_resized.jpg?zoom=2&amp;resize=150%2C150&amp;ssl=1 300w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092355_1492299090574_resized.jpg?zoom=3&amp;resize=150%2C150&amp;ssl=1 450w" sizes="auto, (max-width: 150px) 100vw, 150px" data-attachment-id="1826" data-permalink="https://avitech.com.au/?attachment_id=1826" data-orig-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092355_1492299090574_resized.jpg?fit=1632%2C918&amp;ssl=1" data-orig-size="1632,918" data-comments-opened="1" data-image-title="20170416_092355_1492299090574_resized" data-image-description="" data-image-caption="" data-large-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092355_1492299090574_resized.jpg?fit=900%2C506&amp;ssl=1" /></a>
+			</dt></dl><br style="clear: both" /><dl class='gallery-item'>
+			<dt class='gallery-icon landscape'>
+				<a href="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092415_1492299088980_resized.jpg?ssl=1"><img loading="lazy" decoding="async" width="150" height="150" src="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092415_1492299088980_resized.jpg?resize=150%2C150&amp;ssl=1" class="attachment-thumbnail size-thumbnail" alt="" srcset="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092415_1492299088980_resized.jpg?resize=150%2C150&amp;ssl=1 150w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092415_1492299088980_resized.jpg?zoom=2&amp;resize=150%2C150&amp;ssl=1 300w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092415_1492299088980_resized.jpg?zoom=3&amp;resize=150%2C150&amp;ssl=1 450w" sizes="auto, (max-width: 150px) 100vw, 150px" data-attachment-id="1827" data-permalink="https://avitech.com.au/?attachment_id=1827" data-orig-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092415_1492299088980_resized.jpg?fit=1632%2C918&amp;ssl=1" data-orig-size="1632,918" data-comments-opened="1" data-image-title="20170416_092415_1492299088980_resized" data-image-description="" data-image-caption="" data-large-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092415_1492299088980_resized.jpg?fit=900%2C506&amp;ssl=1" /></a>
+			</dt></dl><dl class='gallery-item'>
+			<dt class='gallery-icon portrait'>
+				<a href="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092940_1492299087242_resized.jpg?ssl=1"><img loading="lazy" decoding="async" width="150" height="150" src="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092940_1492299087242_resized.jpg?resize=150%2C150&amp;ssl=1" class="attachment-thumbnail size-thumbnail" alt="" srcset="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092940_1492299087242_resized.jpg?resize=150%2C150&amp;ssl=1 150w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092940_1492299087242_resized.jpg?zoom=2&amp;resize=150%2C150&amp;ssl=1 300w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092940_1492299087242_resized.jpg?zoom=3&amp;resize=150%2C150&amp;ssl=1 450w" sizes="auto, (max-width: 150px) 100vw, 150px" data-attachment-id="1828" data-permalink="https://avitech.com.au/?attachment_id=1828" data-orig-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092940_1492299087242_resized.jpg?fit=918%2C1632&amp;ssl=1" data-orig-size="918,1632" data-comments-opened="1" data-image-title="20170416_092940_1492299087242_resized" data-image-description="" data-image-caption="" data-large-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092940_1492299087242_resized.jpg?fit=576%2C1024&amp;ssl=1" /></a>
+			</dt></dl><dl class='gallery-item'>
+			<dt class='gallery-icon portrait'>
+				<a href="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092952_1492299085797_resized.jpg?ssl=1"><img loading="lazy" decoding="async" width="150" height="150" src="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092952_1492299085797_resized.jpg?resize=150%2C150&amp;ssl=1" class="attachment-thumbnail size-thumbnail" alt="" srcset="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092952_1492299085797_resized.jpg?resize=150%2C150&amp;ssl=1 150w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092952_1492299085797_resized.jpg?zoom=2&amp;resize=150%2C150&amp;ssl=1 300w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092952_1492299085797_resized.jpg?zoom=3&amp;resize=150%2C150&amp;ssl=1 450w" sizes="auto, (max-width: 150px) 100vw, 150px" data-attachment-id="1829" data-permalink="https://avitech.com.au/?attachment_id=1829" data-orig-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092952_1492299085797_resized.jpg?fit=918%2C1632&amp;ssl=1" data-orig-size="918,1632" data-comments-opened="1" data-image-title="20170416_092952_1492299085797_resized" data-image-description="" data-image-caption="" data-large-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_092952_1492299085797_resized.jpg?fit=576%2C1024&amp;ssl=1" /></a>
+			</dt></dl><dl class='gallery-item'>
+			<dt class='gallery-icon landscape'>
+				<a href="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093001_1492299083834_resized.jpg?ssl=1"><img loading="lazy" decoding="async" width="150" height="150" src="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093001_1492299083834_resized.jpg?resize=150%2C150&amp;ssl=1" class="attachment-thumbnail size-thumbnail" alt="" srcset="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093001_1492299083834_resized.jpg?resize=150%2C150&amp;ssl=1 150w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093001_1492299083834_resized.jpg?zoom=2&amp;resize=150%2C150&amp;ssl=1 300w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093001_1492299083834_resized.jpg?zoom=3&amp;resize=150%2C150&amp;ssl=1 450w" sizes="auto, (max-width: 150px) 100vw, 150px" data-attachment-id="1830" data-permalink="https://avitech.com.au/?attachment_id=1830" data-orig-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093001_1492299083834_resized.jpg?fit=1632%2C918&amp;ssl=1" data-orig-size="1632,918" data-comments-opened="1" data-image-title="20170416_093001_1492299083834_resized" data-image-description="" data-image-caption="" data-large-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093001_1492299083834_resized.jpg?fit=900%2C506&amp;ssl=1" /></a>
+			</dt></dl><br style="clear: both" /><dl class='gallery-item'>
+			<dt class='gallery-icon landscape'>
+				<a href="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093010_1492299082310_resized.jpg?ssl=1"><img loading="lazy" decoding="async" width="150" height="150" src="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093010_1492299082310_resized.jpg?resize=150%2C150&amp;ssl=1" class="attachment-thumbnail size-thumbnail" alt="" srcset="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093010_1492299082310_resized.jpg?resize=150%2C150&amp;ssl=1 150w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093010_1492299082310_resized.jpg?zoom=2&amp;resize=150%2C150&amp;ssl=1 300w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093010_1492299082310_resized.jpg?zoom=3&amp;resize=150%2C150&amp;ssl=1 450w" sizes="auto, (max-width: 150px) 100vw, 150px" data-attachment-id="1831" data-permalink="https://avitech.com.au/?attachment_id=1831" data-orig-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093010_1492299082310_resized.jpg?fit=1632%2C918&amp;ssl=1" data-orig-size="1632,918" data-comments-opened="1" data-image-title="20170416_093010_1492299082310_resized" data-image-description="" data-image-caption="" data-large-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093010_1492299082310_resized.jpg?fit=900%2C506&amp;ssl=1" /></a>
+			</dt></dl><dl class='gallery-item'>
+			<dt class='gallery-icon portrait'>
+				<a href="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093018_1492299080644_resized.jpg?ssl=1"><img loading="lazy" decoding="async" width="150" height="150" src="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093018_1492299080644_resized.jpg?resize=150%2C150&amp;ssl=1" class="attachment-thumbnail size-thumbnail" alt="" srcset="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093018_1492299080644_resized.jpg?resize=150%2C150&amp;ssl=1 150w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093018_1492299080644_resized.jpg?zoom=2&amp;resize=150%2C150&amp;ssl=1 300w, https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093018_1492299080644_resized.jpg?zoom=3&amp;resize=150%2C150&amp;ssl=1 450w" sizes="auto, (max-width: 150px) 100vw, 150px" data-attachment-id="1832" data-permalink="https://avitech.com.au/?attachment_id=1832" data-orig-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093018_1492299080644_resized.jpg?fit=918%2C1632&amp;ssl=1" data-orig-size="918,1632" data-comments-opened="1" data-image-title="20170416_093018_1492299080644_resized" data-image-description="" data-image-caption="" data-large-file="https://i0.wp.com/avitech.com.au/wp-content/uploads/2017/04/20170416_093018_1492299080644_resized.jpg?fit=576%2C1024&amp;ssl=1" /></a>
+			</dt></dl>
+			<br style='clear: both' />
+		</div>
+
+<h4>Revision history</h4>
+<p>16 April 2017: Posted initial version.</p>
+<p>26 April 2017: Updated to include the process for dumping the ROM cartridge contents, including the ROM data obtained using that process.</p>
+      </section>
+      <!-- end article section -->
+    </article>
+    <!-- end article -->
+            
+<div class="clearfix"></div>
+  </div>
+  <!-- end #main -->
+  <div id="sidebar1" class="fluid-sidebar sidebar col-sm-4 border-left margin-bottom" role="complementary">
+  
+  <div id="search-2" class="widget widget_search"><form role="search" method="get" class="search-form" action="https://avitech.com.au/">
+	
+		<span class="screen-reader-text">Search</span>
+		<input type="search" class="search-field" placeholder="Search" value="" name="s" />
+	
+	<button type="submit" class="search-submit fa fa-search"><span class="screen-reader-text"></span></button>
+</form>
+</div><div id="pages-3" class="widget widget_pages"><h4 class="sidebar-heading"><span>Pages</span></h4>
+			<ul>
+				<li class="page_item page-item-2206"><a href="https://avitech.com.au/?page_id=2206">.Info about Cabling and Connectors</a></li>
+<li class="page_item page-item-10 page_item_has_children"><a href="https://avitech.com.au/?page_id=10">.Malcolm&#8217;s VAX/VMS Notes</a>
+<ul class='children'>
+	<li class="page_item page-item-34"><a href="https://avitech.com.au/?page_id=34">Installing VAX BASIC 3.3</a></li>
+</ul>
+</li>
+<li class="page_item page-item-3325"><a href="https://avitech.com.au/?page_id=3325">Arduino &#8211; Getting Started</a></li>
+<li class="page_item page-item-2031"><a href="https://avitech.com.au/?page_id=2031">Arduino Notes</a></li>
+<li class="page_item page-item-3407"><a href="https://avitech.com.au/?page_id=3407">BDV11 Upgrade</a></li>
+<li class="page_item page-item-318"><a href="https://avitech.com.au/?page_id=318">Current Loop Interface #2</a></li>
+<li class="page_item page-item-2149"><a href="https://avitech.com.au/?page_id=2149">Current Loop: Design Notes</a></li>
+<li class="page_item page-item-1755"><a href="https://avitech.com.au/?page_id=1755">Data I/O 29B Universal Programmer</a></li>
+<li class="page_item page-item-1439"><a href="https://avitech.com.au/?page_id=1439">DEC 871B Power Controller</a></li>
+<li class="page_item page-item-2393"><a href="https://avitech.com.au/?page_id=2393">DEC BA23 Chassis</a></li>
+<li class="page_item page-item-1628"><a href="https://avitech.com.au/?page_id=1628">DEC BC01V RS232 Cable</a></li>
+<li class="page_item page-item-4482"><a href="https://avitech.com.au/?page_id=4482">DEC Cables and Connectors</a></li>
+<li class="page_item page-item-1254"><a href="https://avitech.com.au/?page_id=1254">DEC DCT11-EM Evaluation Module</a></li>
+<li class="page_item page-item-3319"><a href="https://avitech.com.au/?page_id=3319">DEC Flip Chip KiCad Template</a></li>
+<li class="page_item page-item-1292"><a href="https://avitech.com.au/?page_id=1292">DEC InfoTower</a></li>
+<li class="page_item page-item-3204"><a href="https://avitech.com.au/?page_id=3204">DEC MI8-E Bootstrap loader for PDP-8/e</a></li>
+<li class="page_item page-item-1983"><a href="https://avitech.com.au/?page_id=1983">DEC MicroVAX 3600</a></li>
+<li class="page_item page-item-3510"><a href="https://avitech.com.au/?page_id=3510">DEC MINC RL01 Images</a></li>
+<li class="page_item page-item-5917"><a href="https://avitech.com.au/?page_id=5917">DEC MINC-11 at System Source</a></li>
+<li class="page_item page-item-3660"><a href="https://avitech.com.au/?page_id=3660">DEC Miscellaneous Information</a></li>
+<li class="page_item page-item-2543"><a href="https://avitech.com.au/?page_id=2543">DEC NEMA Power Connectors</a></li>
+<li class="page_item page-item-2821"><a href="https://avitech.com.au/?page_id=2821">DEC PDP-11/10</a></li>
+<li class="page_item page-item-3713"><a href="https://avitech.com.au/?page_id=3713">DEC PDP-11/23 in BA11-N Chassis</a></li>
+<li class="page_item page-item-2634"><a href="https://avitech.com.au/?page_id=2634">DEC PDP-11/73 in BA123 cabinet</a></li>
+<li class="page_item page-item-5651"><a href="https://avitech.com.au/?page_id=5651">DEC PDP-12</a></li>
+<li class="page_item page-item-5670"><a href="https://avitech.com.au/?page_id=5670">DEC PDP-8/e H960</a></li>
+<li class="page_item page-item-5647"><a href="https://avitech.com.au/?page_id=5647">DEC PDP-8/I</a></li>
+<li class="page_item page-item-2887"><a href="https://avitech.com.au/?page_id=2887">DEC Professional 300 Series</a></li>
+<li class="page_item page-item-3615"><a href="https://avitech.com.au/?page_id=3615">DEC Rainbow</a></li>
+<li class="page_item page-item-4663"><a href="https://avitech.com.au/?page_id=4663">DEC RK05 Notes</a></li>
+<li class="page_item page-item-1997"><a href="https://avitech.com.au/?page_id=1997">DEC RL Drives</a></li>
+<li class="page_item page-item-1008"><a href="https://avitech.com.au/?page_id=1008">DEC RX01 floppy disc drives</a></li>
+<li class="page_item page-item-10248"><a href="https://avitech.com.au/?page_id=10248">DEC RX01/02 Inventory</a></li>
+<li class="page_item page-item-2660"><a href="https://avitech.com.au/?page_id=2660">DEC RX33 Floppy Drive</a></li>
+<li class="page_item page-item-1005"><a href="https://avitech.com.au/?page_id=1005">DEC TU60 Dual Cassette Transport</a></li>
+<li class="page_item page-item-1919"><a href="https://avitech.com.au/?page_id=1919">DEC VAXstation 3100 Model 76</a></li>
+<li class="page_item page-item-3801"><a href="https://avitech.com.au/?page_id=3801">DEC VT180 (aka &#8220;Robin&#8221;)</a></li>
+<li class="page_item page-item-1964 current_page_item"><a href="https://avitech.com.au/?page_id=1964" aria-current="page">DEC VT340 Internals</a></li>
+<li class="page_item page-item-2772"><a href="https://avitech.com.au/?page_id=2772">DEC WT78</a></li>
+<li class="page_item page-item-1887"><a href="https://avitech.com.au/?page_id=1887">Digital Electronics QBUS Cabinet</a></li>
+<li class="page_item page-item-847"><a href="https://avitech.com.au/?page_id=847">Dilog DQ419</a></li>
+<li class="page_item page-item-2914"><a href="https://avitech.com.au/?page_id=2914">Electronic Components Stores</a></li>
+<li class="page_item page-item-3402"><a href="https://avitech.com.au/?page_id=3402">EPSON TM-U210D POS Printer</a></li>
+<li class="page_item page-item-97"><a href="https://avitech.com.au/?page_id=97">Factory full of DEC</a></li>
+<li class="page_item page-item-690"><a href="https://avitech.com.au/?page_id=690">Floppy Disk Imaging</a></li>
+<li class="page_item page-item-4387"><a href="https://avitech.com.au/?page_id=4387">For Sale</a></li>
+<li class="page_item page-item-3623"><a href="https://avitech.com.au/?page_id=3623">Garage Sale on Sat 5 October 2019</a></li>
+<li class="page_item page-item-12665"><a href="https://avitech.com.au/?page_id=12665">George Wiley&#8217;s RK05 Emulator</a></li>
+<li class="page_item page-item-3195"><a href="https://avitech.com.au/?page_id=3195">Getting Started with FPGAs and CPLDs</a></li>
+<li class="page_item page-item-2722"><a href="https://avitech.com.au/?page_id=2722">GRC TBC QBUS Board</a></li>
+<li class="page_item page-item-13541"><a href="https://avitech.com.au/?page_id=13541">Greaseweazle and Model 4 TRS-80</a></li>
+<li class="page_item page-item-735"><a href="https://avitech.com.au/?page_id=735">Install Log: VAX/VMS 5.3</a></li>
+<li class="page_item page-item-959"><a href="https://avitech.com.au/?page_id=959">KED Mini How-To Guide</a></li>
+<li class="page_item page-item-1840"><a href="https://avitech.com.au/?page_id=1840">Konan Blue Sky MFM Controller</a></li>
+<li class="page_item page-item-2036"><a href="https://avitech.com.au/?page_id=2036">Links &#8211; DEC related</a></li>
+<li class="page_item page-item-157"><a href="https://avitech.com.au/?page_id=157">Linux tips and tricks</a></li>
+<li class="page_item page-item-3132"><a href="https://avitech.com.au/?page_id=3132">Melbourne Mini Vintage Computer Faire 2018</a></li>
+<li class="page_item page-item-1524"><a href="https://avitech.com.au/?page_id=1524">MFM Hard Drive on Pentium II PC</a></li>
+<li class="page_item page-item-2060"><a href="https://avitech.com.au/?page_id=2060">MFM Hard Drives</a></li>
+<li class="page_item page-item-10110"><a href="https://avitech.com.au/?page_id=10110">My Early x86 Personal Computer Collection</a></li>
+<li class="page_item page-item-3267"><a href="https://avitech.com.au/?page_id=3267">OMNIBUS Bootstrap Loader Project &#8211; Design Notes</a></li>
+<li class="page_item page-item-3372"><a href="https://avitech.com.au/?page_id=3372">OMNIBUS Bootstrap Loader Prototype v1.0</a></li>
+<li class="page_item page-item-3219"><a href="https://avitech.com.au/?page_id=3219">OMNIBUS CPLD Prototyping Board #1</a></li>
+<li class="page_item page-item-13241"><a href="https://avitech.com.au/?page_id=13241">Open-SIMH</a></li>
+<li class="page_item page-item-2528"><a href="https://avitech.com.au/?page_id=2528">PDP-11 Notes</a></li>
+<li class="page_item page-item-709"><a href="https://avitech.com.au/?page_id=709">PDP-11 Paper Tape BASIC</a></li>
+<li class="page_item page-item-2073"><a href="https://avitech.com.au/?page_id=2073">PDP-11 RX02 Bootstraps</a></li>
+<li class="page_item page-item-903"><a href="https://avitech.com.au/?page_id=903">PDP-11/34 decdatasystem</a></li>
+<li class="page_item page-item-366"><a href="https://avitech.com.au/?page_id=366">PDP-11/70</a></li>
+<li class="page_item page-item-12693"><a href="https://avitech.com.au/?page_id=12693">PDP-8 notes: Dumprest and paper-tape diagnostics</a></li>
+<li class="page_item page-item-3585"><a href="https://avitech.com.au/?page_id=3585">PDP-8/e Line to Earth Capacitors</a></li>
+<li class="page_item page-item-1468"><a href="https://avitech.com.au/?page_id=1468">Pertec T8640A Tape Transport</a></li>
+<li class="page_item page-item-1657"><a href="https://avitech.com.au/?page_id=1657">QBUS Front Panel Project</a></li>
+<li class="page_item page-item-1664"><a href="https://avitech.com.au/?page_id=1664">QBUS Notes</a></li>
+<li class="page_item page-item-645"><a href="https://avitech.com.au/?page_id=645">RQDX Breakout Board</a></li>
+<li class="page_item page-item-2402"><a href="https://avitech.com.au/?page_id=2402">RQDX Mini-BOB for floppy drives</a></li>
+<li class="page_item page-item-766"><a href="https://avitech.com.au/?page_id=766">RS232 Connectors</a></li>
+<li class="page_item page-item-914"><a href="https://avitech.com.au/?page_id=914">RT-11 boot floppy</a></li>
+<li class="page_item page-item-934"><a href="https://avitech.com.au/?page_id=934">RT-11 drive partitions</a></li>
+<li class="page_item page-item-796"><a href="https://avitech.com.au/?page_id=796">RT-11 Logical Disks</a></li>
+<li class="page_item page-item-3240"><a href="https://avitech.com.au/?page_id=3240">S100 KiCad template</a></li>
+<li class="page_item page-item-2570"><a href="https://avitech.com.au/?page_id=2570">Saturn for RSX-11</a></li>
+<li class="page_item page-item-951"><a href="https://avitech.com.au/?page_id=951">Scanned documents</a></li>
+<li class="page_item page-item-2735"><a href="https://avitech.com.au/?page_id=2735">SCSI2SD on QBUS PDP-11</a></li>
+<li class="page_item page-item-1727"><a href="https://avitech.com.au/?page_id=1727">SD Systems SBC-200 S-100 Board</a></li>
+<li class="page_item page-item-5279"><a href="https://avitech.com.au/?page_id=5279">Seeburg Red Box</a></li>
+<li class="page_item page-item-2514"><a href="https://avitech.com.au/?page_id=2514">SerialDisk Integration to SIMH</a></li>
+<li class="page_item page-item-2447"><a href="https://avitech.com.au/?page_id=2447">SerialDisk Operational Notes</a></li>
+<li class="page_item page-item-1111"><a href="https://avitech.com.au/?page_id=1111">SMD Drives</a></li>
+<li class="page_item page-item-11844"><a href="https://avitech.com.au/?page_id=11844">Sodastream Cylinder Replacement Project</a></li>
+<li class="page_item page-item-1445"><a href="https://avitech.com.au/?page_id=1445">Space Invaders</a></li>
+<li class="page_item page-item-3106"><a href="https://avitech.com.au/?page_id=3106">Super 80 &#8211; Cassette Software</a></li>
+<li class="page_item page-item-3088"><a href="https://avitech.com.au/?page_id=3088">Super 80 &#8211; Emulator</a></li>
+<li class="page_item page-item-2983"><a href="https://avitech.com.au/?page_id=2983">Super 80 &#8211; Hardware Notes</a></li>
+<li class="page_item page-item-3025"><a href="https://avitech.com.au/?page_id=3025">Super 80 &#8211; Original</a></li>
+<li class="page_item page-item-2873"><a href="https://avitech.com.au/?page_id=2873">Super 80 &#8211; V1 Reproduction</a></li>
+<li class="page_item page-item-3020"><a href="https://avitech.com.au/?page_id=3020">Super 80 &#8211; V2 Reproduction</a></li>
+<li class="page_item page-item-986"><a href="https://avitech.com.au/?page_id=986">Transferring RX01 discs to SIMH</a></li>
+<li class="page_item page-item-13618"><a href="https://avitech.com.au/?page_id=13618">TRS-80 Model 4 with FreHD and Gotek drives</a></li>
+<li class="page_item page-item-3697"><a href="https://avitech.com.au/?page_id=3697">UNIX V6 on QBUS PDP-11</a></li>
+<li class="page_item page-item-1867"><a href="https://avitech.com.au/?page_id=1867">VAX 11/750 Parts</a></li>
+<li class="page_item page-item-1552"><a href="https://avitech.com.au/?page_id=1552">VAXmate</a></li>
+<li class="page_item page-item-1068"><a href="https://avitech.com.au/?page_id=1068">VAXmate Software</a></li>
+<li class="page_item page-item-807"><a href="https://avitech.com.au/?page_id=807">Webster SRQD11</a></li>
+<li class="page_item page-item-16352"><a href="https://avitech.com.au/?page_id=16352">Wells Gardner K7000 Monitor Chassis</a></li>
+<li class="page_item page-item-641"><a href="https://avitech.com.au/?page_id=641">Williams Firepower Pinball Machine</a></li>
+			</ul>
+
+			</div>
+		<div id="recent-posts-2" class="widget widget_recent_entries">
+		<h4 class="sidebar-heading"><span>Recent Posts</span></h4>
+		<ul>
+											<li>
+					<a href="https://avitech.com.au/?p=3749">Freshly scanned manual for MDB MLSI-CR11 Card Reader Controller</a>
+									</li>
+											<li>
+					<a href="https://avitech.com.au/?p=3632">Webster Spectrum PDP-11/73</a>
+									</li>
+											<li>
+					<a href="https://avitech.com.au/?p=3352">Bundoora Computer Market &#8211; July 2018</a>
+									</li>
+											<li>
+					<a href="https://avitech.com.au/?p=2896">P/OS for the DEC Professional 300 Series</a>
+									</li>
+											<li>
+					<a href="https://avitech.com.au/?p=2858">Recently scanned RQDX Field Service Tech Tips</a>
+									</li>
+											<li>
+					<a href="https://avitech.com.au/?p=1818">DEC VT340 Internals</a>
+									</li>
+											<li>
+					<a href="https://avitech.com.au/?p=1413">New neon indicator for DEC 871B Power Controller</a>
+									</li>
+											<li>
+					<a href="https://avitech.com.au/?p=1285">[Outdated post] Vintage computers for sale or swap</a>
+									</li>
+											<li>
+					<a href="https://avitech.com.au/?p=884">PDP-11/34 decdatasystem</a>
+									</li>
+											<li>
+					<a href="https://avitech.com.au/?p=794">RS232 connectors</a>
+									</li>
+					</ul>
+
+		</div><div id="archives-2" class="widget widget_archive"><h4 class="sidebar-heading"><span>Archives</span></h4>
+			<ul>
+					<li><a href='https://avitech.com.au/?m=201912'>December 2019</a></li>
+	<li><a href='https://avitech.com.au/?m=201910'>October 2019</a></li>
+	<li><a href='https://avitech.com.au/?m=201807'>July 2018</a></li>
+	<li><a href='https://avitech.com.au/?m=201801'>January 2018</a></li>
+	<li><a href='https://avitech.com.au/?m=201711'>November 2017</a></li>
+	<li><a href='https://avitech.com.au/?m=201704'>April 2017</a></li>
+	<li><a href='https://avitech.com.au/?m=201612'>December 2016</a></li>
+	<li><a href='https://avitech.com.au/?m=201610'>October 2016</a></li>
+	<li><a href='https://avitech.com.au/?m=201607'>July 2016</a></li>
+	<li><a href='https://avitech.com.au/?m=201606'>June 2016</a></li>
+	<li><a href='https://avitech.com.au/?m=201605'>May 2016</a></li>
+			</ul>
+
+			</div><div id="categories-2" class="widget widget_categories"><h4 class="sidebar-heading"><span>Categories</span></h4>
+			<ul>
+					<li class="cat-item cat-item-10"><a href="https://avitech.com.au/?cat=10">Current loop</a>
+</li>
+	<li class="cat-item cat-item-2"><a href="https://avitech.com.au/?cat=2">DEC</a>
+</li>
+	<li class="cat-item cat-item-3"><a href="https://avitech.com.au/?cat=3">DECnet</a>
+</li>
+	<li class="cat-item cat-item-11"><a href="https://avitech.com.au/?cat=11">PDP-11</a>
+</li>
+	<li class="cat-item cat-item-4"><a href="https://avitech.com.au/?cat=4">PIC</a>
+</li>
+	<li class="cat-item cat-item-1"><a href="https://avitech.com.au/?cat=1">Uncategorized</a>
+</li>
+	<li class="cat-item cat-item-5"><a href="https://avitech.com.au/?cat=5">VMS</a>
+</li>
+			</ul>
+
+			</div><div id="blog_subscription-3" class="widget widget_blog_subscription jetpack_subscription_widget"><h4 class="sidebar-heading"><span>Subscribe to Blog via Email</span></h4>
+			<div class="wp-block-jetpack-subscriptions__container">
+			<form action="#" method="post" accept-charset="utf-8" id="subscribe-blog-blog_subscription-3"
+				data-blog="111512352"
+				data-post_access_level="everybody" >
+									<div id="subscribe-text"><p>Enter your email address to subscribe to this blog and receive notifications of new posts by email.</p>
+</div>
+										<p id="subscribe-email">
+						<label id="jetpack-subscribe-label"
+							class="screen-reader-text"
+							for="subscribe-field-blog_subscription-3">
+							Email Address						</label>
+						<input type="email" name="email" autocomplete="email" required="required"
+																					value=""
+							id="subscribe-field-blog_subscription-3"
+							placeholder="Email Address"
+						/>
+					</p>
+
+					<p id="subscribe-submit"
+											>
+						<input type="hidden" name="action" value="subscribe"/>
+						<input type="hidden" name="source" value="https://avitech.com.au/?page_id=1964"/>
+						<input type="hidden" name="sub-type" value="widget"/>
+						<input type="hidden" name="redirect_fragment" value="subscribe-blog-blog_subscription-3"/>
+						<input type="hidden" id="_wpnonce" name="_wpnonce" value="ef3d493d13" /><input type="hidden" name="_wp_http_referer" value="/?page_id=1964" />						<button type="submit"
+															class="wp-block-button__link"
+																					name="jetpack_subscriptions_widget"
+						>
+							Subscribe						</button>
+					</p>
+							</form>
+							<div class="wp-block-jetpack-subscriptions__subscount">
+					Join 95 other subscribers.				</div>
+						</div>
+			
+</div>
+  <!-- This content shows up if there are no widgets defined in the backend. -->
+  
+</div>
+</div>
+<!-- end #content -->
+</div>
+<hr /><footer role="contentinfo" id="footer">  
+  <div id="inner-footer" class="clearfix container padding-top-bottom">
+  	
+	<div id="widget-footer" class="clearfix row">
+    	<div class="col-md-4">
+		  
+          
+         </div>
+         <div class="col-md-4">
+		  
+        
+		</div>
+        <div class="col-md-4">
+		  
+        
+		</div>
+    </div>
+        <nav class="footer-menu-nav">
+     	<ul class="footer-nav nav navbar-nav">
+        	
+          
+        
+        
+        
+        
+      </ul>
+    </nav>
+    <p class="attribution">
+	    Powered by <a href="http://fasterthemes.com/wordpress-themes/mywiki" target="_blank">MyWiki WordPress Theme</a>
+     </p>
+</footer>
+    
+  </div>
+  <!-- end #inner-footer -->
+<!-- end footer -->
+<!-- end #maincont .container --> 
+<link rel="prefetch" href="https://avitech.com.au/wp-content/plugins/jetpack/_inc/blocks/swiper.js" as="script" />
+		<div id="jp-carousel-loading-overlay" style="display: none;">
+			<div id="jp-carousel-loading-wrapper">
+				<span id="jp-carousel-library-loading"><svg class="jetpack-spinner" width="40" height="40" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><circle cx="50" cy="50" r="46" fill="none" stroke="#ddd" stroke-width="8"/><path d="M 50 4 A 46 46 0 0 1 96 50" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" dur="1.4s" from="0 50 50" to="360 50 50" repeatCount="indefinite"/></path></svg></span>
+			</div>
+		</div>
+		<div class="jp-carousel-overlay" style="display: none;">
+
+		<div class="jp-carousel-container">
+			<!-- The Carousel Swiper -->
+			<div
+				class="jp-carousel-wrap swiper jp-carousel-swiper-container jp-carousel-transitions"
+				itemscope
+				itemtype="https://schema.org/ImageGallery">
+				<div class="jp-carousel swiper-wrapper"></div>
+				<div class="jp-swiper-button-prev swiper-button-prev">
+					<svg width="25" height="24" viewBox="0 0 25 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+						<mask id="maskPrev" mask-type="alpha" maskUnits="userSpaceOnUse" x="8" y="6" width="9" height="12">
+							<path d="M16.2072 16.59L11.6496 12L16.2072 7.41L14.8041 6L8.8335 12L14.8041 18L16.2072 16.59Z" fill="white"/>
+						</mask>
+						<g mask="url(#maskPrev)">
+							<rect x="0.579102" width="23.8823" height="24" fill="#FFFFFF"/>
+						</g>
+					</svg>
+				</div>
+				<div class="jp-swiper-button-next swiper-button-next">
+					<svg width="25" height="24" viewBox="0 0 25 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+						<mask id="maskNext" mask-type="alpha" maskUnits="userSpaceOnUse" x="8" y="6" width="8" height="12">
+							<path d="M8.59814 16.59L13.1557 12L8.59814 7.41L10.0012 6L15.9718 12L10.0012 18L8.59814 16.59Z" fill="white"/>
+						</mask>
+						<g mask="url(#maskNext)">
+							<rect x="0.34375" width="23.8822" height="24" fill="#FFFFFF"/>
+						</g>
+					</svg>
+				</div>
+			</div>
+			<!-- The main close buton -->
+			<div class="jp-carousel-close-hint">
+				<svg width="25" height="24" viewBox="0 0 25 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+					<mask id="maskClose" mask-type="alpha" maskUnits="userSpaceOnUse" x="5" y="5" width="15" height="14">
+						<path d="M19.3166 6.41L17.9135 5L12.3509 10.59L6.78834 5L5.38525 6.41L10.9478 12L5.38525 17.59L6.78834 19L12.3509 13.41L17.9135 19L19.3166 17.59L13.754 12L19.3166 6.41Z" fill="white"/>
+					</mask>
+					<g mask="url(#maskClose)">
+						<rect x="0.409668" width="23.8823" height="24" fill="#FFFFFF"/>
+					</g>
+				</svg>
+			</div>
+			<!-- Image info, comments and meta -->
+			<div class="jp-carousel-info">
+				<div class="jp-carousel-info-footer">
+					<div class="jp-carousel-pagination-container">
+						<div class="jp-swiper-pagination swiper-pagination"></div>
+						<div class="jp-carousel-pagination"></div>
+					</div>
+					<div class="jp-carousel-photo-title-container">
+						<div class="jp-carousel-photo-caption"></div>
+					</div>
+					<div class="jp-carousel-photo-icons-container">
+						<a href="#" class="jp-carousel-icon-btn jp-carousel-icon-info" aria-label="Toggle photo metadata visibility">
+							<span class="jp-carousel-icon">
+								<svg width="25" height="24" viewBox="0 0 25 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<mask id="maskInfo" mask-type="alpha" maskUnits="userSpaceOnUse" x="2" y="2" width="21" height="20">
+										<path fill-rule="evenodd" clip-rule="evenodd" d="M12.7537 2C7.26076 2 2.80273 6.48 2.80273 12C2.80273 17.52 7.26076 22 12.7537 22C18.2466 22 22.7046 17.52 22.7046 12C22.7046 6.48 18.2466 2 12.7537 2ZM11.7586 7V9H13.7488V7H11.7586ZM11.7586 11V17H13.7488V11H11.7586ZM4.79292 12C4.79292 16.41 8.36531 20 12.7537 20C17.142 20 20.7144 16.41 20.7144 12C20.7144 7.59 17.142 4 12.7537 4C8.36531 4 4.79292 7.59 4.79292 12Z" fill="white"/>
+									</mask>
+									<g mask="url(#maskInfo)">
+										<rect x="0.8125" width="23.8823" height="24" fill="#FFFFFF"/>
+									</g>
+								</svg>
+							</span>
+						</a>
+												<a href="#" class="jp-carousel-icon-btn jp-carousel-icon-comments" aria-label="Toggle photo comments visibility">
+							<span class="jp-carousel-icon">
+								<svg width="25" height="24" viewBox="0 0 25 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<mask id="maskComments" mask-type="alpha" maskUnits="userSpaceOnUse" x="2" y="2" width="21" height="20">
+										<path fill-rule="evenodd" clip-rule="evenodd" d="M4.3271 2H20.2486C21.3432 2 22.2388 2.9 22.2388 4V16C22.2388 17.1 21.3432 18 20.2486 18H6.31729L2.33691 22V4C2.33691 2.9 3.2325 2 4.3271 2ZM6.31729 16H20.2486V4H4.3271V18L6.31729 16Z" fill="white"/>
+									</mask>
+									<g mask="url(#maskComments)">
+										<rect x="0.34668" width="23.8823" height="24" fill="#FFFFFF"/>
+									</g>
+								</svg>
+
+								<span class="jp-carousel-has-comments-indicator" aria-label="This image has comments."></span>
+							</span>
+						</a>
+											</div>
+				</div>
+				<div class="jp-carousel-info-extra">
+					<div class="jp-carousel-info-content-wrapper">
+						<div class="jp-carousel-photo-title-container">
+							<div class="jp-carousel-photo-title"></div>
+						</div>
+						<div class="jp-carousel-comments-wrapper">
+															<div id="jp-carousel-comments-loading">
+									<span>Loading Comments...</span>
+								</div>
+								<div class="jp-carousel-comments"></div>
+								<div id="jp-carousel-comment-form-container">
+									<span id="jp-carousel-comment-form-spinner"><svg class="jetpack-spinner" width="20" height="20" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><circle cx="50" cy="50" r="46" fill="none" stroke="#ddd" stroke-width="8"/><path d="M 50 4 A 46 46 0 0 1 96 50" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" dur="1.4s" from="0 50 50" to="360 50 50" repeatCount="indefinite"/></path></svg></span>
+									<div id="jp-carousel-comment-post-results"></div>
+																														<form id="jp-carousel-comment-form">
+												<label for="jp-carousel-comment-form-comment-field" class="screen-reader-text">Write a Comment...</label>
+												<textarea
+													name="comment"
+													class="jp-carousel-comment-form-field jp-carousel-comment-form-textarea"
+													id="jp-carousel-comment-form-comment-field"
+													placeholder="Write a Comment..."
+												></textarea>
+												<div id="jp-carousel-comment-form-submit-and-info-wrapper">
+													<div id="jp-carousel-comment-form-commenting-as">
+																													<fieldset>
+																<label for="jp-carousel-comment-form-email-field">Email (Required)</label>
+																<input type="text" name="email" class="jp-carousel-comment-form-field jp-carousel-comment-form-text-field" id="jp-carousel-comment-form-email-field" />
+															</fieldset>
+															<fieldset>
+																<label for="jp-carousel-comment-form-author-field">Name (Required)</label>
+																<input type="text" name="author" class="jp-carousel-comment-form-field jp-carousel-comment-form-text-field" id="jp-carousel-comment-form-author-field" />
+															</fieldset>
+															<fieldset>
+																<label for="jp-carousel-comment-form-url-field">Website</label>
+																<input type="text" name="url" class="jp-carousel-comment-form-field jp-carousel-comment-form-text-field" id="jp-carousel-comment-form-url-field" />
+															</fieldset>
+																											</div>
+													<input
+														type="submit"
+														name="submit"
+														class="jp-carousel-comment-form-button"
+														id="jp-carousel-comment-form-button-submit"
+														value="Post Comment" />
+												</div>
+											</form>
+																											</div>
+													</div>
+						<div class="jp-carousel-image-meta">
+							<div class="jp-carousel-title-and-caption">
+								<div class="jp-carousel-photo-info">
+									<div class="jp-carousel-caption" itemprop="caption description"></div>
+								</div>
+
+								<div class="jp-carousel-photo-description"></div>
+							</div>
+							<a class="jp-carousel-image-download" href="#" aria-label="Download image" target="_blank" style="display: none;">
+								<svg width="25" height="24" viewBox="0 0 25 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<mask id="mask0" mask-type="alpha" maskUnits="userSpaceOnUse" x="3" y="3" width="19" height="18">
+										<path fill-rule="evenodd" clip-rule="evenodd" d="M5.84615 5V19H19.7775V12H21.7677V19C21.7677 20.1 20.8721 21 19.7775 21H5.84615C4.74159 21 3.85596 20.1 3.85596 19V5C3.85596 3.9 4.74159 3 5.84615 3H12.8118V5H5.84615ZM14.802 5V3H21.7677V10H19.7775V6.41L9.99569 16.24L8.59261 14.83L18.3744 5H14.802Z" fill="white"/>
+									</mask>
+									<g mask="url(#mask0)">
+										<rect x="0.870605" width="23.8823" height="24" fill="#FFFFFF"/>
+									</g>
+								</svg>
+								<span class="jp-carousel-download-text"></span>
+							</a>
+							<div class="jp-carousel-image-map" style="display: none;"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		</div>
+		<script async data-wp-strategy="async" fetchpriority="low" id="comment-reply-js" src="https://c0.wp.com/c/7.1.3/wp-includes/js/comment-reply.min.js"></script>
+<script id="jetpack-stats-js-before">
+_stq = window._stq || [];
+_stq.push([ "view", {"v":"ext","blog":"111512352","post":"1964","tz":"0","srv":"avitech.com.au","j":"1:16.3"} ]);
+_stq.push([ "clickTrackerInit", "111512352", "1964" ]);
+//# sourceURL=jetpack-stats-js-before
+</script>
+<script data-wp-strategy="defer" defer fetchpriority="low" id="jetpack-stats-js" src="https://stats.wp.com/e-202644.js"></script>
+<script id="jetpack-carousel-js-extra">
+var jetpackSwiperLibraryPath = {"url":"https://avitech.com.au/wp-content/plugins/jetpack/_inc/blocks/swiper.js"};
+var jetpackCarouselStrings = {"widths":[370,700,1000,1200,1400,2000],"is_logged_in":"","lang":"en","ajaxurl":"https://avitech.com.au/wp-admin/admin-ajax.php","nonce":"ff8ff8b178","display_exif":"1","display_comments":"1","single_image_gallery":"1","single_image_gallery_media_file":"","background_color":"black","comment":"Comment","post_comment":"Post Comment","write_comment":"Write a Comment...","loading_comments":"Loading Comments...","image_label":"Open image in full-screen.","download_original":"View full size \u003Cspan class=\"photo-size\"\u003E{0}\u003Cspan class=\"photo-size-times\"\u003E\u00d7\u003C/span\u003E{1}\u003C/span\u003E","no_comment_text":"Please be sure to submit some text with your comment.","no_comment_email":"Please provide an email address to comment.","no_comment_author":"Please provide your name to comment.","comment_post_error":"Sorry, but there was an error posting your comment. Please try again later.","comment_approved":"Your comment was approved.","comment_unapproved":"Your comment is in moderation.","camera":"Camera","aperture":"Aperture","shutter_speed":"Shutter Speed","focal_length":"Focal Length","copyright":"Copyright","comment_registration":"0","require_name_email":"1","login_url":"https://avitech.com.au/wp-login.php?redirect_to=https%3A%2F%2Favitech.com.au%2F%3Fpage_id%3D1964","blog_id":"1","meta_data":["camera","aperture","shutter_speed","focal_length","copyright"]};
+//# sourceURL=jetpack-carousel-js-extra
+</script>
+<script id="jetpack-carousel-js" src="https://c0.wp.com/p/jetpack/16.3/_inc/build/carousel/jetpack-carousel.min.js"></script>
+<script id="wp-emoji-settings" type="application/json">
+{"baseUrl":"https://s.w.org/images/core/emoji/17.0.2/72x72/","ext":".png","svgUrl":"https://s.w.org/images/core/emoji/17.0.2/svg/","svgExt":".svg","source":{"concatemoji":"https://avitech.com.au/wp-includes/js/wp-emoji-release.min.js?ver=7.1.3"}}
+</script>
+<script type="module">
+/*! This file is auto-generated */
+var e="script#wp-emoji-settings",t=document.querySelector(e);if(!(t instanceof HTMLScriptElement))throw new Error("Element missing: "+e);const r=JSON.parse(t.text),s=(window._wpemojiSettings=r,"wpEmojiSettingsSupports"),o=["flag","emoji"];function i(e){try{var t={supportTests:e,timestamp:(new Date).valueOf()};sessionStorage.setItem(s,JSON.stringify(t))}catch(e){}}function c(e,t,n){e.clearRect(0,0,e.canvas.width,e.canvas.height),e.fillText(t,0,0);t=new Uint32Array(e.getImageData(0,0,e.canvas.width,e.canvas.height).data);e.clearRect(0,0,e.canvas.width,e.canvas.height),e.fillText(n,0,0);const r=new Uint32Array(e.getImageData(0,0,e.canvas.width,e.canvas.height).data);return t.every((e,t)=>e===r[t])}function p(e,t){e.clearRect(0,0,e.canvas.width,e.canvas.height),e.fillText(t,0,0);var n=e.getImageData(16,16,1,1);for(let e=0;e<n.data.length;e++)if(0!==n.data[e])return!1;return!0}function u(e,t,n,r){switch(t){case"flag":return n(e,"\ud83c\udff3\ufe0f\u200d\u26a7\ufe0f","\ud83c\udff3\ufe0f\u200b\u26a7\ufe0f")?!1:!n(e,"\ud83c\udde8\ud83c\uddf6","\ud83c\udde8\u200b\ud83c\uddf6")&&!n(e,"\ud83c\udff4\udb40\udc67\udb40\udc62\udb40\udc65\udb40\udc6e\udb40\udc67\udb40\udc7f","\ud83c\udff4\u200b\udb40\udc67\u200b\udb40\udc62\u200b\udb40\udc65\u200b\udb40\udc6e\u200b\udb40\udc67\u200b\udb40\udc7f");case"emoji":return!r(e,"\ud83e\u1fac8")}return!1}function f(e,t,n,r){let a;const s=(a="undefined"!=typeof WorkerGlobalScope&&self instanceof WorkerGlobalScope?new OffscreenCanvas(300,150):document.createElement("canvas")).getContext("2d",{willReadFrequently:!0}),o=(s.textBaseline="top",s.font="600 32px Arial",{});return e.forEach(e=>{o[e]=t(s,e,n,r)}),o}function a(e){var t=document.createElement("script");t.src=e,t.defer=!0,document.head.appendChild(t)}r.supports={everything:!0,everythingExceptFlag:!0},new Promise(t=>{let n=function(){try{var e=JSON.parse(sessionStorage.getItem(s));if("object"==typeof e&&"number"==typeof e.timestamp&&(new Date).valueOf()<e.timestamp+604800&&"object"==typeof e.supportTests)return e.supportTests}catch(e){}return null}();if(!n){if("undefined"!=typeof Worker&&"undefined"!=typeof OffscreenCanvas&&"undefined"!=typeof URL&&URL.createObjectURL&&"undefined"!=typeof Blob)try{var e="postMessage("+f.toString()+"("+[JSON.stringify(o),u.toString(),c.toString(),p.toString()].join(",")+"));",r=new Blob([e],{type:"text/javascript"});const a=new Worker(URL.createObjectURL(r),{name:"wpTestEmojiSupports"});return void(a.onmessage=e=>{i(n=e.data),a.terminate(),t(n)})}catch(e){}i(n=f(o,u,c,p))}t(n)}).then(e=>{for(const n in e)r.supports[n]=e[n],r.supports.everything=r.supports.everything&&r.supports[n],"flag"!==n&&(r.supports.everythingExceptFlag=r.supports.everythingExceptFlag&&r.supports[n]);var t;r.supports.everythingExceptFlag=r.supports.everythingExceptFlag&&!r.supports.flag,r.supports.everything||((t=r.source||{}).concatemoji?a(t.concatemoji):t.wpemoji&&t.twemoji&&(a(t.twemoji),a(t.wpemoji)))});
+//# sourceURL=https://avitech.com.au/wp-includes/js/wp-emoji-loader.min.js
+</script>
+
+</body>
+</html>

@@ -1,5 +1,5 @@
 // license:BSD-3-Clause
-// copyright-holders:Harley Card
+// copyright-holders:Eric Harley
 /***************************************************************************
 
     Digital Equipment Corporation VT340
@@ -55,10 +55,6 @@
 
 namespace {
 
-constexpr int MCS51_SFR_SPACE = 4;
-constexpr int MCS51_IDATA_SPACE = 5;
-constexpr unsigned BITMAP_POST_SIZE = 0x10000;
-
 // The DC323 device numbers Viper planes from zero upward, while terminal
 // control module sheet BP0 connects their serialized outputs to the E51/E52
 // output-map address latch in the opposite bit significance.  Keep the
@@ -72,30 +68,6 @@ static_assert(output_map_address(0x1) == 0x8);
 static_assert(output_map_address(0x6) == 0x6);
 static_assert(output_map_address(0x9) == 0x9);
 static_assert(output_map_address(0xe) == 0x7);
-
-enum dc323_post_mode : u8
-{
-	DC323_POST_INACTIVE,
-	DC323_POST_ARMED,
-	DC323_POST_PATTERN_AA,
-	DC323_POST_EXPECT_PATTERN_55,
-	DC323_POST_PATTERN_55,
-	DC323_POST_VERIFY_CLEAR,
-	DC323_POST_RELEASE_PENDING
-};
-
-enum dat9_bus_phase : u8
-{
-	DAT9_WAIT_BRD_READ,
-	DAT9_BRD_READ_LOW,
-	DAT9_WAIT_STARTUP_PULSE,
-	DAT9_STARTUP_RESPONSE_LOW,
-	DAT9_WAIT_DC323_RESET,
-	DAT9_WAIT_DC323_STATUS,
-	DAT9_DC323_STATUS_HIGH,
-	DAT9_DC323_STATUS_LOW,
-	DAT9_RESOLVED_PORTS
-};
 
 bool should_log_xdata(offs_t offset, u16 &trace_events, u16 &io_trace_events)
 {
@@ -152,6 +124,48 @@ public:
 	void init_vt340();
 
 private:
+	enum dc323_post_mode : u8
+	{
+		DC323_POST_INACTIVE,
+		DC323_POST_ARMED,
+		DC323_POST_PATTERN_AA,
+		DC323_POST_EXPECT_PATTERN_55,
+		DC323_POST_PATTERN_55,
+		DC323_POST_VERIFY_CLEAR,
+		DC323_POST_RELEASE_PENDING
+	};
+
+	enum dat9_bus_phase : u8
+	{
+		DAT9_WAIT_BRD_READ,
+		DAT9_BRD_READ_LOW,
+		DAT9_WAIT_STARTUP_PULSE,
+		DAT9_STARTUP_RESPONSE_LOW,
+		DAT9_WAIT_DC323_RESET,
+		DAT9_WAIT_DC323_STATUS,
+		DAT9_DC323_STATUS_HIGH,
+		DAT9_DC323_STATUS_LOW,
+		DAT9_RESOLVED_PORTS
+	};
+
+	static constexpr u8 MCS51_SFR_SPACE = 4;
+	static constexpr u8 MCS51_IDATA_SPACE = 5;
+	static constexpr u32 BITMAP_POST_SIZE = 0x10000;
+	static constexpr offs_t SERIAL_UART_MASK = 0xffc0;
+	static constexpr offs_t BOARD_REGISTER_MASK = 0xffe0;
+	static constexpr offs_t PRINTER_UART_BASE = 0xf000;
+	static constexpr offs_t DUART_BASE = 0xf040;
+	static constexpr offs_t DC323_BASE = 0xf000;
+	static constexpr offs_t DC323_MASK = 0xf0c0;
+	static constexpr offs_t VIPER_SELECT_BASE = 0xf060;
+	static constexpr offs_t PALETTE_RG_BASE = 0xf080;
+	static constexpr offs_t PALETTE_GB_BASE = 0xf0a0;
+
+	static constexpr bool selects(offs_t address, offs_t base, offs_t mask)
+	{
+		return (address & mask) == base;
+	}
+
 	required_device<i8031_device> m_cpu1;
 	required_device<i8031_device> m_cpu2;
 	required_device<lk201_device> m_keyboard;
@@ -203,7 +217,7 @@ private:
 
 	u8 cpu1_xdata_r(offs_t offset);
 	void cpu1_xdata_w(offs_t offset, u8 data);
-	bool eeprom_selected(offs_t offset);
+	bool eeprom_selected(offs_t offset) const;
 	u8 cpu1_reserved_c2_r();
 	u8 cpu1_p3_r();
 	u8 cpu2_upper_r(offs_t offset);
@@ -329,9 +343,9 @@ u8 vt340_state::cpu1_xdata_r(offs_t offset)
 	// E78 decodes the CPU1 I/O page into two 64-byte serial apertures.  E81
 	// (SCN2641) occupies F000-F03F and E61 (SCN2681) occupies F040-F07F;
 	// their register-select inputs use the low two and low four address bits.
-	if ((offset & 0xffc0) == 0xf000)
+	if (selects(offset, PRINTER_UART_BASE, SERIAL_UART_MASK))
 		return m_printer_uart->read(offset & 0x03);
-	if ((offset & 0xffc0) == 0xf040)
+	if (selects(offset, DUART_BASE, SERIAL_UART_MASK))
 		return m_duart->read(offset & 0x0f);
 	// P1 BRD L reaches T0 during MOVX.  The core exposes neither that internal
 	// bus phase nor a read-strobe callback, while POST samples its occurrence
@@ -356,12 +370,12 @@ void vt340_state::cpu1_xdata_w(offs_t offset, u8 data)
 		m_eeprom->write(offset & 0x01ff, data);
 		return;
 	}
-	if ((offset & 0xffc0) == 0xf000)
+	if (selects(offset, PRINTER_UART_BASE, SERIAL_UART_MASK))
 	{
 		m_printer_uart->write(offset & 0x03, data);
 		return;
 	}
-	if ((offset & 0xffc0) == 0xf040)
+	if (selects(offset, DUART_BASE, SERIAL_UART_MASK))
 	{
 		m_duart->write(offset & 0x0f, data);
 		return;
@@ -369,7 +383,7 @@ void vt340_state::cpu1_xdata_w(offs_t offset, u8 data)
 	m_shared_ram[offset] = data;
 }
 
-bool vt340_state::eeprom_selected(offs_t offset)
+bool vt340_state::eeprom_selected(offs_t offset) const
 {
 	// E10 latches active-low NVRCS from P1.3 (NVRDS L) under P1.7
 	// (NVRCLK H).  MCS-51 bit instructions bypass the port callback, so use
@@ -414,15 +428,15 @@ u8 vt340_state::cpu2_xdata_r(offs_t offset)
 	// tables.  E51 stores red in its low nibble (its upper nibble is unused).
 	// On E52, DA3-DA0 drive green and DB3-DB0 drive blue; these correspond to
 	// the stored high and low nibbles respectively.
-	if ((offset & 0xffe0) == 0xf080)
+	if (selects(offset, PALETTE_RG_BASE, BOARD_REGISTER_MASK))
 		return m_palette_rg[offset & 0x0f];
-	if ((offset & 0xffe0) == 0xf0a0)
+	if (selects(offset, PALETTE_GB_BASE, BOARD_REGISTER_MASK))
 		return m_palette_gb[offset & 0x0f];
 
 	// The E15 PAL decodes the first 64 DC323 Adder registers in the F000 I/O
 	// page.  BA11-BA8 are not decoded, so the block is mirrored.  Register
 	// identities and bit assignments match DEC's Dragon chipset specification.
-	if ((offset & 0xf0c0) == 0xf000)
+	if (selects(offset, DC323_BASE, DC323_MASK))
 	{
 		unsigned const reg = offset & 0x3f;
 		return m_dc323->read(reg);
@@ -481,7 +495,7 @@ void vt340_state::cpu2_xdata_w(offs_t offset, u8 data)
 	// 8031 bus cycle the write data appears on BAD.  Schematic sheet 8 wires
 	// BAD3 through BAD0 to V0CS through V3CS respectively (BAD5 separately
 	// drives OPADDS).
-	if ((offset & 0xffe0) == 0xf060)
+	if (selects(offset, VIPER_SELECT_BASE, BOARD_REGISTER_MASK))
 		m_dc323->viper_select_w(bitswap<4>(data, 0, 1, 2, 3));
 
 	// F0E0 selects a timing-generator signal onto P1.0 for the firmware's
@@ -504,20 +518,20 @@ void vt340_state::cpu2_xdata_w(offs_t offset, u8 data)
 	// The second board-control initialization terminates DC323 reset.  DAT9 is
 	// released high for one status sample, then the DC323 supplies the low
 	// completion phase before leaving the shared net to the processor ports.
-	if ((m_dat9_bus_phase == DAT9_WAIT_DC323_STATUS) && (offset == 0xf060) && (data == 0x00))
+	if ((m_dat9_bus_phase == DAT9_WAIT_DC323_STATUS) && (offset == VIPER_SELECT_BASE) && (data == 0x00))
 	{
 		m_dat9_bus_phase = DAT9_DC323_STATUS_HIGH;
 		update_dat9_input();
 		return;
 	}
-	if ((offset & 0xffe0) == 0xf080)
+	if (selects(offset, PALETTE_RG_BASE, BOARD_REGISTER_MASK))
 	{
 		m_palette_rg[offset & 0x0f] = data;
 		m_palette_rg_valid |= 1U << (offset & 0x0f);
 		LOGMASKED(LOG_XDATA, "%s E51 palette[%X]=%02X (PC=%04X)\n", machine().describe_context(), offset & 0x0f, data, m_cpu2->pc());
 		return;
 	}
-	if ((offset & 0xffe0) == 0xf0a0)
+	if (selects(offset, PALETTE_GB_BASE, BOARD_REGISTER_MASK))
 	{
 		m_palette_gb[offset & 0x0f] = data;
 		m_palette_gb_valid |= 1U << (offset & 0x0f);
@@ -525,7 +539,7 @@ void vt340_state::cpu2_xdata_w(offs_t offset, u8 data)
 		return;
 	}
 
-	if ((offset & 0xf0c0) == 0xf000)
+	if (selects(offset, DC323_BASE, DC323_MASK))
 	{
 		unsigned const reg = offset & 0x3f;
 		u16 const value = (u16(m_cpu2_p1) << 8) | data;
