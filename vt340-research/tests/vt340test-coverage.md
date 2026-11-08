@@ -48,10 +48,17 @@ It removes the periodic 8-by-16 cursor overlay from framebuffer hashes without
 changing the tested program or graphics operation; otherwise host completion
 time can select either cursor-blink phase.
 
+Interactive programs may identify a stable comparison point before a prompt
+and later emit cleanup commands. Such cases set `stop_at_first_st` in the
+catalog, ending the captured wire stream at the first ReGIS String Terminator.
+This prevents closed stdin from immediately satisfying the prompt and changing
+the intended reference image before capture.
+
 | Case | Original program | Functional coverage |
 | --- | --- | --- |
 | `regis-raf` | `regis/registest.sh raf` | ReGIS circles, color-index selection, nested fill |
 | `regis-grid` | `regis/registest.sh grid` | ReGIS vectors, patterned lines, rotated text, coordinates |
+| `regis-bitplane` | `regis/registest.sh bitplane` | ReGIS field masks, individual bitmap planes, plane intersections, color-map programming |
 | `sixel-repeat` | `j4james/repeat_introducer.sh` | SIXEL repeat introducer, omitted/zero counts, clipping |
 | `sixel-raster-size` | `j4james/raster_dimensions.sh` | DECGRA raster dimensions, omitted/zero dimensions |
 | `sixel-overlap` | `j4james/image_overlap.sh` | Transparent background, palette selection, image layering |

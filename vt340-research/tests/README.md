@@ -22,6 +22,7 @@ vt340-research/tests/run.py run dc323-device graphics-raster-commands
 
 # Verify native normal/bold/underline/reverse/blink rendering and palette routing.
 vt340-research/tests/run.py run text-attributes
+vt340-research/tests/run.py run color-map-redraw
 vt340-research/tests/run.py run dc323-command-coverage
 vt340-research/tests/run.py run dc7051-timing
 

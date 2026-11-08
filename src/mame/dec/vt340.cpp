@@ -216,7 +216,7 @@ private:
 	u16 m_palette_rg_valid = 0;
 	u16 m_palette_gb_valid = 0;
 	bool m_display_dirty = true;
-	u64 m_display_dirty_frame = ~u64(0);
+	u64 m_display_dirty_through = 0;
 	u16 m_cpu1_trace_events = 0;
 	u16 m_cpu2_trace_events = 0;
 	u16 m_cpu1_io_trace_events = 0;
@@ -850,12 +850,13 @@ u32 vt340_state::screen_update(screen_device &screen, bitmap_rgb32 &bitmap, rect
 {
 	u64 const frame = screen.frame_number();
 	bool const changed = std::exchange(m_display_dirty, false) | m_dc323->consume_display_dirty();
-	// Once any portion of a frame is dirty, render every later partial update
-	// in that frame. This preserves mid-frame palette changes while allowing a
-	// completely idle following frame to retain MAME's cached bitmap.
+	// Palette writes can request partial updates while MAME alternates two
+	// screen bitmaps.  Refresh both complete frames after any change before
+	// allowing either bitmap to be reused; refreshing only the change frame
+	// leaves the other buffer stale and makes Set-Up feedback one keypress late.
 	if (changed)
-		m_display_dirty_frame = frame;
-	else if (m_display_dirty_frame != frame)
+		m_display_dirty_through = frame + 2;
+	else if (frame > m_display_dirty_through)
 		return UPDATE_HAS_NOT_CHANGED;
 
 	// Four serial bitmap planes form a 16-entry E51/E52 color-map index.  Use
@@ -916,6 +917,7 @@ void vt340_state::machine_start()
 	save_item(NAME(m_palette_rg_valid));
 	save_item(NAME(m_palette_gb_valid));
 	save_item(NAME(m_display_dirty));
+	save_item(NAME(m_display_dirty_through));
 	save_item(NAME(m_cpu1_trace_events));
 	save_item(NAME(m_cpu2_trace_events));
 	save_item(NAME(m_cpu1_io_trace_events));
@@ -960,7 +962,7 @@ void vt340_state::machine_reset()
 	m_palette_rg_valid = 0;
 	m_palette_gb_valid = 0;
 	m_display_dirty = true;
-	m_display_dirty_frame = ~u64(0);
+	m_display_dirty_through = 0;
 	m_dc323->operational_w(0);
 	m_dc323->bitmap_clear();
 	m_cpu1_trace_events = 0;

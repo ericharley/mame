@@ -245,6 +245,18 @@
       "outputs": ["mame.log", "events.jsonl", "global-setup.png", "global-color.png", "color-setup.png"]
     },
     {
+      "id": "color-map-redraw",
+      "script": "color-map-redraw.sh",
+      "title": "Immediate Color Set-Up selection redraw",
+      "kind": "atomic",
+      "suites": ["core", "graphics"],
+      "estimated_seconds": 15,
+      "requires_roms": true,
+      "requires": ["jq", "rg"],
+      "fixtures": ["fixtures/fast-start.cfg", "traces/color-map-live-diagnostic.lua"],
+      "outputs": ["mame.log", "events.jsonl", "color-map-*.png"]
+    },
+    {
       "id": "sixel-color-indices",
       "script": "sixel-color-indices.sh",
       "title": "Native color SIXEL framebuffer routing",

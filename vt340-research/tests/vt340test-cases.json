@@ -37,6 +37,32 @@
       "expected_nonzero_pixels": 230482
     },
     {
+      "id": "regis-bitplane",
+      "source": "regis/registest.sh",
+      "source_sha256": "7aeacc4a9fd3296ebe7d89ed688eec0fd4c2c00d090953a258e835d25d602469",
+      "argument": "bitplane",
+      "color_mode": true,
+      "stop_at_first_st": true,
+      "coverage": [
+        "ReGIS",
+        "field write mask",
+        "per-plane selection",
+        "plane intersections",
+        "color-map programming"
+      ],
+      "dc323_commands": [
+        {
+          "family": "raster.normal-constant",
+          "level": "integration",
+          "scope": "The exact framebuffer covers constant-source circles written through individual Viper selections."
+        }
+      ],
+      "expected_wire_bytes": 310,
+      "expected_bitmap_hash": "7ACAD76A",
+      "expected_nonzero_pixels": 651869,
+      "expected_snapshot_sha256": "8b3a3e9e1a2fac275e8246094bcad2b05e8e57d96cbab2aa5be3ff6887e75faa"
+    },
+    {
       "id": "sixel-repeat",
       "source": "j4james/repeat_introducer.sh",
       "source_sha256": "e5b6976d77ab029d82fa7e9230a8dc7fafbbf534c67948ce14f559904d174d8f",

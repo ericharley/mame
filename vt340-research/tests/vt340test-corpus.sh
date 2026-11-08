@@ -3,7 +3,8 @@ set -euo pipefail
 
 binary=${1:-./vt340}
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
-source_root="$root/../sources/vt340test"
+common_git_dir=$(git -C "$root" rev-parse --path-format=absolute --git-common-dir)
+source_root="$(dirname "$(dirname "$common_git_dir")")/sources/vt340test"
 cases_file="$root/vt340-research/tests/vt340test-cases.json"
 run_root=$(mktemp -d -t vt340-external-corpus.XXXXXX)
 pid=
@@ -43,6 +44,7 @@ run_case()
 	local dc323_families=$8
 	local color_mode=$9
 	local expected_snapshot_sha=${10}
+	local stop_at_first_st=${11}
 	local case_root="$run_root/$case_id"
 	local config="$case_root/cfg"
 	local nvram="$case_root/nvram"
@@ -66,6 +68,13 @@ run_case()
 		TERM=vt340 bash "$source_root/$source_path" "$source_arg" >"$input"
 	else
 		TERM=vt340 bash "$source_root/$source_path" >"$input"
+	fi
+	if [[ "$stop_at_first_st" == "true" ]]; then
+		# Some interactive sources deliberately leave their result visible, then
+		# wait before sending a cleanup sequence.  With stdin closed, that wait
+		# sees EOF and cleanup follows immediately.  Preserve the documented
+		# comparison point by ending the wire stream at its first String Terminator.
+		perl -0777 -i -pe 's/(\e\\).*/$1/s' "$input"
 	fi
 	# Cursor blink phase depends on when the host finishes writing.  Hide the
 	# cursor after the unmodified source stream so framebuffer comparisons cover
@@ -193,9 +202,9 @@ run_case()
 		"$expected_bytes" "$observed_nonzero" "$observed_snapshot_sha"
 }
 
-while IFS='|' read -r case_id source_path source_sha source_arg expected_bytes expected_hash expected_nonzero dc323_families color_mode expected_snapshot_sha; do
+while IFS='|' read -r case_id source_path source_sha source_arg expected_bytes expected_hash expected_nonzero dc323_families color_mode expected_snapshot_sha stop_at_first_st; do
 	run_case "$case_id" "$source_path" "$source_sha" "$source_arg" \
-		"$expected_bytes" "$expected_hash" "$expected_nonzero" "$dc323_families" "$color_mode" "$expected_snapshot_sha"
+		"$expected_bytes" "$expected_hash" "$expected_nonzero" "$dc323_families" "$color_mode" "$expected_snapshot_sha" "$stop_at_first_st"
 done < <(jq --arg case_filter "${VT340_CORPUS_CASE:-}" -r '.cases[] |
 	select($case_filter == "" or .id == $case_filter) | [
 	.id, .source, .source_sha256, (.argument // "-"),
@@ -203,6 +212,7 @@ done < <(jq --arg case_filter "${VT340_CORPUS_CASE:-}" -r '.cases[] |
 	(.expected_nonzero_pixels | tostring),
 	([.dc323_commands[].family] | join(",")),
 	(.color_mode // false | tostring),
-	(.expected_snapshot_sha256 // "-")] | join("|")' "$cases_file")
+	(.expected_snapshot_sha256 // "-"),
+	(.stop_at_first_st // false | tostring)] | join("|")' "$cases_file")
 
 echo "VT340 external conformance corpus regression passed"
