@@ -22,7 +22,7 @@
       * SCN2681 Comm 1/Comm 2 UARTs with MAME RS-232 endpoints
       * SCN2641 register interface, interrupt, modem inputs and local loopback
       * DC323 command engine, four Viper planes, E49 character ROM and bitmap
-      * E51/E52 output map, 16-entry color palette and an 800 by 500 display
+      * VT330 four-entry intensity map, VT340 16-entry color map and display
       * Frame-synchronous scrolling and the established DC7051 raster timing
 
     Partial or compatibility behavior:
@@ -137,6 +137,18 @@ static_assert(output_map_address(0x1) == 0x8);
 static_assert(output_map_address(0x6) == 0x6);
 static_assert(output_map_address(0x9) == 0x9);
 static_assert(output_map_address(0xe) == 0x7);
+
+constexpr u8 vt330_intensity(u8 output_map, u8 planes)
+{
+	return (output_map >> (planes * 2)) & 0x03;
+}
+
+// The native default E4 maps bitmap codes 0, 1, 2 and 3 to successively
+// brighter output levels.
+static_assert(vt330_intensity(0xe4, 0) == 0);
+static_assert(vt330_intensity(0xe4, 1) == 1);
+static_assert(vt330_intensity(0xe4, 2) == 2);
+static_assert(vt330_intensity(0xe4, 3) == 3);
 
 bool should_log_xdata(offs_t offset, u32 &trace_events, u32 &io_trace_events)
 {
@@ -290,6 +302,7 @@ private:
 	bool m_locator_rxd = true;
 	u8 m_default_terminal_model = 0x00;
 	bool m_vt330_monochrome = false;
+	u8 m_vt330_output_map = 0xe4;
 
 	// Graphics POST compatibility state
 	u8 m_dc323_post_mode = DC323_POST_INACTIVE;
@@ -334,6 +347,7 @@ private:
 	void cpu2_p3_w(u8 data);
 	u8 cpu1_p1_r();
 	void cpu1_p1_w(u8 data);
+	u8 terminal_model() const;
 	u8 cpu2_p1_r();
 	void cpu2_p1_w(u8 data);
 	bool dat9_device_low() const;
@@ -553,6 +567,12 @@ u8 vt340_state::cpu2_xdata_r(offs_t offset)
 		return m_dc323->read(reg);
 	}
 
+	// CPU1 publishes the board identity here, but the available ROM timing lets
+	// CPU2 sample the byte after the shared-memory clear and before publication.
+	// Resolve that startup race from the same fixed board signal CPU1 samples.
+	if (offset == 0xe795)
+		return terminal_model();
+
 	// P2 BRD L is also presented on the multiplexed DAT9/TSTATUS net.  Retain
 	// the low level from the bus cycle until CPU2 samples its port immediately
 	// afterwards; subsequent ownership is advanced by the resolved bus model.
@@ -635,6 +655,21 @@ void vt340_state::cpu2_xdata_w(offs_t offset, u8 data)
 	if (m_board_status && (offset == 0xf0e0))
 	{
 		m_video_test_select = data;
+		return;
+	}
+
+	// The VT330 bitmap module replaces the VT340's E51/E52 color maps with
+	// E7, one 74LS374 clocked by OPMAPWR L.  PAL E18 decodes F080-F08F as
+	// that strobe; AD7-AD0 are captured as one packed four-entry intensity
+	// map.  Preserve pixels already scanned before changing the latch.
+	if (m_vt330_monochrome && ((offset & 0xfff0) == PALETTE_RG_BASE))
+	{
+		if (m_vt330_output_map != data)
+		{
+			m_screen->update_partial(m_screen->vpos());
+			m_vt330_output_map = data;
+			m_display_dirty = true;
+		}
 		return;
 	}
 
@@ -767,8 +802,7 @@ u8 vt340_state::cpu1_p1_r()
 	// a reduced VT340 personality without the Color Map/Color Set-Up controls.
 	// Expose the selected board-level identification continuously.
 	// The exact off-sheet source of the resolved low level remains unknown.
-	u8 const terminal_model = m_terminal_model ? (m_terminal_model->read() & 0x03) : m_default_terminal_model;
-	switch (terminal_model)
+	switch (terminal_model())
 	{
 	case 0x01: // VT330: P1.7 high, P1.6 high
 		return m_cpu1_p1 | 0xc0;
@@ -777,6 +811,11 @@ u8 vt340_state::cpu1_p1_r()
 	default: // Full VT340: P1.7 low
 		return m_cpu1_p1 & ~0x80;
 	}
+}
+
+u8 vt340_state::terminal_model() const
+{
+	return m_terminal_model ? (m_terminal_model->read() & 0x03) : m_default_terminal_model;
 }
 
 void vt340_state::cpu1_p1_w(u8 data)
@@ -967,16 +1006,16 @@ u32 vt340_state::screen_update(screen_device &screen, bitmap_rgb32 &bitmap, rect
 
 	if (m_vt330_monochrome)
 	{
-		// The VT330 has two bitmap planes and a four-entry monochrome output
-		// map.  The common DC323 model retains all four VT340 planes for POST
-		// compatibility, but only the two physically present VT330 planes feed
-		// its monitor.  BP0 reverses their serial-output significance at scanout.
+		// E7 packs the two-bit shade for map locations 0 through 3 into bit
+		// pairs 1:0 through 7:6.  The common DC323 model retains all four VT340
+		// planes for POST compatibility, but only the two physically present
+		// VT330 planes select the monitor intensity.
 		static constexpr std::array<u8, 4> intensity = { 0x00, 0x55, 0xaa, 0xff };
 		for (int y = cliprect.top(); y <= cliprect.bottom(); y++)
 			for (int x = cliprect.left(); x <= cliprect.right(); x++)
 			{
 				u8 const planes = m_dc323->display_pixel_r(0, x, y) | (m_dc323->display_pixel_r(1, x, y) << 1);
-				u8 const shade = bitswap<2>(planes, 0, 1);
+				u8 const shade = vt330_intensity(m_vt330_output_map, planes);
 				bitmap.pix(y, x) = rgb_t(intensity[shade], intensity[shade], intensity[shade]);
 			}
 		return 0;
@@ -1036,6 +1075,7 @@ void vt340_state::machine_start()
 	save_item(NAME(m_dc323_post_mode));
 	save_item(NAME(m_dc323_post_done));
 	save_item(NAME(m_bitmap_test_reads));
+	save_item(NAME(m_vt330_output_map));
 	save_item(NAME(m_palette_rg));
 	save_item(NAME(m_palette_gb));
 	save_item(NAME(m_palette_rg_valid));
@@ -1082,6 +1122,7 @@ void vt340_state::machine_reset()
 	m_dc323_post_mode = DC323_POST_INACTIVE;
 	m_dc323_post_done = false;
 	m_bitmap_test_reads = 0;
+	m_vt330_output_map = 0xe4;
 	m_palette_rg.fill(0);
 	m_palette_gb.fill(0);
 	m_palette_rg_valid = 0;
