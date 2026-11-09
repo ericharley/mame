@@ -189,6 +189,7 @@ void default_rs232_devices(device_slot_interface &device)
 	device.option_add("loopback",      RS232_LOOPBACK);
 	device.option_add("mockingboard",  SERIAL_MOCKINGBOARD_D);
 	device.option_add("msystems_mouse",MSYSTEMS_HLE_SERIAL_MOUSE);
+	device.option_add("vsxxx_mouse",   VSXXX_HLE_SERIAL_MOUSE);
 	device.option_add("nss_tvi",       NSS_TVINTERFACE);
 	device.option_add("null_modem",    NULL_MODEM);
 	device.option_add("patch",         RS232_PATCH_BOX);

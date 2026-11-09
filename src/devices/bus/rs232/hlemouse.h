@@ -19,6 +19,45 @@
 namespace bus::rs232 {
 
 //**************************************************
+//  DEC VSXXX-AA mouse
+//**************************************************
+
+class hle_vsxxx_mouse_device : public buffered_rs232_device<16>
+{
+public:
+	hle_vsxxx_mouse_device(machine_config const &mconfig, char const *tag, device_t *owner, uint32_t clock);
+
+	DECLARE_INPUT_CHANGED_MEMBER(input_changed);
+
+protected:
+	virtual ioport_constructor device_input_ports() const override ATTR_COLD;
+	virtual void device_start() override ATTR_COLD;
+
+	virtual void tra_complete() override;
+	virtual void received_byte(u8 byte) override;
+
+private:
+	TIMER_CALLBACK_MEMBER(power_up);
+	TIMER_CALLBACK_MEMBER(report_tick);
+
+	bool read_inputs();
+	void send_report(u8 buttons);
+	void send_self_test();
+	void queue_buttons(u8 buttons);
+	void clear_button_queue();
+
+	required_ioport m_buttons, m_x_axis, m_y_axis;
+	int16_t m_x_delta, m_y_delta;
+	uint16_t m_x_val, m_y_val;
+	uint8_t m_btn_val, m_btn_sent;
+	bool m_stream_mode;
+	emu_timer *m_report_timer;
+	std::array<u8, 16> m_button_queue;
+	u8 m_button_queue_head;
+	u8 m_button_queue_count;
+};
+
+//**************************************************
 // Microsoft mouse base
 //**************************************************
 
@@ -228,6 +267,7 @@ protected:
 //**************************************************
 
 DECLARE_DEVICE_TYPE_NS(MSFT_HLE_SERIAL_MOUSE,      bus::rs232, hle_msft_mouse_device)
+DECLARE_DEVICE_TYPE_NS(VSXXX_HLE_SERIAL_MOUSE,     bus::rs232, hle_vsxxx_mouse_device)
 DECLARE_DEVICE_TYPE_NS(LOGITECH_HLE_SERIAL_MOUSE,  bus::rs232, hle_logitech_mouse_device)
 DECLARE_DEVICE_TYPE_NS(WHEEL_HLE_SERIAL_MOUSE,     bus::rs232, hle_wheel_mouse_device)
 DECLARE_DEVICE_TYPE_NS(MSYSTEMS_HLE_SERIAL_MOUSE,  bus::rs232, hle_msystems_mouse_device)
