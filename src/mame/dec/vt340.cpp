@@ -194,6 +194,7 @@ public:
 		m_eeprom(*this, "eeprom"),
 		m_screen(*this, "screen"),
 		m_dc323(*this, "dc323"),
+		m_terminal_model(*this, "TERMINAL_MODEL"),
 		m_startup(*this, "STARTUP"),
 		m_cpu2banks_rom(*this, "cpu2banks"),
 		m_shared_ram(*this, "shared_ram", 0x10000, ENDIANNESS_LITTLE),
@@ -202,6 +203,7 @@ public:
 	}
 
 	void vt340(machine_config &config);
+	void vt330(machine_config &config);
 	void init_vt340();
 
 private:
@@ -267,6 +269,7 @@ private:
 	required_device<eeprom_parallel_2804_device> m_eeprom;
 	required_device<screen_device> m_screen;
 	required_device<dc323_device> m_dc323;
+	optional_ioport m_terminal_model;
 	required_ioport m_startup;
 	required_region_ptr<u8> m_cpu2banks_rom;
 	memory_share_creator<u8> m_shared_ram;
@@ -285,6 +288,8 @@ private:
 	bool m_cpu2_startup_pulse_pending = false;
 	bool m_keyboard_rxd = true;
 	bool m_locator_rxd = true;
+	u8 m_default_terminal_model = 0x00;
+	bool m_vt330_monochrome = false;
 
 	// Graphics POST compatibility state
 	u8 m_dc323_post_mode = DC323_POST_INACTIVE;
@@ -757,13 +762,21 @@ u8 vt340_state::cpu1_p1_r()
 	// with the separate graphics-diagnostic state tracked by the driver.
 	//
 	// CPU1 samples the resolved P1.7/P1.6 (NVRCLK/CPMRESET) pin levels during
-	// startup.  The full VT340 configuration resolves P1.7 low, producing model
-	// value 0; value 1 is the VT330 personality and value 2 is a reduced VT340
-	// personality without the Color Map/Color Set-Up controls.  This machine is
-	// the full VT340 color assembly, so expose that board-level identification
-	// level continuously.
+	// startup.  The VT340 configuration resolves P1.7 low, producing model value
+	// 0; resolving it high selects the VT330 personality (value 1).  Value 2 is
+	// a reduced VT340 personality without the Color Map/Color Set-Up controls.
+	// Expose the selected board-level identification continuously.
 	// The exact off-sheet source of the resolved low level remains unknown.
-	return m_cpu1_p1 & ~0x80;
+	u8 const terminal_model = m_terminal_model ? (m_terminal_model->read() & 0x03) : m_default_terminal_model;
+	switch (terminal_model)
+	{
+	case 0x01: // VT330: P1.7 high, P1.6 high
+		return m_cpu1_p1 | 0xc0;
+	case 0x02: // Reduced VT340: P1.7 high, P1.6 low
+		return (m_cpu1_p1 | 0x80) & ~0x40;
+	default: // Full VT340: P1.7 low
+		return m_cpu1_p1 & ~0x80;
+	}
 }
 
 void vt340_state::cpu1_p1_w(u8 data)
@@ -951,6 +964,23 @@ u32 vt340_state::screen_update(screen_device &screen, bitmap_rgb32 &bitmap, rect
 		m_display_dirty_through = frame + 2;
 	else if (frame > m_display_dirty_through)
 		return UPDATE_HAS_NOT_CHANGED;
+
+	if (m_vt330_monochrome)
+	{
+		// The VT330 has two bitmap planes and a four-entry monochrome output
+		// map.  The common DC323 model retains all four VT340 planes for POST
+		// compatibility, but only the two physically present VT330 planes feed
+		// its monitor.  BP0 reverses their serial-output significance at scanout.
+		static constexpr std::array<u8, 4> intensity = { 0x00, 0x55, 0xaa, 0xff };
+		for (int y = cliprect.top(); y <= cliprect.bottom(); y++)
+			for (int x = cliprect.left(); x <= cliprect.right(); x++)
+			{
+				u8 const planes = m_dc323->display_pixel_r(0, x, y) | (m_dc323->display_pixel_r(1, x, y) << 1);
+				u8 const shade = bitswap<2>(planes, 0, 1);
+				bitmap.pix(y, x) = rgb_t(intensity[shade], intensity[shade], intensity[shade]);
+			}
+		return 0;
+	}
 
 	// Four serial bitmap planes form a 16-entry E51/E52 color-map index.  Use
 	// genuine 12-bit RGB after firmware has programmed both halves of an entry.
@@ -1207,8 +1237,28 @@ void vt340_state::vt340(machine_config &config)
 	m_screen->set_screen_update(FUNC(vt340_state::screen_update));
 }
 
+void vt340_state::vt330(machine_config &config)
+{
+	vt340(config);
+	m_default_terminal_model = 0x01;
+	m_vt330_monochrome = true;
+}
+
 
 static INPUT_PORTS_START(vt340)
+	PORT_START("TERMINAL_MODEL")
+	PORT_CONFNAME(0x02, 0x00, "VT340 Configuration")
+	PORT_CONFSETTING(0x00, "Full Color Setup")
+	PORT_CONFSETTING(0x02, "VT340 (Reduced Color Setup)")
+
+	PORT_START("STARTUP")
+	PORT_CONFNAME(0x01, 0x00, "Startup Checkpoint Workaround")
+	PORT_CONFSETTING(0x00, "Original ROM Wait (~120 Seconds)")
+	PORT_CONFSETTING(0x01, "Skip Missed Checkpoint")
+INPUT_PORTS_END
+
+
+static INPUT_PORTS_START(vt330)
 	PORT_START("STARTUP")
 	PORT_CONFNAME(0x01, 0x00, "Startup Checkpoint Workaround")
 	PORT_CONFSETTING(0x00, "Original ROM Wait (~120 Seconds)")
@@ -1249,7 +1299,34 @@ ROM_START(vt340)
 	ROM_LOAD("e80.bin", 0x0000, 0x0200, CRC(d1fd44bb) SHA1(ffbdeeffb55374211a371a77ed633b780cd0f526)) // Xicor X2804AP-45 (512 x 8 EEPROM)
 ROM_END
 
+ROM_START(vt330)
+	// The recovered cartridge is shared by the VT330 and VT340.  The terminal
+	// control board selects the firmware personality from CPU1 P1.7/P1.6.
+	ROM_REGION(0x8000, "e1raw", 0)
+	ROM_LOAD("e1.bin", 0x0000, 0x8000, BAD_DUMP CRC(68b3cbde) SHA1(d51677c17e056c69a5864b1673f7887b24f50958))
+	ROM_REGION(0x8000, "e2raw", 0)
+	ROM_LOAD("e2.bin", 0x0000, 0x8000, BAD_DUMP CRC(19f788f0) SHA1(f4018501fee8c429bc1148014f2d9bb97e8cfdcf))
+	ROM_REGION(0x8000, "e3raw", 0)
+	ROM_LOAD("e3.bin", 0x0000, 0x8000, BAD_DUMP CRC(83919be1) SHA1(937b36e0475a8947a01d03c8e800c54a6461caf7))
+	ROM_REGION(0x8000, "e4raw", 0)
+	ROM_LOAD("e4.bin", 0x0000, 0x8000, BAD_DUMP CRC(d6eddc42) SHA1(df8097bcd04bd9fed5618d88cd0e0159f81c074b))
+	ROM_REGION(0x8000, "e5raw", 0)
+	ROM_LOAD("e5.bin", 0x0000, 0x8000, BAD_DUMP CRC(135c5c7c) SHA1(171d1582d6a62ec9fa8e42421693da6dac3b2a8a))
+
+	ROM_REGION(0x8000, "cpu1low", ROMREGION_ERASEFF)
+	ROM_REGION(0x8000, "cpu1high", ROMREGION_ERASEFF)
+	ROM_REGION(0x8000, "cpu2low", ROMREGION_ERASEFF)
+	ROM_REGION(0x10000, "cpu2banks", ROMREGION_ERASEFF)
+
+	ROM_REGION(0x8000, "chargen", 0)
+	ROM_LOAD("vt340e49.bin", 0x0000, 0x8000, CRC(38379339) SHA1(394e8511581abc796c8c612149eff280146b0ac8))
+
+	ROM_REGION(0x0200, "eeprom", ROMREGION_ERASEFF)
+	ROM_LOAD("e80.bin", 0x0000, 0x0200, CRC(d1fd44bb) SHA1(ffbdeeffb55374211a371a77ed633b780cd0f526)) // Xicor X2804AP-45 (512 x 8 EEPROM)
+ROM_END
+
 } // anonymous namespace
 
 
+COMP(1987, vt330, vt340, 0, vt330, vt330, vt340_state, init_vt340, "Digital Equipment Corporation", "VT330 Video Terminal", MACHINE_NO_SOUND | MACHINE_NOT_WORKING)
 COMP(1987, vt340, 0, 0, vt340, vt340, vt340_state, init_vt340, "Digital Equipment Corporation", "VT340 Video Terminal", MACHINE_NO_SOUND | MACHINE_NOT_WORKING)
