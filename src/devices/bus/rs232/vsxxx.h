@@ -1,5 +1,18 @@
 // license:BSD-3-Clause
 // copyright-holders:Eric Harley
+/***************************************************************************
+
+    DEC VSXXX-AA serial mouse
+
+    Three-button relative locator device using a 4,800 baud, 8O1 RS-232
+    interface.  The device supports the documented prompt, incremental and
+    self-test protocol used by DEC terminals and workstations.
+
+    This is a model of the mouse's external serial behavior; the mechanical
+    encoders and internal control electronics are outside its scope.  See
+    vsxxx.cpp for hardware details, implementation scope and references.
+
+***************************************************************************/
 #ifndef MAME_BUS_RS232_VSXXX_H
 #define MAME_BUS_RS232_VSXXX_H
 

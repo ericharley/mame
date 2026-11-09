@@ -1,5 +1,51 @@
 // license:BSD-3-Clause
 // copyright-holders:Eric Harley
+/***************************************************************************
+
+    DEC VSXXX-AA serial mouse
+
+    The VSXXX-AA is Digital Equipment Corporation's round three-button
+    relative mouse, used with systems including the VT330/VT340 terminals
+    and VAXstation/DECstation workstations.  It connects through a keyed
+    seven-pin connector carrying RS-232 data, power and a device-present
+    contact.
+
+    Communication is asynchronous at 4,800 baud with one start bit, eight
+    data bits, odd parity and one stop bit.  Prompt mode is selected at
+    power-up.  The host may request a single position report, select
+    incremental stream mode, return to prompt mode, or request self-test.
+    A position report contains the three button states and signed relative
+    X/Y movement in a three-byte packet.  Incremental mode samples motion at
+    the documented 55 reports per second.  Power-up and the self-test command
+    produce a four-byte identification and diagnostic report.
+
+    This device models the documented external serial behavior.  Mouse
+    motion and buttons are MAME inputs; the mechanical encoders and the
+    mouse's internal control electronics are not separately emulated.  No
+    source code from the Linux VSXXX driver is used here.
+
+    Primary references:
+
+    * VCB02 Video Subsystem Technical Manual, EK-104AA-TM-001,
+      Appendix C, "Interactive Device Parameters".
+      https://github.com/hackerb9/vt340test/blob/main/docs/kindred/
+      EK-104AA-TM-001_VCB02_Video_Subsystem_Feb87.pdf
+
+    * VSXXX-CA/CB Peripheral Repeater Technical Manual,
+      EK-VSXPR-TM-001, Appendix A, "Peripheral Device Parameters".
+      https://github.com/hackerb9/vt340test/blob/main/docs/kindred/
+      EK-VSXPR-TM-001-mod.pdf
+
+    Independent protocol cross-check and hardware test material:
+
+    * Linux drivers/input/mouse/vsxxxaa.c (GPL-2.0-or-later).
+      https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/
+      tree/drivers/input/mouse/vsxxxaa.c
+
+    * VT340 locator documentation and hardware-driven regression tests.
+      https://github.com/hackerb9/vt340test/tree/main/locator
+
+***************************************************************************/
 
 #include "emu.h"
 #include "vsxxx.h"
