@@ -35,8 +35,8 @@
 
 #include "lk201.h"
 
-#include "bus/rs232/hlemouse.h"
 #include "bus/rs232/rs232.h"
+#include "bus/rs232/vsxxx.h"
 #include "cpu/mcs51/i8051.h"
 #include "machine/eeprompar.h"
 #include "machine/mc68681.h"
