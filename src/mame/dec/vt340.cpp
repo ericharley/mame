@@ -103,6 +103,7 @@
 #include "lk201.h"
 
 #include "bus/rs232/rs232.h"
+#include "bus/rs232/vsxxx.h"
 #include "cpu/mcs51/i8051.h"
 #include "machine/eeprompar.h"
 #include "machine/mc68681.h"
@@ -188,6 +189,7 @@ public:
 		m_duart(*this, "duart"),
 		m_comm1(*this, "comm1"),
 		m_comm2(*this, "comm2"),
+		m_locator(*this, "locator"),
 		m_printer_uart(*this, "acia"),
 		m_eeprom(*this, "eeprom"),
 		m_screen(*this, "screen"),
@@ -260,6 +262,7 @@ private:
 	required_device<scn2681_device> m_duart;
 	required_device<rs232_port_device> m_comm1;
 	required_device<rs232_port_device> m_comm2;
+	required_device<rs232_port_device> m_locator;
 	required_device<scn2641_device> m_printer_uart;
 	required_device<eeprom_parallel_2804_device> m_eeprom;
 	required_device<screen_device> m_screen;
@@ -281,6 +284,7 @@ private:
 	bool m_cpu1_brd_strobe = false;
 	bool m_cpu2_startup_pulse_pending = false;
 	bool m_keyboard_rxd = true;
+	bool m_locator_rxd = true;
 
 	// Graphics POST compatibility state
 	u8 m_dc323_post_mode = DC323_POST_INACTIVE;
@@ -320,6 +324,7 @@ private:
 	void cpu2_xdata_w(offs_t offset, u8 data);
 	void cpu1_p3_w(u8 data);
 	void keyboard_rxd_w(int state);
+	void locator_rxd_w(int state);
 	u8 duart_input_r();
 	void cpu2_p3_w(u8 data);
 	u8 cpu1_p1_r();
@@ -694,6 +699,11 @@ void vt340_state::keyboard_rxd_w(int state)
 	m_keyboard_rxd = bool(state);
 }
 
+void vt340_state::locator_rxd_w(int state)
+{
+	m_locator_rxd = bool(state);
+}
+
 u8 vt340_state::duart_input_r()
 {
 	// E61 input pins, schematic sheet 5: Comm 1 supplies CTS, DSR, speed
@@ -858,7 +868,9 @@ void vt340_state::cpu2_p2_w(u8 data)
 
 u8 vt340_state::cpu2_p3_r()
 {
-	return m_cpu2_p3;
+	// CPU2's internal UART is the dedicated locator-device channel.  P3.0/RXD
+	// receives MOSRXD through E63, while P3.1/TXD drives MOSTXD through E54.
+	return m_locator_rxd ? (m_cpu2_p3 | 0x01) : (m_cpu2_p3 & ~0x01);
 }
 
 void vt340_state::cpu2_p3_w(u8 data)
@@ -868,6 +880,7 @@ void vt340_state::cpu2_p3_w(u8 data)
 		LOGMASKED(LOG_PORTS, "%s CPU2 P3 %02X -> %02X (PC=%04X)\n", machine().describe_context(), m_cpu2_p3, data, m_cpu2->pc());
 
 	m_cpu2_p3 = data;
+	m_locator->write_txd(BIT(data, 1));
 	// Bitmap POST first verifies AA directly, then programs the graphics test
 	// path and writes/readbacks zero with T1 high.  Returning T1 low exposes
 	// the complemented 55 result that the final pass verifies and clears.
@@ -989,6 +1002,7 @@ void vt340_state::machine_start()
 	save_item(NAME(m_cpu1_brd_strobe));
 	save_item(NAME(m_cpu2_startup_pulse_pending));
 	save_item(NAME(m_keyboard_rxd));
+	save_item(NAME(m_locator_rxd));
 	save_item(NAME(m_dc323_post_mode));
 	save_item(NAME(m_dc323_post_done));
 	save_item(NAME(m_bitmap_test_reads));
@@ -1034,6 +1048,7 @@ void vt340_state::machine_reset()
 	m_cpu1_brd_strobe = false;
 	m_cpu2_startup_pulse_pending = false;
 	m_keyboard_rxd = true;
+	m_locator_rxd = true;
 	m_dc323_post_mode = DC323_POST_INACTIVE;
 	m_dc323_post_done = false;
 	m_bitmap_test_reads = 0;
@@ -1145,6 +1160,12 @@ void vt340_state::vt340(machine_config &config)
 	m_comm2->set_option_device_input_defaults("pty", DEVICE_INPUT_DEFAULTS_NAME(comm2_defaults));
 	m_comm2->rxd_handler().set(m_duart, FUNC(scn2681_device::rx_b_w));
 	m_comm2->dsr_handler().set(m_duart, FUNC(scn2681_device::ip5_w));
+
+	// The rear-panel mouse/tablet connector is a separate serial channel on
+	// CPU2's built-in UART.  A VSXXX-AA mouse uses 4,800 baud, eight data bits,
+	// odd parity and one stop bit, and identifies itself to the native firmware.
+	RS232_PORT(config, m_locator, default_rs232_devices, "vsxxx_mouse");
+	m_locator->rxd_handler().set(FUNC(vt340_state::locator_rxd_w));
 
 	// E81 is the SCN2641 printer communications interface.  Its interrupt
 	// output is connected to processor-1 INT1; the keyboard instead uses the
