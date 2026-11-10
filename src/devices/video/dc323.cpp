@@ -653,6 +653,20 @@ u16 dc323_device::pbt_read_word(u32 index)
 	}
 	else if ((source_x < BITMAP_WIDTH) && (source_y < BITMAP_HEIGHT))
 	{
+		// The VT340 hardcopy path uses the all-plane BTPX form to fetch one
+		// pixel from each of six successive scan lines.  Each selected Viper
+		// contributes its bitmap bit to the board's reverse-ordered color-map
+		// input on the I/D bus. Treating the shared bus as an eight-pixel byte
+		// from the first enabled Viper replicates plane zero into every color in
+		// the generated SIXEL.
+		if (m_pbt_read_command == 0x0bb0)
+		{
+			for (unsigned plane = 0; plane < BITMAP_PLANES; plane++)
+				if (BIT(m_viper_select, plane))
+					data |= (m_bitmap_planes[bitmap_plane_address(plane, source_x, source_y)] & 1) << (BITMAP_PLANES - 1 - plane);
+			return data;
+		}
+
 		unsigned output_plane = 0;
 		bool output_enabled = false;
 		unsigned const csr = VIPER_REG_CSR_BASE + (m_pbt_read_command & 7);

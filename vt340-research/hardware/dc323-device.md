@@ -66,7 +66,10 @@ Status bits remain sticky until acknowledged.  Raster command functions 2 and
 3 retain the existing initialization/completion/address sequencing.  A
 bitmap-to-processor transfer completes through register 7 reads.  Bitmap
 source data comes from the selected Viper plane whose command-selected CSR
-enables I/D-bus output; it is not inherently sourced from plane zero.  Writing
+enables I/D-bus output; it is not inherently sourced from plane zero. The
+VT340 hardcopy `0bb0` form instead selects all four Vipers and returns one
+pixel's color-map index per scan line, with Viper 0 in bit 3 through Viper 3
+in bit 0. This is the form used to build color SIXEL planes. Writing
 scroll register `14` records one pending operation. The next `frame_event`
 starts it and sets Scroll Service; subsequent scanline events move upward-scroll
 rows behind refresh. Pause Complete is independently generated when refresh

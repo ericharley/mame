@@ -1208,7 +1208,28 @@ TIMER_CALLBACK_MEMBER(dc323_test_state::run_tests)
 			"bitmap-to-processor source plane setup");
 	require(m_dc323->status_r() & dc323_device::STATUS_ADDRESS_COMPLETE, "transfer completion status");
 	reg_w(dc323_device::REG_STATUS, 0x0000);
+
+	// The hardcopy firmware's 0BB0 form reads one pixel per scan line with
+	// all four Vipers selected.  The VT340 board wires Viper 0 to color-map
+	// bit 3 and Viper 3 to bit 0 on the I/D bus.
+	m_dc323->bitmap_clear();
+	for (unsigned plane = 0; plane < dc323_device::BITMAP_PLANES; plane++)
+	{
+		m_dc323->viper_select_w(1U << plane);
+		fill(20, 8 + plane, 1, 1, true);
+	}
 	m_dc323->viper_select_w(0x0f);
+	reg_w(dc323_device::REG_SOURCE_X, 20);
+	reg_w(dc323_device::REG_SOURCE_Y, 8);
+	reg_w(dc323_device::REG_WIDTH, 1);
+	reg_w(dc323_device::REG_HEIGHT, 4);
+	reg_w(dc323_device::REG_COMMAND, 0x0bb0);
+	for (unsigned plane = 0; plane < dc323_device::BITMAP_PLANES; plane++)
+		require(m_dc323->read(dc323_device::REG_ID_DATA) == (0x08 >> plane),
+			"hardcopy bitmap-to-processor color packing");
+	require(m_dc323->status_r() & dc323_device::STATUS_ADDRESS_COMPLETE,
+		"hardcopy transfer completion status");
+	reg_w(dc323_device::REG_STATUS, 0x0000);
 
 	// Configure the retained Viper scroll backend for a four-pixel region.
 	viper_w(0x01, 0x0000);
