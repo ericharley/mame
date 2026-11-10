@@ -209,6 +209,7 @@ private:
 	bool m_cpu2_startup_pulse_pending = false;
 	bool m_keyboard_rxd = true;
 	bool m_locator_rxd = true;
+	bool m_printer_dtr = true;
 
 	// Graphics POST compatibility state
 	u8 m_dc323_post_mode = DC323_POST_INACTIVE;
@@ -241,6 +242,7 @@ private:
 	void cpu1_p3_w(u8 data);
 	void keyboard_rxd_w(int state);
 	void locator_rxd_w(int state);
+	void printer_dtr_w(int state);
 	u8 duart_input_r();
 	void cpu2_p3_w(u8 data);
 	u8 cpu1_p1_r();
@@ -595,6 +597,12 @@ void vt340_state::locator_rxd_w(int state)
 	m_locator_rxd = bool(state);
 }
 
+void vt340_state::printer_dtr_w(int state)
+{
+	m_printer_dtr = bool(state);
+	m_printer->write_dtr(state);
+}
+
 u8 vt340_state::duart_input_r()
 {
 	// E61 input pins, schematic sheet 5: Comm 1 supplies CTS, DSR, speed
@@ -656,7 +664,11 @@ u8 vt340_state::cpu1_p1_r()
 	// The exact off-sheet source of the resolved low level remains unknown.
 	u8 data = m_cpu1_p1 & ~0x80;
 	if (!m_printer->dsr_r())
+	{
 		data &= ~0x08;
+		if (!m_printer_dtr)
+			data &= ~0x04;
+	}
 	return data;
 }
 
@@ -830,6 +842,7 @@ void vt340_state::machine_start()
 	save_item(NAME(m_cpu2_startup_pulse_pending));
 	save_item(NAME(m_keyboard_rxd));
 	save_item(NAME(m_locator_rxd));
+	save_item(NAME(m_printer_dtr));
 	save_item(NAME(m_dc323_post_mode));
 	save_item(NAME(m_dc323_post_done));
 	save_item(NAME(m_bitmap_test_reads));
@@ -871,6 +884,7 @@ void vt340_state::machine_reset()
 	m_cpu2_startup_pulse_pending = false;
 	m_keyboard_rxd = true;
 	m_locator_rxd = true;
+	m_printer_dtr = true;
 	m_dc323_post_mode = DC323_POST_INACTIVE;
 	m_dc323_post_done = false;
 	m_bitmap_test_reads = 0;
@@ -981,7 +995,7 @@ void vt340_state::vt340(machine_config &config)
 	// on P3.0/P3.1.
 	SCN2641(config, m_printer_uart, 3.6864_MHz_XTAL);
 	m_printer_uart->txd_handler().set(m_printer, FUNC(rs232_port_device::write_txd));
-	m_printer_uart->rts_handler().set(m_printer, FUNC(rs232_port_device::write_dtr));
+	m_printer_uart->rts_handler().set(FUNC(vt340_state::printer_dtr_w));
 	m_printer_uart->intr_handler().set_inputline(m_cpu1, MCS51_INT1_LINE);
 
 	RS232_PORT(config, m_printer, default_rs232_devices, nullptr);
