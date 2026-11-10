@@ -675,21 +675,6 @@ void vt340_state::cpu2_xdata_w(offs_t offset, u8 data)
 		return;
 	}
 
-	// The VT330 bitmap module replaces the VT340's E51/E52 color maps with
-	// E7, one 74LS374 clocked by OPMAPWR L.  PAL E18 decodes F080-F08F as
-	// that strobe; AD7-AD0 are captured as one packed four-entry intensity
-	// map.  Preserve pixels already scanned before changing the latch.
-	if (m_vt330_monochrome && ((offset & 0xfff0) == PALETTE_RG_BASE))
-	{
-		if (m_vt330_output_map != data)
-		{
-			m_screen->update_partial(m_screen->vpos());
-			m_vt330_output_map = data;
-			m_display_dirty = true;
-		}
-		return;
-	}
-
 	if (selects(offset, PALETTE_RG_BASE, BOARD_REGISTER_MASK))
 	{
 		unsigned const index = offset & 0x0f;
@@ -1042,13 +1027,13 @@ u32 vt340_state::screen_update(screen_device &screen, bitmap_rgb32 &bitmap, rect
 	{
 		// E7 packs the two-bit shade for map locations 0 through 3 into bit
 		// pairs 1:0 through 7:6.  The common DC323 model retains all four VT340
-		// planes for POST compatibility, but only the two physically present
-		// VT330 planes select the monitor intensity.
+		// planes for POST compatibility, while the terminal board's reverse-
+		// ordered Viper wiring places the VT330 bitmap bits on planes 3 and 2.
 		static constexpr std::array<u8, 4> intensity = { 0x00, 0x55, 0xaa, 0xff };
 		for (int y = cliprect.top(); y <= cliprect.bottom(); y++)
 			for (int x = cliprect.left(); x <= cliprect.right(); x++)
 			{
-				u8 const planes = m_dc323->display_pixel_r(0, x, y) | (m_dc323->display_pixel_r(1, x, y) << 1);
+				u8 const planes = m_dc323->display_pixel_r(3, x, y) | (m_dc323->display_pixel_r(2, x, y) << 1);
 				u8 const shade = vt330_intensity(m_vt330_output_map, planes);
 				bitmap.pix(y, x) = rgb_t(intensity[shade], intensity[shade], intensity[shade]);
 			}
