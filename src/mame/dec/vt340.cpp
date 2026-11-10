@@ -190,6 +190,15 @@ static DEVICE_INPUT_DEFAULTS_START(comm2_defaults)
 	DEVICE_INPUT_DEFAULTS("FLOW_CONTROL", 0x07, 0x00)
 DEVICE_INPUT_DEFAULTS_END
 
+static DEVICE_INPUT_DEFAULTS_START(printer_defaults)
+	DEVICE_INPUT_DEFAULTS("RS232_TXBAUD", 0xff, RS232_BAUD_9600)
+	DEVICE_INPUT_DEFAULTS("RS232_RXBAUD", 0xff, RS232_BAUD_9600)
+	DEVICE_INPUT_DEFAULTS("RS232_DATABITS", 0xff, RS232_DATABITS_8)
+	DEVICE_INPUT_DEFAULTS("RS232_PARITY", 0xff, RS232_PARITY_NONE)
+	DEVICE_INPUT_DEFAULTS("RS232_STOPBITS", 0xff, RS232_STOPBITS_1)
+	DEVICE_INPUT_DEFAULTS("FLOW_CONTROL", 0x07, 0x00)
+DEVICE_INPUT_DEFAULTS_END
+
 class vt340_state : public driver_device
 {
 public:
@@ -202,6 +211,7 @@ public:
 		m_comm1(*this, "comm1"),
 		m_comm2(*this, "comm2"),
 		m_locator(*this, "locator"),
+		m_printer(*this, "printer"),
 		m_printer_uart(*this, "acia"),
 		m_eeprom(*this, "eeprom"),
 		m_screen(*this, "screen"),
@@ -277,6 +287,7 @@ private:
 	required_device<rs232_port_device> m_comm1;
 	required_device<rs232_port_device> m_comm2;
 	required_device<rs232_port_device> m_locator;
+	required_device<rs232_port_device> m_printer;
 	required_device<scn2641_device> m_printer_uart;
 	required_device<eeprom_parallel_2804_device> m_eeprom;
 	required_device<screen_device> m_screen;
@@ -300,6 +311,7 @@ private:
 	bool m_cpu2_startup_pulse_pending = false;
 	bool m_keyboard_rxd = true;
 	bool m_locator_rxd = true;
+	bool m_printer_dtr = true;
 	u8 m_default_terminal_model = 0x00;
 	bool m_vt330_monochrome = false;
 	u8 m_vt330_output_map = 0xe4;
@@ -343,6 +355,7 @@ private:
 	void cpu1_p3_w(u8 data);
 	void keyboard_rxd_w(int state);
 	void locator_rxd_w(int state);
+	void printer_dtr_w(int state);
 	u8 duart_input_r();
 	void cpu2_p3_w(u8 data);
 	u8 cpu1_p1_r();
@@ -457,10 +470,13 @@ u8 vt340_state::cpu1_xdata_r(offs_t offset)
 	if ((VERBOSE & LOG_XDATA) && should_log_xdata(offset, m_cpu1_trace_events, m_cpu1_io_trace_events))
 		LOGMASKED(LOG_XDATA, "%s CPU1 XDATA R %04X (PC=%04X)\n", machine().describe_context(), offset, m_cpu1->pc());
 	// E80's A0-A8 inputs are driven directly by CPU1's multiplexed external
-	// address bus.  E10 shifts P1.3 (NVRDS L) into the active-low NVRCS latch
-	// under P1.7 (NVRCLK H); every firmware access performs that sequence at
-	// 4156 immediately before MOVX.  The live port latch is required here
-	// because MCS-51 bit instructions do not pass through the port callback.
+	// address bus. E10 shifts CPU1's P1.3 latch into active-low NVRCS under P1.7
+	// (NVRCLK H); every firmware access performs that sequence at 4156
+	// immediately before MOVX. P1.3 is also the PTRDSR L input when released;
+	// firmware drives it low only around the EEPROM MOVX and releases it
+	// immediately afterward. Keep the driver-shadowed output latch distinct
+	// from the externally resolved pin level, which can also be pulled low by
+	// PTRDSR L.
 	// While selected, E80 owns the bus even at addresses which overlap the
 	// ordinary serial-device decode.
 	if (eeprom_selected(offset))
@@ -510,10 +526,11 @@ void vt340_state::cpu1_xdata_w(offs_t offset, u8 data)
 
 bool vt340_state::eeprom_selected(offs_t offset) const
 {
-	// E10 latches active-low NVRCS from P1.3 (NVRDS L) under P1.7
-	// (NVRCLK H).  MCS-51 bit instructions bypass the port callback, so use
-	// the live port latch for both reads and writes.
-	return !BIT(m_cpu1->state_int(MCS51_P1), 3) && ((offset & 0xfe00) == 0xf000);
+	// E10 latches active-low NVRCS from the CPU1 P1.3 output latch under P1.7
+	// (NVRCLK H). The port-output callback keeps m_cpu1_p1 synchronized for
+	// both byte and bit-addressed writes. state_int(MCS51_P1) instead reads the
+	// resolved pin and therefore also includes PTRDSR L.
+	return !BIT(m_cpu1_p1, 3) && ((offset & 0xfe00) == 0xf000);
 }
 
 u8 vt340_state::cpu2_xdata_r(offs_t offset)
@@ -744,6 +761,12 @@ void vt340_state::locator_rxd_w(int state)
 	m_locator_rxd = bool(state);
 }
 
+void vt340_state::printer_dtr_w(int state)
+{
+	m_printer_dtr = bool(state);
+	m_printer->write_dtr(state);
+}
+
 u8 vt340_state::duart_input_r()
 {
 	// E61 input pins, schematic sheet 5: Comm 1 supplies CTS, DSR, speed
@@ -792,9 +815,9 @@ u8 vt340_state::cpu1_p3_r()
 
 u8 vt340_state::cpu1_p1_r()
 {
-	// P1.4 is the NVREN output and P1.5 is MFGTEST/STATUS.  Both are driven by
-	// CPU1 firmware during startup; do not replace either live output latch
-	// with the separate graphics-diagnostic state tracked by the driver.
+	// P1.3 samples active-low printer DSR through E63, P1.4 is the NVREN output,
+	// and P1.5 is MFGTEST/STATUS.  Preserve the quasi-bidirectional latch: an
+	// asserted printer DSR can pull P1.3 low only after firmware releases it.
 	//
 	// CPU1 samples the resolved P1.7/P1.6 (NVRCLK/CPMRESET) pin levels during
 	// startup.  The VT340 configuration resolves P1.7 low, producing model value
@@ -802,15 +825,26 @@ u8 vt340_state::cpu1_p1_r()
 	// a reduced VT340 personality without the Color Map/Color Set-Up controls.
 	// Expose the selected board-level identification continuously.
 	// The exact off-sheet source of the resolved low level remains unknown.
+	u8 data = m_cpu1_p1;
 	switch (terminal_model())
 	{
 	case 0x01: // VT330: P1.7 high, P1.6 high
-		return m_cpu1_p1 | 0xc0;
+		data |= 0xc0;
+		break;
 	case 0x02: // Reduced VT340: P1.7 high, P1.6 low
-		return (m_cpu1_p1 | 0x80) & ~0x40;
+		data = (data | 0x80) & ~0x40;
+		break;
 	default: // Full VT340: P1.7 low
-		return m_cpu1_p1 & ~0x80;
+		data &= ~0x80;
+		break;
 	}
+	if (!m_printer->dsr_r())
+	{
+		data &= ~0x08;
+		if (!m_printer_dtr)
+			data &= ~0x04;
+	}
+	return data;
 }
 
 u8 vt340_state::terminal_model() const
@@ -1072,6 +1106,7 @@ void vt340_state::machine_start()
 	save_item(NAME(m_cpu2_startup_pulse_pending));
 	save_item(NAME(m_keyboard_rxd));
 	save_item(NAME(m_locator_rxd));
+	save_item(NAME(m_printer_dtr));
 	save_item(NAME(m_dc323_post_mode));
 	save_item(NAME(m_dc323_post_done));
 	save_item(NAME(m_bitmap_test_reads));
@@ -1119,6 +1154,7 @@ void vt340_state::machine_reset()
 	m_cpu2_startup_pulse_pending = false;
 	m_keyboard_rxd = true;
 	m_locator_rxd = true;
+	m_printer_dtr = true;
 	m_dc323_post_mode = DC323_POST_INACTIVE;
 	m_dc323_post_done = false;
 	m_bitmap_test_reads = 0;
@@ -1239,12 +1275,19 @@ void vt340_state::vt340(machine_config &config)
 	m_locator->rxd_handler().set(FUNC(vt340_state::locator_rxd_w));
 
 	// E81 is the SCN2641 printer communications interface.  Its interrupt
-	// output is connected to processor-1 INT1; the keyboard instead uses the
-	// processor's internal UART on P3.0/P3.1.  Only the chip-side interface is
-	// modeled here: the external printer connector and its TxD/RxD/RTS wiring
-	// are intentionally absent until their board behavior is integrated.
+	// output is connected to processor-1 INT1.  The board uses its RTS output
+	// as printer DTR; the keyboard instead uses the processor's internal UART
+	// on P3.0/P3.1.
 	SCN2641(config, m_printer_uart, 3.6864_MHz_XTAL);
+	m_printer_uart->txd_handler().set(m_printer, FUNC(rs232_port_device::write_txd));
+	m_printer_uart->rts_handler().set(FUNC(vt340_state::printer_dtr_w));
 	m_printer_uart->intr_handler().set_inputline(m_cpu1, MCS51_INT1_LINE);
+
+	RS232_PORT(config, m_printer, default_rs232_devices, nullptr);
+	m_printer->set_option_device_input_defaults("null_modem", DEVICE_INPUT_DEFAULTS_NAME(printer_defaults));
+	m_printer->set_option_device_input_defaults("printer", DEVICE_INPUT_DEFAULTS_NAME(printer_defaults));
+	m_printer->set_option_device_input_defaults("pty", DEVICE_INPUT_DEFAULTS_NAME(printer_defaults));
+	m_printer->rxd_handler().set(m_printer_uart, FUNC(scn2641_device::rxd_w));
 
 	EEPROM_2804(config, m_eeprom); // E80, Xicor X2804AP-45
 

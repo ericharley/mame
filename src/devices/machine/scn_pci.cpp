@@ -988,7 +988,7 @@ void scn_pci_device::xmtr_update(bool internal, bool output_1x)
 		else
 		{
 			bool tx_loopback = sync_mode ? (m_command & 0xc0) == 0xc0 : BIT(m_command, 6);
-			if ((m_xmtr_state == xmtr_state::DATA_BITS || m_xmtr_state == xmtr_state::STOP_BITS) && !tx_loopback)
+			if ((m_xmtr_state == xmtr_state::DATA_BITS || m_xmtr_state == xmtr_state::STOP_BITS) && tx_enabled && !tx_loopback)
 				set_txemt(true);
 			if (sync_mode && tx_enabled)
 			{
