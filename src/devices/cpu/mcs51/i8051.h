@@ -44,17 +44,6 @@ public:
 
 	template <unsigned N> auto port_in_cb() { return m_port_in_cb[N].bind(); }
 	template <unsigned N> auto port_out_cb() { return m_port_out_cb[N].bind(); }
-	u8 port_latch_r(unsigned port) const
-	{
-		switch (port)
-		{
-		case 0: return m_p0;
-		case 1: return m_p1;
-		case 2: return m_p2;
-		case 3: return m_p3;
-		default: return 0xff;
-		}
-	}
 
 protected:
 	enum {

@@ -350,12 +350,13 @@ u8 vt340_state::cpu1_xdata_r(offs_t offset)
 	if ((VERBOSE & LOG_XDATA) && should_log_xdata(offset, m_cpu1_trace_events, m_cpu1_io_trace_events))
 		LOGMASKED(LOG_XDATA, "%s CPU1 XDATA R %04X (PC=%04X)\n", machine().describe_context(), offset, m_cpu1->pc());
 	// E80's A0-A8 inputs are driven directly by CPU1's multiplexed external
-	// address bus.  E10 shifts CPU1's P1.3 latch into active-low NVRCS under
-	// P1.7.  P1.3 is also the PTRDSR L input when released; firmware drives it
-	// low only around the EEPROM MOVX and releases it immediately afterward.
-	// P1.7 (NVRCLK H); every firmware access performs that sequence at 4156
-	// immediately before MOVX.  Keep the CPU's output latch distinct from the
-	// externally resolved pin level, which can also be pulled low by PTRDSR L.
+	// address bus. E10 shifts CPU1's P1.3 latch into active-low NVRCS under P1.7
+	// (NVRCLK H); every firmware access performs that sequence at 4156
+	// immediately before MOVX. P1.3 is also the PTRDSR L input when released;
+	// firmware drives it low only around the EEPROM MOVX and releases it
+	// immediately afterward. Keep the driver-shadowed output latch distinct
+	// from the externally resolved pin level, which can also be pulled low by
+	// PTRDSR L.
 	// While selected, E80 owns the bus even at addresses which overlap the
 	// ordinary serial-device decode.
 	if (eeprom_selected(offset))
@@ -406,10 +407,10 @@ void vt340_state::cpu1_xdata_w(offs_t offset, u8 data)
 bool vt340_state::eeprom_selected(offs_t offset) const
 {
 	// E10 latches active-low NVRCS from the CPU1 P1.3 output latch under P1.7
-	// (NVRCLK H).  Read the core's latch directly because bit-addressed port
-	// writes do not invoke the external callback.  state_int(MCS51_P1) instead
-	// reads the resolved pin and therefore also includes PTRDSR L.
-	return !BIT(m_cpu1->port_latch_r(1), 3) && ((offset & 0xfe00) == 0xf000);
+	// (NVRCLK H). The port-output callback keeps m_cpu1_p1 synchronized for
+	// both byte and bit-addressed writes. state_int(MCS51_P1) instead reads the
+	// resolved pin and therefore also includes PTRDSR L.
+	return !BIT(m_cpu1_p1, 3) && ((offset & 0xfe00) == 0xf000);
 }
 
 u8 vt340_state::cpu2_xdata_r(offs_t offset)
