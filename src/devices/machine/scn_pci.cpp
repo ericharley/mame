@@ -566,6 +566,12 @@ void scn_pci_device::rcvr_sync()
 
 void scn_pci_device::rcvr_update(bool internal, bool output_1x)
 {
+	// The SCN2641 is asynchronous-only and defines mode 00 as invalid.  In
+	// particular, its cleared reset value must not invoke the PCI/EPCI
+	// synchronous receiver before the mode registers have been initialized.
+	if (m_is_aci && (m_mode[0] & 0x03) == 0)
+		return;
+
 	bool local_loopback = (m_command & 0xc0) == 0x80;
 	bool rxd = local_loopback ? m_txd : m_rxd;
 	bool sync_mode = (m_mode[0] & 0x03) == 0;
@@ -877,6 +883,11 @@ void scn_pci_device::tx_load(u8 data)
 
 void scn_pci_device::xmtr_update(bool internal, bool output_1x)
 {
+	// The SCN2641 is asynchronous-only and remains idle while its cleared
+	// mode register contains the invalid 00 mode.
+	if (m_is_aci && (m_mode[0] & 0x03) == 0)
+		return;
+
 	bool sync_mode = (m_mode[0] & 0x03) == 0;
 	bool local_loopback = (m_command & 0xc0) == 0x80;
 	if ((internal && !sync_mode) || BIT(m_mode[0], 1))
@@ -977,7 +988,7 @@ void scn_pci_device::xmtr_update(bool internal, bool output_1x)
 		else
 		{
 			bool tx_loopback = sync_mode ? (m_command & 0xc0) == 0xc0 : BIT(m_command, 6);
-			if ((m_xmtr_state == xmtr_state::DATA_BITS || m_xmtr_state == xmtr_state::STOP_BITS) && !tx_loopback)
+			if ((m_xmtr_state == xmtr_state::DATA_BITS || m_xmtr_state == xmtr_state::STOP_BITS) && tx_enabled && !tx_loopback)
 				set_txemt(true);
 			if (sync_mode && tx_enabled)
 			{
@@ -1209,7 +1220,17 @@ void scn_pci_device::write_mode(u8 data)
 				logerror("%s: Invalid synchronous mode configured\n", machine().describe_context());
 		}
 
-		// Old value of MR1 is transferred to MR2 (undocumented but verified on HW)
+		// Old value of MR1 is transferred to MR2 on the PCI/EPCI (undocumented
+		// but verified on hardware).  The asynchronous-only SCN2641 has
+		// independent mode registers, and software may program MR2 before MR1.
+		if (m_is_aci)
+		{
+			m_mode[0] = data;
+			if (!machine().side_effects_disabled())
+				m_mode_pointer = 1;
+			return;
+		}
+
 		std::swap(m_mode[0], data);
 	}
 
@@ -1355,7 +1376,7 @@ void scn_pci_device::write_command(u8 data)
 		}
 
 		// Error reset command is not latched
-		data &= 0xef;
+		m_command &= 0xef;
 	}
 
 	if (!rx_enabled)

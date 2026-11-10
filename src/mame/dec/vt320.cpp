@@ -128,13 +128,6 @@ ROM_START( vt320 )
 	ROMX_LOAD( "23-104e7.e9", 0x0000, 0x10000, CRC(5f419b5a) SHA1(dbc429b32d6baefd8a56862717d6e7fea1fb0c1c), ROM_BIOS(1) )
 ROM_END
 
-ROM_START( vt330 )
-	ROM_REGION( 0x10000, "maincpu", ROMREGION_ERASEFF )
-	ROM_DEFAULT_BIOS( "vt330" )
-	ROM_SYSTEM_BIOS( 0, "vt330", "VT330" )
-	ROMX_LOAD( "23-236e6", 0x0000, 0x8000, CRC(38379339) SHA1(394e8511581abc796c8c612149eff280146b0ac8), ROM_BIOS(0) ) // 27256 EPROM
-ROM_END
-
 } // anonymous namespace
 
 
@@ -142,6 +135,5 @@ ROM_END
 
 /*    YEAR   NAME    PARENT  COMPAT  MACHINE  INPUT  CLASS         INIT        COMPANY                          FULLNAME   FLAGS */
 COMP( 1987,  vt320,  0,      0,      vt320,   vt320, vt320_state,  empty_init, "Digital Equipment Corporation", "VT320",   MACHINE_NO_SOUND | MACHINE_NOT_WORKING )
-COMP( 1987,  vt330,  0,      0,      vt320,   vt320, vt320_state,  empty_init, "Digital Equipment Corporation", "VT330",   MACHINE_NO_SOUND | MACHINE_NOT_WORKING )
 //COMP( 1989?, vt340,  0,      0,      vt320,   vt320, vt320_state,  empty_init, "Digital Equipment Corporation", "VT340",   MACHINE_NO_SOUND | MACHINE_NOT_WORKING )
 //COMP( 1990?, vt340p, 0,      0,      vt320,   vt320, vt320_state,  empty_init, "Digital Equipment Corporation", "VT340+",  MACHINE_NO_SOUND | MACHINE_NOT_WORKING )
